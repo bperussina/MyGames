@@ -34,6 +34,7 @@ const NIGHT_DURATION = 180;
 const MAX_NIGHTS = 20;
 const MAX_HEALTH = 3;
 const KID_HITS_TO_DEFEAT = 3;
+const DAY_BANNER_TIME = 5;
 
 export function createGameState() {
   return {

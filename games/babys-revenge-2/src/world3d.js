@@ -5,26 +5,26 @@
 const MAP = [
   'MMMMMMMMMMMMMMMMMMMMMMMM',
   'Mgg..............ggggggM',
-  'Mg..................gM',
-  'Mg...GGG....GGG......gM',
-  'Mg..G...G..G...G.....gM',
-  'Mg..G.@.G..G...G.....gM',
-  'Mg..G...G..G...G.....gM',
-  'Mg...GGG....GGG......gM',
-  'Mg...................gM',
-  'Mg......LLLL.........gM',
-  'Mg.....LLLLL.........gM',
-  'Mg.....LLLLL....D....gM',
-  'Mg......LLLL.........gM',
-  'Mg.........LLLL......gM',
-  'Mg.........LLLLL.....gM',
-  'Mg.........LLLLL.....gM',
-  'Mg...GGG........GGG..gM',
-  'Mg..G...G......G...G.gM',
-  'Mg..G...G..D..G...G.gM',
-  'Mg..G...G......G...G.gM',
-  'Mg...GGG........GGG..gM',
-  'MggggggggggggggggggggM',
+  'Mg....................gM',
+  'Mg...GGG....GGG.......gM',
+  'Mg..G...G..G...G......gM',
+  'Mg..G.@.G..G...G......gM',
+  'Mg..G...G..G...G......gM',
+  'Mg...GGG....GGG.......gM',
+  'Mg....................gM',
+  'Mg......LLLL..........gM',
+  'Mg.....LLLLL..........gM',
+  'Mg.....LLLLL....D.....gM',
+  'Mg......LLLL..........gM',
+  'Mg.........LLLL.......gM',
+  'Mg.........LLLLL......gM',
+  'Mg.........LLLLL......gM',
+  'Mg...GGG........GGG...gM',
+  'Mg..G...G......G...G..gM',
+  'Mg..G...G..D..G...G...gM',
+  'Mg..G...G......G...G..gM',
+  'Mg...GGG........GGG...gM',
+  'MggggggggggggggggggggggM',
   'MMMMMMMMMMMMMMMMMMMMMMMM',
 ];
 
@@ -78,7 +78,7 @@ export function getHeightAt(tx, ty) {
 
 function tileAt(tx, ty) {
   if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return 'M';
-  return MAP[ty][tx];
+  return MAP[ty][tx] ?? 'M';
 }
 
 function isWall(tx, ty) {

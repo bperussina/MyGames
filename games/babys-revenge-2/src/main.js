@@ -36,23 +36,35 @@ const mouseLook = {
 
 const DRAG_THRESHOLD = 6;
 
+function canvasPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  return {
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
+  };
+}
+
 canvas.style.cursor = 'default';
 
 canvas.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;
 
   if (mode === 'MENU') {
-    if (isPlayClicked(event.clientX, event.clientY, canvas.width, canvas.height)) {
-      pendingPlayClick = { x: event.clientX, y: event.clientY };
+    const pt = canvasPoint(event);
+    if (isPlayClicked(pt.x, pt.y, canvas.width, canvas.height)) {
+      pendingPlayClick = { x: pt.x, y: pt.y };
       initAudio();
     }
     return;
   }
 
   if (admin.open) {
+    const pt = canvasPoint(event);
     handleAdminClick(admin, game, (updater) => {
       game = typeof updater === 'function' ? updater(game) : updater;
-    }, event.clientX, event.clientY, canvas.width, canvas.height);
+    }, pt.x, pt.y, canvas.width, canvas.height);
     return;
   }
 
@@ -70,14 +82,15 @@ canvas.addEventListener('mouseup', (event) => {
 
   if (mode === 'GAME' && !game.won && !game.lost && !admin.open) {
     if (!mouseLook.moved) {
+      const pt = canvasPoint(event);
       if (game.shop?.open) {
-        game = handleGameClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+        game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
       } else {
-        const slot = getClickedInventorySlot(event.clientX, event.clientY, canvas.width, canvas.height);
+        const slot = getClickedInventorySlot(pt.x, pt.y, canvas.width, canvas.height);
         if (slot === 'toybox') {
-          game = handleInventoryClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+          game = handleInventoryClick(game, pt.x, pt.y, canvas.width, canvas.height);
         } else {
-          game = handleGameClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+          game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
         }
       }
     }
@@ -95,7 +108,8 @@ canvas.addEventListener('mouseleave', () => {
 
 canvas.addEventListener('mousemove', (event) => {
   if (mode === 'MENU') {
-    menuHover = isPlayClicked(event.clientX, event.clientY, canvas.width, canvas.height);
+    const pt = canvasPoint(event);
+    menuHover = isPlayClicked(pt.x, pt.y, canvas.width, canvas.height);
     canvas.style.cursor = menuHover ? 'pointer' : 'default';
     return;
   }
