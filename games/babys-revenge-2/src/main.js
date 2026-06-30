@@ -13,9 +13,11 @@ let menuHover = false;
 let pendingPlayClick = null;
 let loading = false;
 
+let cutscene = null;
 let game = null;
 let admin = null;
 let gameplay = null;
+let cutsceneMod = null;
 let adminMod = null;
 let audioMod = null;
 let inventoryMod = null;
@@ -48,10 +50,20 @@ async function ensureAudio() {
   audioMod.initAudio();
 }
 
+async function ensureCutscenes() {
+  if (cutsceneMod) return;
+  loading = true;
+  try {
+    const [cs] = await Promise.all([import('./cutscenes.js'), ensureAudio()]);
+    cutsceneMod = cs;
+  } finally {
+    loading = false;
+  }
+}
+
 async function ensureGameplay() {
   if (gameplay) return;
 
-  loading = true;
   const [gp, am, inv] = await Promise.all([
     import('./gameplay.js'),
     import('./admin.js'),
@@ -61,14 +73,21 @@ async function ensureGameplay() {
   adminMod = am;
   inventoryMod = inv;
   admin = adminMod.createAdminState();
-  loading = false;
 }
 
-async function startGame() {
+async function startCutscenes() {
+  await ensureCutscenes();
+  cutscene = cutsceneMod.createCutsceneState();
+  mode = 'CUTSCENE';
+  pendingPlayClick = null;
+}
+
+async function enterGame() {
+  loading = true;
   await ensureGameplay();
   game = gameplay.createGameState();
   mode = 'GAME';
-  pendingPlayClick = null;
+  loading = false;
 }
 
 canvas.style.cursor = 'default';
@@ -81,7 +100,7 @@ canvas.addEventListener('mousedown', (event) => {
     if (isPlayClicked(pt.x, pt.y, canvas.width, canvas.height)) {
       pendingPlayClick = { x: pt.x, y: pt.y };
       ensureAudio();
-      startGame();
+      startCutscenes();
     }
     return;
   }
@@ -165,9 +184,23 @@ function update(delta) {
   if (mode === 'MENU') {
     if (!loading && updateMenu(input, canvas.width, canvas.height, pendingPlayClick)) {
       ensureAudio();
-      startGame();
+      startCutscenes();
     }
     if (!loading) pendingPlayClick = null;
+    return;
+  }
+
+  if (mode === 'CUTSCENE') {
+    if (!cutsceneMod || !cutscene) return;
+
+    if (input.isPressed('x') || input.isPressed('arrowup')) {
+      ensureAudio();
+    }
+
+    cutscene = cutsceneMod.updateCutscene(cutscene, delta, input, canvas.width, canvas.height);
+    if (cutscene.done) {
+      enterGame();
+    }
     return;
   }
 
@@ -194,9 +227,20 @@ function render() {
     return;
   }
 
+  clearCanvas(ctx, '#22c55e');
+
+  if (mode === 'CUTSCENE' && cutsceneMod && cutscene) {
+    cutsceneMod.renderCutscene(cutscene, ctx, canvas.width, canvas.height);
+    if (loading) {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawText(ctx, 'Loading...', canvas.width / 2, canvas.height / 2, { size: 28, color: '#fff' });
+    }
+    return;
+  }
+
   if (!gameplay || !game) return;
 
-  clearCanvas(ctx, '#22c55e');
   gameplay.renderGameplay(game, ctx, canvas.width, canvas.height);
   adminMod.renderAdmin(admin, ctx, canvas.width, canvas.height, game);
 }
@@ -208,5 +252,5 @@ function tick(delta) {
 
 loop(tick);
 
-// Warm up game code while the player reads the menu.
-ensureGameplay();
+// Preload cutscenes on the menu, then gameplay so it's ready after dialogue.
+ensureCutscenes().then(() => ensureGameplay());
