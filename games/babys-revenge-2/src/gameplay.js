@@ -19,6 +19,7 @@ import {
   useToy,
   refillFromToyBox,
   getClickedInventorySlot,
+  selectToyBox,
   renderInventory,
 } from './inventory.js';
 import {
@@ -27,7 +28,8 @@ import {
   renderShopButton,
   isShopButtonClicked,
   handleShopClick,
-  getDamageBonus,
+  getToyDamage,
+  getThrowSpeed,
   getHitsToDefeat,
   getMaxHealth,
   BASE_MAX_HEALTH,
@@ -161,6 +163,7 @@ export function handleGameClick(state, clickX, clickY, width, height) {
       kidId: kid.doorId,
       t: 0,
       type: Math.floor(random(0, 4)),
+      damage: getToyDamage(state.shop),
     });
   }
 
@@ -173,9 +176,7 @@ export function handleInventoryClick(state, clickX, clickY, width, height) {
 
   const slot = state.inventory.slots[slotIndex];
   if (slot?.type === 'toybox') {
-    refillFromToyBox(state.inventory);
-  } else if (slot?.type === 'toys') {
-    state.inventory.selectedSlot = slotIndex;
+    selectToyBox(state.inventory);
   }
   return state;
 }
@@ -292,14 +293,14 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   });
 
   state.thrownToys = state.thrownToys.filter((toy) => {
-    toy.t += delta * (3.5 + getDamageBonus(state.shop) * 0.5);
+    toy.t += delta * 3.5 * getThrowSpeed(state.shop);
     toy.x = state.world.player.x + (toy.tx - state.world.player.x) * toy.t;
     toy.y = state.world.player.y + (toy.ty - state.world.player.y) * toy.t;
 
     if (toy.t >= 1) {
       const kid = state.kids.find((k) => k.doorId === toy.kidId && !k.defeated);
       if (kid) {
-        kid.hits += 1;
+        kid.hits += toy.damage ?? getToyDamage(state.shop);
         kid.hitFlash = 0.4;
         playHitKid();
         if (kid.hits >= getHitsToDefeat(state.shop)) {
@@ -406,7 +407,7 @@ export function renderGameplay(state, ctx, width, height) {
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
   ctx.fillRect(width - 210, height - 130, 198, 58);
   drawText(ctx, '↑↓←→ move | drag look', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
-  drawText(ctx, 'Click kids — throw toys', width - 106, height - 102, { size: 12, color: '#fbbf24' });
+  drawText(ctx, 'Select Toy Box · click kids', width - 106, height - 102, { size: 12, color: '#fbbf24' });
   drawText(ctx, 'Lakes — collect ducks 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
   drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
 
@@ -434,7 +435,7 @@ export function renderGameplay(state, ctx, width, height) {
     const alpha = Math.min(1, (4 - state.phaseElapsed) / 2);
     ctx.fillStyle = `rgba(30,0,60,${0.5 * alpha})`;
     ctx.fillRect(0, height * 0.25, width, 80);
-    drawText(ctx, '🌙 Big kids incoming — click them!', width / 2, height * 0.3, {
+    drawText(ctx, '🌙 Select Toy Box · click big kids!', width / 2, height * 0.3, {
       size: 30, color: `rgba(248,113,113,${alpha})`,
     });
   }

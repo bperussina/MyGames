@@ -5,70 +5,62 @@ export const SLOT_COUNT = 5;
 export function createInventory() {
   return {
     slots: [
-      { type: 'toybox', id: 'toybox', label: 'Toy Box' },
+      {
+        type: 'toybox',
+        id: 'toybox',
+        label: 'Toy Box',
+        toys: 40,
+        maxToys: 40,
+        powerLevel: 0,
+      },
       null,
       null,
       null,
       null,
     ],
     selectedSlot: 0,
-    toyStackSize: 20,
   };
 }
 
-export function getToyCount(inventory) {
-  return inventory.slots.reduce((sum, slot) => {
-    if (slot?.type === 'toys') return sum + slot.count;
-    return sum;
-  }, 0);
+export function getToyBox(inventory) {
+  return inventory.slots.find((slot) => slot?.type === 'toybox') ?? null;
+}
+
+export function isToyBoxSelected(inventory) {
+  const slot = inventory.slots[inventory.selectedSlot];
+  return slot?.type === 'toybox';
+}
+
+export function selectToyBox(inventory) {
+  const index = inventory.slots.findIndex((slot) => slot?.type === 'toybox');
+  if (index >= 0) inventory.selectedSlot = index;
 }
 
 export function canThrowToy(inventory) {
-  return inventory.slots.some((slot) => slot?.type === 'toys' && slot.count > 0);
+  const box = getToyBox(inventory);
+  return isToyBoxSelected(inventory) && box && box.toys > 0;
 }
 
 export function useToy(inventory) {
-  const preferred = inventory.slots[inventory.selectedSlot];
-  if (preferred?.type === 'toys' && preferred.count > 0) {
-    preferred.count -= 1;
-    return true;
-  }
-
-  for (const slot of inventory.slots) {
-    if (slot?.type === 'toys' && slot.count > 0) {
-      slot.count -= 1;
-      return true;
-    }
-  }
-  return false;
-}
-
-export function addToySlot(inventory, count) {
-  const emptyIndex = inventory.slots.findIndex((slot, i) => i > 0 && slot === null);
-  if (emptyIndex === -1) return false;
-
-  inventory.slots[emptyIndex] = {
-    type: 'toys',
-    id: `toys-${emptyIndex}`,
-    count,
-    maxCount: count,
-    label: 'Toys',
-  };
+  const box = getToyBox(inventory);
+  if (!box || box.toys <= 0) return false;
+  box.toys -= 1;
   return true;
 }
 
-export function refillFromToyBox(inventory) {
-  const hasToyBox = inventory.slots.some((slot) => slot?.type === 'toybox');
-  if (!hasToyBox) return false;
+export function applyToyBoxUpgrade(inventory, toysLevel) {
+  const box = getToyBox(inventory);
+  if (!box) return;
+  box.powerLevel = toysLevel;
+  box.maxToys = 40 + toysLevel * 15;
+  box.toys = box.maxToys;
+}
 
-  let refilled = false;
-  inventory.slots.forEach((slot) => {
-    if (slot?.type === 'toys' && slot.count < slot.maxCount) {
-      slot.count = slot.maxCount;
-      refilled = true;
-    }
-  });
-  return refilled;
+export function refillFromToyBox(inventory) {
+  const box = getToyBox(inventory);
+  if (!box || box.toys >= box.maxToys) return false;
+  box.toys = box.maxToys;
+  return true;
 }
 
 export function getInventorySlotBounds(width, height) {
@@ -121,15 +113,18 @@ function drawSlotContents(ctx, slot, bounds, selected) {
 
   if (slot.type === 'toybox') {
     drawRect(ctx, x, y, w, h, selected ? '#fbbf24' : '#78350f');
-    drawText(ctx, '📦', cx, cy - 6, { size: 20 });
-    drawText(ctx, 'Box', cx, cy + 16, { size: 9, color: '#fde68a' });
-    return;
-  }
-
-  if (slot.type === 'toys') {
-    drawRect(ctx, x, y, w, h, selected ? '#38bdf8' : '#475569');
-    drawText(ctx, '🧸', cx, cy - 8, { size: 18 });
-    drawText(ctx, `${slot.count}`, cx, cy + 14, { size: 14, color: '#fff' });
+    drawText(ctx, '📦', cx, cy - 10, { size: 20 });
+    drawText(ctx, `${slot.toys}`, cx, cy + 10, { size: 12, color: '#fff' });
+    if (selected) {
+      drawText(ctx, 'READY', cx, cy + 22, { size: 8, color: '#fef08a' });
+    } else {
+      drawText(ctx, 'Box', cx, cy + 22, { size: 8, color: '#fde68a' });
+    }
+    if (slot.powerLevel > 0) {
+      drawText(ctx, `💥${slot.powerLevel}`, x + w - 4, y + 6, {
+        align: 'right', baseline: 'top', size: 9, color: '#fca5a5',
+      });
+    }
   }
 }
 
@@ -151,6 +146,12 @@ export function renderInventory(ctx, width, height, inventory, liveDucks) {
     const slot = inventory.slots[bounds.index];
     drawSlotContents(ctx, slot, bounds, inventory.selectedSlot === bounds.index);
   });
+
+  if (isToyBoxSelected(inventory)) {
+    drawText(ctx, 'Click a big kid to throw!', width / 2, layout.y + layout.slotSize + 28, {
+      size: 11, color: '#fbbf24',
+    });
+  }
 
   drawText(ctx, `🦆 ${liveDucks}`, layout.startX, layout.y - 26, {
     align: 'left', baseline: 'top', size: 14, color: '#facc15',

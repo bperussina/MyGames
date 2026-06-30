@@ -1,5 +1,5 @@
 import { drawText, drawRect } from '@mygames/shared';
-import { addToySlot } from './inventory.js';
+import { applyToyBoxUpgrade } from './inventory.js';
 
 export const BASE_MAX_HEALTH = 3;
 export const BASE_HITS_TO_DEFEAT = 3;
@@ -25,12 +25,12 @@ export const SHOP_UPGRADES = [
   },
   {
     id: 'toys',
-    name: 'Upgrade Toys',
-    desc: 'Add a stack of toys to your inventory',
-    icon: '🧸',
+    name: 'Upgrade Toy Box',
+    desc: 'All toys in your box hit much harder',
+    icon: '📦',
     baseCost: 2,
     maxLevel: 4,
-    costPerLevel: 1,
+    costPerLevel: 2,
   },
 ];
 
@@ -49,24 +49,17 @@ export function getUpgradeCost(upgrade, currentLevel) {
   return upgrade.baseCost + currentLevel * upgrade.costPerLevel;
 }
 
-export function canBuyUpgrade(shop, upgradeId, liveDucks, inventory) {
+export function canBuyUpgrade(shop, upgradeId, liveDucks) {
   const upgrade = SHOP_UPGRADES.find((u) => u.id === upgradeId);
   if (!upgrade) return false;
   const level = shop.levels[upgradeId] ?? 0;
   if (level >= upgrade.maxLevel) return false;
-  if (liveDucks < getUpgradeCost(upgrade, level)) return false;
-
-  if (upgradeId === 'toys') {
-    const hasEmptySlot = inventory.slots.some((slot, i) => i > 0 && slot === null);
-    if (!hasEmptySlot) return false;
-  }
-
-  return true;
+  return liveDucks >= getUpgradeCost(upgrade, level);
 }
 
 export function buyUpgrade(shop, inventory, upgradeId, state) {
   const upgrade = SHOP_UPGRADES.find((u) => u.id === upgradeId);
-  if (!upgrade || !canBuyUpgrade(shop, upgradeId, state.liveDucks, inventory)) return false;
+  if (!upgrade || !canBuyUpgrade(shop, upgradeId, state.liveDucks)) return false;
 
   const level = shop.levels[upgradeId];
   const cost = getUpgradeCost(upgrade, level);
@@ -76,8 +69,7 @@ export function buyUpgrade(shop, inventory, upgradeId, state) {
   if (upgradeId === 'health') {
     state.health = Math.min(getMaxHealth(shop), state.health + 1);
   } else if (upgradeId === 'toys') {
-    const stackSize = 15 + shop.levels.toys * 5;
-    addToySlot(inventory, stackSize);
+    applyToyBoxUpgrade(inventory, shop.levels.toys);
   }
 
   return true;
@@ -91,8 +83,13 @@ export function getHitsToDefeat(shop) {
   return Math.max(1, BASE_HITS_TO_DEFEAT - (shop?.levels?.damage ?? 0));
 }
 
-export function getDamageBonus(shop) {
-  return shop?.levels?.damage ?? 0;
+export function getToyDamage(shop) {
+  const toyLevel = shop?.levels?.toys ?? 0;
+  return 1 + toyLevel * 2;
+}
+
+export function getThrowSpeed(shop) {
+  return 1 + (shop?.levels?.toys ?? 0) * 0.25 + (shop?.levels?.damage ?? 0) * 0.15;
 }
 
 export function getShopButtonBounds(width, height) {
@@ -169,17 +166,16 @@ export function renderShop(ctx, width, height, shop, inventory, liveDucks) {
   SHOP_UPGRADES.forEach((upgrade) => {
     const level = shop.levels[upgrade.id] ?? 0;
     const maxed = level >= upgrade.maxLevel;
-    const toysFull = upgrade.id === 'toys' && !inventory.slots.some((slot, i) => i > 0 && slot === null);
-    const canBuy = canBuyUpgrade(shop, upgrade.id, liveDucks, inventory);
-    const cost = maxed ? 'MAX' : toysFull && upgrade.id === 'toys' ? 'FULL' : `${getUpgradeCost(upgrade, level)} 🦆`;
+    const canBuy = canBuyUpgrade(shop, upgrade.id, liveDucks);
+    const cost = maxed ? 'MAX' : `${getUpgradeCost(upgrade, level)} 🦆`;
 
-    drawRect(ctx, panel.x + 16, rowY, panel.w - 32, 56, maxed || toysFull ? '#334155' : canBuy ? '#7c3aed' : '#475569');
+    drawRect(ctx, panel.x + 16, rowY, panel.w - 32, 56, maxed ? '#334155' : canBuy ? '#7c3aed' : '#475569');
     drawText(ctx, `${upgrade.icon} ${upgrade.name}  Lv${level}/${upgrade.maxLevel}`, panel.x + 28, rowY + 18, {
       align: 'left', size: 15, color: '#f8fafc',
     });
     drawText(ctx, upgrade.desc, panel.x + 28, rowY + 38, { align: 'left', size: 11, color: '#94a3b8' });
     drawText(ctx, cost, panel.x + panel.w - 28, rowY + 28, {
-      align: 'right', size: 14, color: maxed || toysFull ? '#64748b' : '#facc15',
+      align: 'right', size: 14, color: maxed ? '#64748b' : '#facc15',
     });
     rowY += 64;
   });
