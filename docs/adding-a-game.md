@@ -1,5 +1,20 @@
 # Adding a game
 
+## Spec first (recommended)
+
+Before coding, use the **`new-game` agent skill** (auto-runs when you ask to create a game):
+
+1. Agent asks simple questions to nail down the fun
+2. Writes a full spec (`docs/games/<name>-spec.md`) using [GitHub Spec Kit](https://github.com/github/spec-kit)-style SDD
+3. Writes a plan and task list
+4. Builds only after you say the idea sounds right
+
+Templates: `docs/templates/game-spec-template.md`, `game-plan-template.md`, `game-tasks-template.md`
+
+Manual invoke: `/new-game` in Agent chat.
+
+---
+
 ## Option A: Start from the template (easiest)
 
 ```bash

@@ -46,6 +46,10 @@ mygames/
 
 ## Create a new game
 
+Ask the agent: **"I want to make a new game"** — it will ask a few fun questions, write a spec (Spec Kit style), and build after you approve.
+
+Or scaffold manually:
+
 ```bash
 npm run new-game -- space-race
 npm run dev -- space-race
@@ -93,5 +97,6 @@ Available helpers:
 ## Docs
 
 - [How the monorepo works](docs/monorepo.md)
-- [Adding a game](docs/adding-a-game.md)
+- [Adding a game](docs/adding-a-game.md) (spec-first workflow + manual steps)
+- [Game spec template](docs/templates/game-spec-template.md)
 - [bounce-ball](docs/games/bounce-ball.md)
