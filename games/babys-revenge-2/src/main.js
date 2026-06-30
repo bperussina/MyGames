@@ -5,7 +5,10 @@ import { createGameState, updateGameplay, renderGameplay } from './gameplay.js';
 import { createAdminState, updateAdmin, renderAdmin, handleAdminClick } from './admin.js';
 
 const { canvas, ctx } = createCanvas();
-const input = new Input(canvas);
+const input = new Input(window);
+
+canvas.setAttribute('tabindex', '0');
+canvas.addEventListener('click', () => canvas.focus());
 
 let mode = 'CUTSCENE';
 let cutscene = createCutsceneState();
