@@ -6,11 +6,11 @@ const MAP = [
   'MMMMMMMMMMMMMMMMMMMMMMMM',
   'Mgg..............ggggggM',
   'Mg....................gM',
-  'Mg...GGG....GGG.......gM',
-  'Mg..G...G..G...G......gM',
-  'Mg..G.@.G..G...G......gM',
-  'Mg..G...G..G...G......gM',
-  'Mg...GGG....GGG.......gM',
+  'Mg...hhh....hhh.......gM',
+  'Mg..h...h..h...h......gM',
+  'Mg..h.@.h..h...h......gM',
+  'Mg..h...h..h...h......gM',
+  'Mg...hhh....hhh.......gM',
   'Mg....................gM',
   'Mg......LLLL..........gM',
   'Mg.....LLLLL..........gM',
@@ -19,11 +19,11 @@ const MAP = [
   'Mg.........LLLL.......gM',
   'Mg.........LLLLL......gM',
   'Mg.........LLLLL......gM',
-  'Mg...GGG........GGG...gM',
-  'Mg..G...G......G...G..gM',
-  'Mg..G...G..D..G...G...gM',
-  'Mg..G...G......G...G..gM',
-  'Mg...GGG........GGG...gM',
+  'Mg...hhh........hhh...gM',
+  'Mg..h...h......h...h..gM',
+  'Mg..h...h..D..h...h...gM',
+  'Mg..h...h......h...h..gM',
+  'Mg...hhh........hhh...gM',
   'MggggggggggggggggggggggM',
   'MMMMMMMMMMMMMMMMMMMMMMMM',
 ];
@@ -32,11 +32,11 @@ const HEIGHT = [
   [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
   [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,2,2,0,0,2,2,2,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,2,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
@@ -45,11 +45,11 @@ const HEIGHT = [
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,2,2,2,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,3],
   [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
   [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
 ];
@@ -57,8 +57,9 @@ const HEIGHT = [
 const MAP_H = MAP.length;
 const MAP_W = MAP[0].length;
 const FOV = Math.PI / 2.6;
-const MAX_DEPTH = 28;
+const MAX_DEPTH = 24;
 const WALL_HEIGHT = 1.1;
+const RAY_STEP = 0.04;
 
 export function getSpawn() {
   for (let y = 0; y < MAP_H; y += 1) {
@@ -82,8 +83,7 @@ function tileAt(tx, ty) {
 }
 
 function isWall(tx, ty) {
-  const t = tileAt(tx, ty);
-  return t === 'M' || t === 'G';
+  return tileAt(tx, ty) === 'M';
 }
 
 export function isLake(tx, ty) {
@@ -185,15 +185,14 @@ export function getDuckSpawnPositions() {
 }
 
 function wallColor(wx, wy, side, isNight, elevation) {
-  const base = elevation >= 2 ? '#14532d' : elevation >= 1 ? '#16a34a' : '#22c55e';
   if (isNight) {
     return side === 0 ? '#14532d' : '#052e16';
   }
   const stripe = (Math.floor(wx) + Math.floor(wy)) % 2;
   if (stripe) {
-    return side === 0 ? base : '#15803d';
+    return side === 0 ? '#166534' : '#14532d';
   }
-  return side === 0 ? '#4ade80' : base;
+  return side === 0 ? '#15803d' : '#166534';
 }
 
 export function createWorld3D() {
@@ -230,7 +229,7 @@ function castRay(px, py, angle, playerHeight) {
       const elev = getHeightAt(tx, ty);
       return { depth, wallX: rx, wallY: ry, mapX: tx, mapY: ty, side, elev };
     }
-    depth += 0.02;
+    depth += RAY_STEP;
   }
 
   return { depth: MAX_DEPTH, wallX: 0, wallY: 0, mapX: 0, mapY: 0, side: 0, elev: 0 };
@@ -343,6 +342,37 @@ function drawSkyAndGround(ctx, width, height, isNight, playerHeight) {
   }
 }
 
+function drawFloorHills(ctx, width, height, world, isNight) {
+  const { player } = world;
+  const halfH = height / 2;
+  const rayCount = Math.floor(width / 3);
+  const stripW = width / rayCount;
+
+  for (let i = 0; i < rayCount; i += 1) {
+    const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
+    const cosA = Math.cos(rayAngle - player.angle);
+    if (cosA <= 0.05) continue;
+
+    const screenX = width / 2 + (Math.tan(rayAngle - player.angle) / Math.tan(FOV / 2)) * (width / 2);
+
+    for (const dist of [4, 8, 14]) {
+      const rx = player.x + Math.cos(rayAngle) * dist;
+      const ry = player.y + Math.sin(rayAngle) * dist;
+      const groundH = getHeightAt(Math.floor(rx), Math.floor(ry));
+      if (groundH <= 0) continue;
+
+      const corrected = dist * cosA;
+      const moundH = Math.min(48, (height / corrected) * groundH * 0.18);
+      const floorY = halfH - moundH * 0.35;
+
+      ctx.fillStyle = isNight
+        ? `rgba(21,128,61,${0.2 + groundH * 0.12})`
+        : `rgba(74,222,128,${0.22 + groundH * 0.14})`;
+      ctx.fillRect(screenX - stripW / 2, floorY, stripW + 1, moundH + 6);
+    }
+  }
+}
+
 function drawWallStripes(ctx, x, y, w, h, color, depth) {
   const shade = Math.max(0.3, 1 - depth / MAX_DEPTH);
   ctx.fillStyle = color;
@@ -435,9 +465,10 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
   const { player } = world;
 
   drawSkyAndGround(ctx, width, height, isNight, player.height);
+  drawFloorHills(ctx, width, height, world, isNight);
   drawLakePatches(ctx, width, height, world, isNight);
 
-  const rayCount = Math.floor(width / 2);
+  const rayCount = Math.floor(width / 3);
   const stripW = width / rayCount;
 
   for (let i = 0; i < rayCount; i += 1) {

@@ -1,16 +1,6 @@
 import { createCanvas, clearCanvas, Input, loop } from '@mygames/shared';
-import { initAudio } from './audio.js';
-import { createCutsceneState, updateCutscene, renderCutscene } from './cutscenes.js';
-import {
-  createGameState,
-  updateGameplay,
-  renderGameplay,
-  handleGameClick,
-  handleInventoryClick,
-} from './gameplay.js';
-import { createAdminState, updateAdmin, renderAdmin, handleAdminClick } from './admin.js';
+import { drawText } from '@mygames/shared';
 import { updateMenu, renderMenu, isPlayClicked } from './menu.js';
-import { getClickedInventorySlot } from './inventory.js';
 
 const { canvas, ctx } = createCanvas();
 const input = new Input(window);
@@ -19,11 +9,16 @@ canvas.setAttribute('tabindex', '0');
 canvas.addEventListener('click', () => canvas.focus());
 
 let mode = 'MENU';
-let cutscene = createCutsceneState();
-let game = createGameState();
-let admin = createAdminState();
 let menuHover = false;
 let pendingPlayClick = null;
+let loading = false;
+
+let game = null;
+let admin = null;
+let gameplay = null;
+let adminMod = null;
+let audioMod = null;
+let inventoryMod = null;
 
 const mouseLook = {
   active: false,
@@ -46,6 +41,36 @@ function canvasPoint(event) {
   };
 }
 
+async function ensureAudio() {
+  if (!audioMod) {
+    audioMod = await import('./audio.js');
+  }
+  audioMod.initAudio();
+}
+
+async function ensureGameplay() {
+  if (gameplay) return;
+
+  loading = true;
+  const [gp, am, inv] = await Promise.all([
+    import('./gameplay.js'),
+    import('./admin.js'),
+    import('./inventory.js'),
+  ]);
+  gameplay = gp;
+  adminMod = am;
+  inventoryMod = inv;
+  admin = adminMod.createAdminState();
+  loading = false;
+}
+
+async function startGame() {
+  await ensureGameplay();
+  game = gameplay.createGameState();
+  mode = 'GAME';
+  pendingPlayClick = null;
+}
+
 canvas.style.cursor = 'default';
 
 canvas.addEventListener('mousedown', (event) => {
@@ -55,42 +80,43 @@ canvas.addEventListener('mousedown', (event) => {
     const pt = canvasPoint(event);
     if (isPlayClicked(pt.x, pt.y, canvas.width, canvas.height)) {
       pendingPlayClick = { x: pt.x, y: pt.y };
-      initAudio();
+      ensureAudio();
+      startGame();
     }
     return;
   }
 
-  if (admin.open) {
+  if (admin?.open) {
     const pt = canvasPoint(event);
-    handleAdminClick(admin, game, (updater) => {
+    adminMod.handleAdminClick(admin, game, (updater) => {
       game = typeof updater === 'function' ? updater(game) : updater;
     }, pt.x, pt.y, canvas.width, canvas.height);
     return;
   }
 
-  if (mode === 'GAME' && !game.won && !game.lost) {
+  if (mode === 'GAME' && game && !game.won && !game.lost) {
     mouseLook.active = true;
     mouseLook.lastX = event.clientX;
     mouseLook.lastY = event.clientY;
     mouseLook.moved = false;
-    initAudio();
+    ensureAudio();
   }
 });
 
 canvas.addEventListener('mouseup', (event) => {
   if (event.button !== 0) return;
 
-  if (mode === 'GAME' && !game.won && !game.lost && !admin.open) {
+  if (mode === 'GAME' && game && !game.won && !game.lost && !admin?.open) {
     if (!mouseLook.moved) {
       const pt = canvasPoint(event);
       if (game.shop?.open) {
-        game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
-      } else {
-        const slot = getClickedInventorySlot(pt.x, pt.y, canvas.width, canvas.height);
+        game = gameplay.handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
+      } else if (inventoryMod) {
+        const slot = inventoryMod.getClickedInventorySlot(pt.x, pt.y, canvas.width, canvas.height);
         if (slot !== null) {
-          game = handleInventoryClick(game, pt.x, pt.y, canvas.width, canvas.height);
+          game = gameplay.handleInventoryClick(game, pt.x, pt.y, canvas.width, canvas.height);
         } else {
-          game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
+          game = gameplay.handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
         }
       }
     }
@@ -128,15 +154,8 @@ canvas.addEventListener('mousemove', (event) => {
   mouseLook.lookDelta += dx * mouseLook.sensitivity;
 });
 
-function startGame() {
-  mode = 'CUTSCENE';
-  cutscene = createCutsceneState();
-  game = createGameState();
-  pendingPlayClick = null;
-}
-
 function applyMouseLook() {
-  if (mouseLook.lookDelta !== 0 && game.world) {
+  if (mouseLook.lookDelta !== 0 && game?.world) {
     game.world.player.angle += mouseLook.lookDelta;
     mouseLook.lookDelta = 0;
   }
@@ -144,46 +163,42 @@ function applyMouseLook() {
 
 function update(delta) {
   if (mode === 'MENU') {
-    if (updateMenu(input, canvas.width, canvas.height, pendingPlayClick)) {
+    if (!loading && updateMenu(input, canvas.width, canvas.height, pendingPlayClick)) {
+      ensureAudio();
       startGame();
     }
-    pendingPlayClick = null;
+    if (!loading) pendingPlayClick = null;
     return;
   }
+
+  if (!gameplay || !game) return;
 
   if (input.isPressed('x') || input.isPressed('arrowup')) {
-    initAudio();
+    ensureAudio();
   }
 
-  admin = updateAdmin(admin, input, game, (s) => { game = s; });
-
-  if (mode === 'CUTSCENE') {
-    cutscene = updateCutscene(cutscene, delta, input, canvas.width, canvas.height);
-    if (cutscene.done) {
-      mode = 'GAME';
-      game = createGameState();
-    }
-    return;
-  }
+  admin = adminMod.updateAdmin(admin, input, game, (s) => { game = s; });
 
   applyMouseLook();
-  game = updateGameplay(game, delta, input, canvas.width, canvas.height, admin);
+  game = gameplay.updateGameplay(game, delta, input, canvas.width, canvas.height, admin);
 }
 
 function render() {
   if (mode === 'MENU') {
     renderMenu(ctx, canvas.width, canvas.height, menuHover);
+    if (loading) {
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawText(ctx, 'Loading...', canvas.width / 2, canvas.height / 2, { size: 28, color: '#fff' });
+    }
     return;
   }
 
-  clearCanvas(ctx, '#22c55e');
+  if (!gameplay || !game) return;
 
-  if (mode === 'CUTSCENE') {
-    renderCutscene(cutscene, ctx, canvas.width, canvas.height);
-  } else {
-    renderGameplay(game, ctx, canvas.width, canvas.height);
-    renderAdmin(admin, ctx, canvas.width, canvas.height, game);
-  }
+  clearCanvas(ctx, '#22c55e');
+  gameplay.renderGameplay(game, ctx, canvas.width, canvas.height);
+  adminMod.renderAdmin(admin, ctx, canvas.width, canvas.height, game);
 }
 
 function tick(delta) {
@@ -192,3 +207,6 @@ function tick(delta) {
 }
 
 loop(tick);
+
+// Warm up game code while the player reads the menu.
+ensureGameplay();
