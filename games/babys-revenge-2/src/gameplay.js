@@ -18,6 +18,7 @@ import {
   canThrowToy,
   useToy,
   refillFromToyBox,
+  getClickedInventorySlot,
   renderInventory,
 } from './inventory.js';
 import {
@@ -26,14 +27,15 @@ import {
   renderShopButton,
   isShopButtonClicked,
   handleShopClick,
+  getDamageBonus,
   getHitsToDefeat,
+  getMaxHealth,
+  BASE_MAX_HEALTH,
 } from './shop.js';
 
 const DAY_DURATION = 180;
 const NIGHT_DURATION = 180;
 const MAX_NIGHTS = 20;
-const MAX_HEALTH = 3;
-const KID_HITS_TO_DEFEAT = 3;
 const DAY_BANNER_TIME = 5;
 
 export function createGameState() {
@@ -42,7 +44,7 @@ export function createGameState() {
     night: 1,
     phaseTimer: DAY_DURATION,
     phaseElapsed: 0,
-    health: MAX_HEALTH,
+    health: BASE_MAX_HEALTH,
     soundCooldown: 0,
     kids: [],
     thrownToys: [],
@@ -55,7 +57,6 @@ export function createGameState() {
     inventory: createInventory(),
     shop: createShopState(),
     liveDucks: 0,
-    shopUnlocked: false,
     hitSoundCooldown: 0,
     meleeHitTimer: 0,
     pendingClick: null,
@@ -122,15 +123,12 @@ function startDay(state) {
   state.kids = [];
   state.thrownToys = [];
   state.incomingToys = [];
-  state.health = MAX_HEALTH;
+  state.health = getMaxHealth(state.shop);
   resetPlayer(state.world);
 }
 
 function addLiveDuck(state) {
   state.liveDucks += 1;
-  if (!state.shopUnlocked) {
-    state.shopUnlocked = true;
-  }
 }
 
 export function handleGameClick(state, clickX, clickY, width, height) {
@@ -138,7 +136,7 @@ export function handleGameClick(state, clickX, clickY, width, height) {
     return handleShopClick(state, clickX, clickY, width, height);
   }
 
-  if (state.shopUnlocked && isShopButtonClicked(clickX, clickY, width, height)) {
+  if (isShopButtonClicked(clickX, clickY, width, height)) {
     state.shop.open = true;
     return state;
   }
@@ -170,12 +168,14 @@ export function handleGameClick(state, clickX, clickY, width, height) {
 }
 
 export function handleInventoryClick(state, clickX, clickY, width, height) {
-  const slots = { toyBox: { x: width / 2 - 60, y: height - 72, w: 56, h: 56 } };
-  if (
-    clickX >= slots.toyBox.x && clickX <= slots.toyBox.x + slots.toyBox.w &&
-    clickY >= slots.toyBox.y && clickY <= slots.toyBox.y + slots.toyBox.h
-  ) {
+  const slotIndex = getClickedInventorySlot(clickX, clickY, width, height);
+  if (slotIndex === null) return state;
+
+  const slot = state.inventory.slots[slotIndex];
+  if (slot?.type === 'toybox') {
     refillFromToyBox(state.inventory);
+  } else if (slot?.type === 'toys') {
+    state.inventory.selectedSlot = slotIndex;
   }
   return state;
 }
@@ -195,7 +195,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   state.phaseElapsed += delta;
   updateWildDucks(state.world, delta);
 
-  if (input.isPressed('b') && state.shopUnlocked) {
+  if (input.isPressed('b')) {
     state.shop.open = !state.shop.open;
   }
 
@@ -292,7 +292,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   });
 
   state.thrownToys = state.thrownToys.filter((toy) => {
-    toy.t += delta * 3.5 * (state.inventory.throwSpeed ?? 1);
+    toy.t += delta * (3.5 + getDamageBonus(state.shop) * 0.5);
     toy.x = state.world.player.x + (toy.tx - state.world.player.x) * toy.t;
     toy.y = state.world.player.y + (toy.ty - state.world.player.y) * toy.t;
 
@@ -302,7 +302,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
         kid.hits += 1;
         kid.hitFlash = 0.4;
         playHitKid();
-        if (kid.hits >= getHitsToDefeat(state.inventory, state.shop)) {
+        if (kid.hits >= getHitsToDefeat(state.shop)) {
           kid.defeated = true;
           kid.retreating = true;
           kid.mood = 'scared';
@@ -384,23 +384,22 @@ export function renderGameplay(state, ctx, width, height) {
   drawScreenToys(ctx, state.incomingToys);
   drawSoundOverlay(ctx, width, height, state.soundPower);
   renderInventory(ctx, width, height, state.inventory, state.liveDucks);
-  if (state.shopUnlocked) {
-    renderShopButton(ctx, width, height, state.liveDucks);
-  }
+  renderShopButton(ctx, width, height, state.liveDucks);
 
   const phaseLabel = state.phase === 'DAY' ? '☀️ DAY' : '🌙 NIGHT';
   const phaseColor = state.phase === 'DAY' ? '#fbbf24' : '#a78bfa';
+  const maxHealth = getMaxHealth(state.shop);
 
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
-  ctx.fillRect(0, 0, 220, 72);
-  drawText(ctx, `${phaseLabel} ${state.night}/${MAX_NIGHTS}`, 12, 12, {
+  ctx.fillRect(0, 56, 220, 72);
+  drawText(ctx, `${phaseLabel} ${state.night}/${MAX_NIGHTS}`, 12, 68, {
     align: 'left', baseline: 'top', size: 24, color: phaseColor,
   });
-  drawText(ctx, formatTime(Math.max(0, state.phaseTimer)), 12, 40, {
+  drawText(ctx, formatTime(Math.max(0, state.phaseTimer)), 12, 96, {
     align: 'left', baseline: 'top', size: 20, color: '#f8fafc',
   });
 
-  for (let i = 0; i < MAX_HEALTH; i += 1) {
+  for (let i = 0; i < maxHealth; i += 1) {
     drawText(ctx, i < Math.ceil(state.health) ? '❤️' : '🖤', width - 28 - i * 32, 12, { size: 22 });
   }
 
@@ -409,7 +408,7 @@ export function renderGameplay(state, ctx, width, height) {
   drawText(ctx, '↑↓←→ move | drag look', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
   drawText(ctx, 'Click kids — throw toys', width - 106, height - 102, { size: 12, color: '#fbbf24' });
   drawText(ctx, 'Lakes — collect ducks 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
-  drawText(ctx, '🛒 SHOP — upgrade toys', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
+  drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
 
   if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {
     const alpha = state.phaseElapsed > DAY_BANNER_TIME - 1
@@ -426,7 +425,7 @@ export function renderGameplay(state, ctx, width, height) {
     drawText(ctx, 'Find lakes — collect live ducks 🦆', width / 2, height * 0.47, {
       size: 16, color: `rgba(203,213,225,${alpha * 0.85})`,
     });
-    drawText(ctx, 'Open the SHOP to upgrade your toys!', width / 2, height * 0.54, {
+    drawText(ctx, 'Collect ducks · open SHOP at the top!', width / 2, height * 0.54, {
       size: 14, color: `rgba(250,204,21,${alpha * 0.8})`,
     });
   }

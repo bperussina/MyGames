@@ -1,78 +1,158 @@
 import { drawText, drawRect } from '@mygames/shared';
 
+export const SLOT_COUNT = 5;
+
 export function createInventory() {
   return {
-    hasToyBox: true,
-    toys: 20,
-    maxToys: 30,
-    toyPower: 1,
-    throwSpeed: 1,
-    refillBonus: 0,
-    selected: 'toybox',
+    slots: [
+      { type: 'toybox', id: 'toybox', label: 'Toy Box' },
+      null,
+      null,
+      null,
+      null,
+    ],
+    selectedSlot: 0,
+    toyStackSize: 20,
   };
 }
 
+export function getToyCount(inventory) {
+  return inventory.slots.reduce((sum, slot) => {
+    if (slot?.type === 'toys') return sum + slot.count;
+    return sum;
+  }, 0);
+}
+
 export function canThrowToy(inventory) {
-  return inventory.toys > 0;
+  return inventory.slots.some((slot) => slot?.type === 'toys' && slot.count > 0);
 }
 
 export function useToy(inventory) {
-  if (inventory.toys <= 0) return false;
-  inventory.toys -= 1;
+  const preferred = inventory.slots[inventory.selectedSlot];
+  if (preferred?.type === 'toys' && preferred.count > 0) {
+    preferred.count -= 1;
+    return true;
+  }
+
+  for (const slot of inventory.slots) {
+    if (slot?.type === 'toys' && slot.count > 0) {
+      slot.count -= 1;
+      return true;
+    }
+  }
+  return false;
+}
+
+export function addToySlot(inventory, count) {
+  const emptyIndex = inventory.slots.findIndex((slot, i) => i > 0 && slot === null);
+  if (emptyIndex === -1) return false;
+
+  inventory.slots[emptyIndex] = {
+    type: 'toys',
+    id: `toys-${emptyIndex}`,
+    count,
+    maxCount: count,
+    label: 'Toys',
+  };
   return true;
 }
 
 export function refillFromToyBox(inventory) {
-  if (!inventory.hasToyBox) return false;
-  inventory.toys = inventory.maxToys + (inventory.refillBonus ?? 0);
-  return true;
+  const hasToyBox = inventory.slots.some((slot) => slot?.type === 'toybox');
+  if (!hasToyBox) return false;
+
+  let refilled = false;
+  inventory.slots.forEach((slot) => {
+    if (slot?.type === 'toys' && slot.count < slot.maxCount) {
+      slot.count = slot.maxCount;
+      refilled = true;
+    }
+  });
+  return refilled;
 }
 
 export function getInventorySlotBounds(width, height) {
-  const slotSize = 56;
-  const gap = 8;
-  const totalW = slotSize * 2 + gap;
+  const slotSize = 52;
+  const gap = 6;
+  const totalW = SLOT_COUNT * slotSize + (SLOT_COUNT - 1) * gap;
   const startX = width / 2 - totalW / 2;
   const y = height - slotSize - 16;
-  return {
-    toyBox: { x: startX, y, w: slotSize, h: slotSize },
-    toys: { x: startX + slotSize + gap, y, w: slotSize, h: slotSize },
-    slotSize,
-  };
+
+  const slots = [];
+  for (let i = 0; i < SLOT_COUNT; i += 1) {
+    slots.push({
+      index: i,
+      x: startX + i * (slotSize + gap),
+      y,
+      w: slotSize,
+      h: slotSize,
+    });
+  }
+
+  return { slots, slotSize, startX, y, totalW };
 }
 
 export function getClickedInventorySlot(clickX, clickY, width, height) {
-  const slots = getInventorySlotBounds(width, height);
-  if (
-    clickX >= slots.toyBox.x && clickX <= slots.toyBox.x + slots.toyBox.w &&
-    clickY >= slots.toyBox.y && clickY <= slots.toyBox.y + slots.toyBox.h
-  ) {
-    return 'toybox';
+  const { slots } = getInventorySlotBounds(width, height);
+  for (const slot of slots) {
+    if (
+      clickX >= slot.x && clickX <= slot.x + slot.w &&
+      clickY >= slot.y && clickY <= slot.y + slot.h
+    ) {
+      return slot.index;
+    }
   }
   return null;
 }
 
+function drawSlotContents(ctx, slot, bounds, selected) {
+  const { x, y, w, h } = bounds;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  if (!slot) {
+    drawRect(ctx, x, y, w, h, '#1e293b');
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+    drawText(ctx, '—', cx, cy, { size: 18, color: '#475569' });
+    return;
+  }
+
+  if (slot.type === 'toybox') {
+    drawRect(ctx, x, y, w, h, selected ? '#fbbf24' : '#78350f');
+    drawText(ctx, '📦', cx, cy - 6, { size: 20 });
+    drawText(ctx, 'Box', cx, cy + 16, { size: 9, color: '#fde68a' });
+    return;
+  }
+
+  if (slot.type === 'toys') {
+    drawRect(ctx, x, y, w, h, selected ? '#38bdf8' : '#475569');
+    drawText(ctx, '🧸', cx, cy - 8, { size: 18 });
+    drawText(ctx, `${slot.count}`, cx, cy + 14, { size: 14, color: '#fff' });
+  }
+}
+
 export function renderInventory(ctx, width, height, inventory, liveDucks) {
-  const slots = getInventorySlotBounds(width, height);
+  const layout = getInventorySlotBounds(width, height);
+  const panelPad = 12;
 
   ctx.fillStyle = 'rgba(15,23,42,0.75)';
-  ctx.fillRect(slots.toyBox.x - 12, slots.toyBox.y - 28, slots.toys.x + slots.toys.w - slots.toyBox.x + 24, slots.toyBox.h + 40);
+  ctx.fillRect(
+    layout.startX - panelPad,
+    layout.y - 28,
+    layout.totalW + panelPad * 2,
+    layout.slotSize + 40,
+  );
 
-  drawText(ctx, 'INVENTORY', width / 2, slots.toyBox.y - 12, { size: 14, color: '#94a3b8' });
+  drawText(ctx, 'INVENTORY', width / 2, layout.y - 12, { size: 14, color: '#94a3b8' });
 
-  const tb = slots.toyBox;
-  drawRect(ctx, tb.x, tb.y, tb.w, tb.h, inventory.selected === 'toybox' ? '#fbbf24' : '#78350f');
-  drawText(ctx, '📦', tb.x + tb.w / 2, tb.y + tb.h / 2 - 6, { size: 22 });
-  drawText(ctx, 'Toy Box', tb.x + tb.w / 2, tb.y + tb.h + 14, { size: 11, color: '#fde68a' });
+  layout.slots.forEach((bounds) => {
+    const slot = inventory.slots[bounds.index];
+    drawSlotContents(ctx, slot, bounds, inventory.selectedSlot === bounds.index);
+  });
 
-  const ts = slots.toys;
-  drawRect(ctx, ts.x, ts.y, ts.w, ts.h, '#475569');
-  drawText(ctx, '🧸', ts.x + ts.w / 2, ts.y + ts.h / 2 - 8, { size: 20 });
-  drawText(ctx, `${inventory.toys}`, ts.x + ts.w / 2, ts.y + ts.h / 2 + 14, { size: 16, color: '#fff' });
-  drawText(ctx, 'Toys', ts.x + ts.w / 2, ts.y + ts.h + 14, { size: 11, color: '#cbd5e1' });
-
-  ctx.fillStyle = 'rgba(15,23,42,0.75)';
-  ctx.fillRect(12, 80, 150, 36);
-  drawText(ctx, `🦆 Live Ducks: ${liveDucks}`, 20, 88, { align: 'left', baseline: 'top', size: 18, color: '#facc15' });
-  drawText(ctx, 'Visit lakes · open SHOP!', 20, 108, { align: 'left', size: 12, color: '#94a3b8' });
+  drawText(ctx, `🦆 ${liveDucks}`, layout.startX, layout.y - 26, {
+    align: 'left', baseline: 'top', size: 14, color: '#facc15',
+  });
 }

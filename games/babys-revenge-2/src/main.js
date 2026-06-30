@@ -87,7 +87,7 @@ canvas.addEventListener('mouseup', (event) => {
         game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
       } else {
         const slot = getClickedInventorySlot(pt.x, pt.y, canvas.width, canvas.height);
-        if (slot === 'toybox') {
+        if (slot !== null) {
           game = handleInventoryClick(game, pt.x, pt.y, canvas.width, canvas.height);
         } else {
           game = handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
