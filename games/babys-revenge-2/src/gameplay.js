@@ -1,6 +1,6 @@
 import { random } from '@mygames/shared';
 import { drawText } from '@mygames/shared';
-import { playAnnoyingSound } from './audio.js';
+import { playSoundMaker, playHitKid, playPlayerHit } from './audio.js';
 import {
   createWorld3D,
   resetPlayer,
@@ -41,6 +41,10 @@ export function createGameState() {
     world: createWorld3D(),
     dayBannerDone: false,
     nearToyBox: false,
+    hitSoundCooldown: 0,
+    kidHitCooldowns: {},
+    lastHealth: MAX_HEALTH,
+    meleeHitTimer: 0,
   };
 }
 
@@ -130,8 +134,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
     state.world,
     delta,
     input,
-    state.phase === 'DAY' ? 4.2 : 3.6,
-    3.2
+    state.phase === 'DAY' ? 4.2 : 3.6
   );
 
   if (state.phase === 'DAY') {
@@ -153,18 +156,32 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   // ── NIGHT (3D — big kids attack) ──
   state.phaseTimer -= delta * speedMul;
   state.soundCooldown = Math.max(0, state.soundCooldown - delta);
+  state.hitSoundCooldown = Math.max(0, state.hitSoundCooldown - delta);
+  Object.keys(state.kidHitCooldowns).forEach((key) => {
+    state.kidHitCooldowns[key] -= delta;
+    if (state.kidHitCooldowns[key] <= 0) {
+      delete state.kidHitCooldowns[key];
+    }
+  });
 
   const pressingX = input.isDown('x');
   if (pressingX && state.soundCooldown <= 0 && state.soundMakerCharges > 0) {
     state.soundCooldown = 0.07;
     state.soundPower = Math.min(1, state.soundPower + 0.06);
     state.soundMakerCharges -= diff.soundDrain;
-    playAnnoyingSound(state.soundPower);
+    playSoundMaker(state.soundPower);
 
-    state.kids.forEach((kid) => {
+    state.kids.forEach((kid, kidIndex) => {
       const dist = worldDistance(state.world.player.x, state.world.player.y, kid.x, kid.y);
       if (dist < 10) {
+        const prevAnnoy = kid.annoyance;
         kid.annoyance += diff.annoyPerSound * (1 + (10 - dist) / 10);
+
+        const kidKey = `${kid.doorId}-${kidIndex}`;
+        if (dist < 7 && !state.kidHitCooldowns[kidKey] && kid.annoyance > prevAnnoy) {
+          playHitKid();
+          state.kidHitCooldowns[kidKey] = 0.28;
+        }
       }
       if (kid.annoyance >= diff.annoyToRetreat) {
         kid.retreating = true;
@@ -242,6 +259,11 @@ export function updateGameplay(state, delta, input, width, height, admin) {
 
       if (!godMode && dist < diff.meleeRange) {
         state.health -= delta * 0.8;
+        state.meleeHitTimer -= delta;
+        if (state.meleeHitTimer <= 0) {
+          playPlayerHit();
+          state.meleeHitTimer = 0.5;
+        }
         if (state.health <= 0) {
           state.lost = true;
         }
@@ -280,6 +302,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
 
     if (toy.t >= 1 && !godMode) {
       state.health -= 1;
+      playPlayerHit();
       if (state.health <= 0) {
         state.lost = true;
       }
@@ -368,9 +391,10 @@ export function renderGameplay(state, ctx, width, height) {
   drawText(ctx, 'Hold X', 20, height - 14, { align: 'left', size: 12, color: '#f9a8d4' });
 
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
-  ctx.fillRect(width - 200, height - 70, 188, 58);
-  drawText(ctx, 'WASD / Arrows — move & look', width - 106, height - 58, { size: 12, color: '#cbd5e1' });
-  drawText(ctx, 'X — annoying sounds', width - 106, height - 40, { size: 12, color: '#cbd5e1' });
+  ctx.fillRect(width - 200, height - 82, 188, 70);
+  drawText(ctx, '↑↓←→ — move', width - 106, height - 70, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'Hold click — look around', width - 106, height - 54, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'X — loud sound maker', width - 106, height - 38, { size: 12, color: '#cbd5e1' });
   drawText(ctx, 'E — use toy box', width - 106, height - 22, { size: 12, color: '#cbd5e1' });
 
   if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {

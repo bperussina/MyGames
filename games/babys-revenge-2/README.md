@@ -10,13 +10,13 @@ The big kids are back! Survive **20 nights** using your **annoying sound maker**
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| **X** (hold) | Annoying sound maker — scare kids away |
-| **Click toy box** | Refill sound maker when kids retreat |
-| **`** (backtick) | Admin panel |
-| **Space** | Skip cutscenes |
-| **R** | Restart after win/lose |
+| Input | Action |
+|-------|--------|
+| **Arrow keys** | Move around the nursery |
+| **Hold left-click + drag** | Look around (like BR1) |
+| **X** (hold) | Loud sound maker |
+| **E** | Use toy box |
+| **`** | Admin panel |
 
 ## Run
 

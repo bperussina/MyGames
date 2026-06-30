@@ -135,24 +135,32 @@ function tryMove(world, dx, dy) {
   }
 }
 
-export function updateWorldMovement(world, delta, input, moveSpeed = 3.8, rotSpeed = 2.8) {
+export function updateWorldMovement(world, delta, input, moveSpeed = 3.8) {
   const { player } = world;
 
-  if (input.isPressed('arrowleft', 'a')) {
-    player.angle -= rotSpeed * delta;
-  }
-  if (input.isPressed('arrowright', 'd')) {
-    player.angle += rotSpeed * delta;
+  let forward = 0;
+  let strafe = 0;
+
+  if (input.isPressed('arrowup')) forward += 1;
+  if (input.isPressed('arrowdown')) forward -= 1;
+  if (input.isPressed('arrowleft')) strafe -= 1;
+  if (input.isPressed('arrowright')) strafe += 1;
+
+  if (forward === 0 && strafe === 0) {
+    return;
   }
 
-  let move = 0;
-  if (input.isPressed('arrowup', 'w')) move += 1;
-  if (input.isPressed('arrowdown', 's')) move -= 1;
+  const len = Math.hypot(forward, strafe);
+  forward /= len;
+  strafe /= len;
 
-  if (move !== 0) {
-    const speed = moveSpeed * delta * move;
-    tryMove(world, Math.cos(player.angle) * speed, Math.sin(player.angle) * speed);
-  }
+  const speed = moveSpeed * delta;
+  const cos = Math.cos(player.angle);
+  const sin = Math.sin(player.angle);
+  const dx = (cos * forward - sin * strafe) * speed;
+  const dy = (sin * forward + cos * strafe) * speed;
+
+  tryMove(world, dx, dy);
 }
 
 export function worldDistance(ax, ay, bx, by) {
