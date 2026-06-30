@@ -47,7 +47,13 @@ export function handleAdminClick(admin, gameState, setGameState, x, y, width, he
     {
       label: 'Skip Phase (Day↔Night)',
       action: () => {
-        setGameState((s) => ({ ...s, phaseTimer: 0 }));
+        setGameState((s) => {
+          if (s.phase === 'DAY') {
+            const next = { ...s, phaseTimer: 0 };
+            return next;
+          }
+          return { ...s, phaseTimer: 0 };
+        });
       },
     },
     {

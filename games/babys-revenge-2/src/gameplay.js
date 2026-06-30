@@ -1,33 +1,35 @@
 import { random } from '@mygames/shared';
-import {
-  drawNursery,
-  drawBaby,
-  drawBigKid,
-  drawToy,
-  drawToyBox,
-  drawSoundWaves,
-  drawCrib,
-  drawSoundMakerIcon,
-} from './draw.js';
 import { drawText } from '@mygames/shared';
 import { playAnnoyingSound } from './audio.js';
+import {
+  createWorld3D,
+  resetPlayer,
+  updateWorldMovement,
+  renderWorld3D,
+  buildSpriteList,
+  getDoorPositions,
+  worldDistance,
+  getNearestToyBox,
+} from './world3d.js';
 
 const DAY_DURATION = 180;
 const NIGHT_DURATION = 180;
 const MAX_NIGHTS = 20;
 const MAX_HEALTH = 3;
+const DAY_BANNER_TIME = 5;
 
 export function createGameState() {
   return {
     phase: 'DAY',
     night: 1,
     phaseTimer: DAY_DURATION,
+    phaseElapsed: 0,
     health: MAX_HEALTH,
-    annoyance: 0,
     soundCooldown: 0,
     kids: [],
     toys: [],
     toyBoxVisible: false,
+    toyBoxWorld: null,
     toyBoxTimer: 0,
     kidsRetreated: false,
     retreatTimer: 0,
@@ -36,31 +38,78 @@ export function createGameState() {
     won: false,
     lost: false,
     soundMakerCharges: 100,
+    world: createWorld3D(),
+    dayBannerDone: false,
+    nearToyBox: false,
   };
-}
-
-function spawnKids(night, width, height) {
-  const count = Math.min(2 + Math.floor(night / 5), 4);
-  const kids = [];
-  for (let i = 0; i < count; i += 1) {
-    const left = i % 2 === 0;
-    kids.push({
-      x: left ? width * 0.12 : width * 0.88,
-      y: height * 0.55,
-      side: left ? 'left' : 'right',
-      mood: 'angry',
-      retreating: false,
-      annoyance: 0,
-      size: 55 + night * 0.5,
-    });
-  }
-  return kids;
 }
 
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function difficulty(night) {
+  return {
+    kidCount: Math.min(2 + Math.floor(night / 2), 6),
+    kidSpeed: 1.8 + night * 0.22,
+    throwInterval: Math.max(0.45, 1.6 - night * 0.055),
+    annoyToRetreat: 70 + night * 4,
+    soundDrain: 1.4 + night * 0.08,
+    annoyPerSound: 5 + night * 0.15,
+    meleeRange: 1.1,
+    throwRange: 8,
+  };
+}
+
+function spawnKids(night) {
+  const doors = getDoorPositions();
+  const diff = difficulty(night);
+  const kids = [];
+
+  for (let i = 0; i < diff.kidCount; i += 1) {
+    const door = doors[i % doors.length];
+    kids.push({
+      x: door.x,
+      y: door.y,
+      doorId: door.id,
+      homeX: door.x,
+      homeY: door.y,
+      mood: 'angry',
+      retreating: false,
+      annoyance: 0,
+      holdingToy: false,
+      holdTimer: 0,
+      throwCooldown: random(0, 1.5),
+    });
+  }
+  return kids;
+}
+
+function startNight(state) {
+  state.phase = 'NIGHT';
+  state.phaseTimer = NIGHT_DURATION;
+  state.phaseElapsed = 0;
+  state.kids = spawnKids(state.night);
+  state.toys = [];
+  state.kidsRetreated = false;
+  state.toyBoxVisible = false;
+  state.toyBoxWorld = null;
+  state.soundMakerCharges = Math.max(60, 100 - state.night * 2);
+}
+
+function startDay(state) {
+  state.phase = 'DAY';
+  state.phaseTimer = DAY_DURATION;
+  state.phaseElapsed = 0;
+  state.kids = [];
+  state.toys = [];
+  state.kidsRetreated = false;
+  state.toyBoxVisible = false;
+  state.health = MAX_HEALTH;
+  state.dayBannerDone = false;
+  resetPlayer(state.world);
 }
 
 export function updateGameplay(state, delta, input, width, height, admin) {
@@ -72,42 +121,58 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   }
 
   const godMode = admin?.godMode;
+  const speedMul = admin?.speedMultiplier ?? 1;
+  const diff = difficulty(state.night);
+
+  state.phaseElapsed += delta;
+
+  updateWorldMovement(
+    state.world,
+    delta,
+    input,
+    state.phase === 'DAY' ? 4.2 : 3.6,
+    3.2
+  );
 
   if (state.phase === 'DAY') {
-    state.phaseTimer -= delta * (admin?.speedMultiplier ?? 1);
+    state.phaseTimer -= delta * speedMul;
+
+    const { dist } = getNearestToyBox(state.world);
+    state.nearToyBox = dist < 1.8;
+
+    if (state.nearToyBox && input.isPressed('e', 'enter')) {
+      state.soundMakerCharges = 100;
+    }
+
     if (state.phaseTimer <= 0) {
-      state.phase = 'NIGHT';
-      state.phaseTimer = NIGHT_DURATION;
-      state.kids = spawnKids(state.night, width, height);
-      state.toys = [];
-      state.kidsRetreated = false;
-      state.toyBoxVisible = false;
-      state.annoyance = 0;
-      state.health = MAX_HEALTH;
+      startNight(state);
     }
     return state;
   }
 
-  // NIGHT phase
-  state.phaseTimer -= delta * (admin?.speedMultiplier ?? 1);
+  // ── NIGHT (3D — big kids attack) ──
+  state.phaseTimer -= delta * speedMul;
   state.soundCooldown = Math.max(0, state.soundCooldown - delta);
 
   const pressingX = input.isDown('x');
   if (pressingX && state.soundCooldown <= 0 && state.soundMakerCharges > 0) {
-    state.soundCooldown = 0.08;
-    state.soundPower = Math.min(1, state.soundPower + 0.05);
-    state.soundMakerCharges -= 1;
+    state.soundCooldown = 0.07;
+    state.soundPower = Math.min(1, state.soundPower + 0.06);
+    state.soundMakerCharges -= diff.soundDrain;
     playAnnoyingSound(state.soundPower);
 
     state.kids.forEach((kid) => {
-      kid.annoyance += 8 + state.night * 0.3;
-      if (kid.annoyance > 50) {
+      const dist = worldDistance(state.world.player.x, state.world.player.y, kid.x, kid.y);
+      if (dist < 10) {
+        kid.annoyance += diff.annoyPerSound * (1 + (10 - dist) / 10);
+      }
+      if (kid.annoyance >= diff.annoyToRetreat) {
         kid.retreating = true;
         kid.mood = 'scared';
       }
     });
   } else if (!pressingX) {
-    state.soundPower = Math.max(0, state.soundPower - delta * 0.5);
+    state.soundPower = Math.max(0, state.soundPower - delta * 0.6);
   }
 
   const activeKids = state.kids.filter((k) => !k.retreating);
@@ -116,86 +181,111 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   if (allRetreating && !state.kidsRetreated) {
     state.kidsRetreated = true;
     state.toyBoxVisible = true;
-    state.toyBoxTimer = 8;
+    state.toyBoxTimer = 10;
+    state.toyBoxWorld = {
+      x: state.world.player.x + Math.cos(state.world.player.angle) * 1.5,
+      y: state.world.player.y + Math.sin(state.world.player.angle) * 1.5,
+    };
   }
 
   if (state.kidsRetreated) {
     state.retreatTimer += delta;
     state.kids.forEach((kid) => {
-      const dir = kid.side === 'left' ? -1 : 1;
-      kid.x += dir * 40 * delta;
+      const dx = kid.homeX - kid.x;
+      const dy = kid.homeY - kid.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0.15) {
+        kid.x += (dx / dist) * diff.kidSpeed * 1.5 * delta;
+        kid.y += (dy / dist) * diff.kidSpeed * 1.5 * delta;
+      }
     });
 
     if (state.toyBoxTimer > 0) {
       state.toyBoxTimer -= delta;
     }
 
-    if (input.pointer.down && state.toyBoxVisible) {
-      const bx = width / 2 - 50;
-      const by = height * 0.65;
-      const { x, y } = input.pointer;
-      if (x >= bx && x <= bx + 100 && y >= by && y <= by + 70) {
+    if (input.isPressed('e', 'enter') && state.toyBoxVisible) {
+      const dist = worldDistance(
+        state.world.player.x,
+        state.world.player.y,
+        state.toyBoxWorld.x,
+        state.toyBoxWorld.y
+      );
+      if (dist < 2.5) {
         state.soundMakerCharges = 100;
         state.toyBoxVisible = false;
         state.kidsRetreated = false;
         state.retreatTimer = 0;
-        state.kids = spawnKids(state.night + 1, width, height);
-        state.kids.forEach((k) => {
-          k.annoyance = 0;
-          k.retreating = false;
-          k.mood = 'angry';
-        });
+        state.kids = spawnKids(state.night);
       }
     }
 
-    if (state.retreatTimer > 6 && !state.toyBoxVisible) {
+    if (state.retreatTimer > 7 && !state.toyBoxVisible) {
       state.kidsRetreated = false;
       state.retreatTimer = 0;
-      state.kids = spawnKids(state.night, width, height);
+      state.kids = spawnKids(state.night);
     }
   }
 
   if (!state.kidsRetreated) {
-    state.throwTimer += delta;
-    const throwInterval = Math.max(0.8, 2.2 - state.night * 0.08);
-    if (state.throwTimer >= throwInterval) {
-      state.throwTimer = 0;
-      const throwers = state.kids.filter((k) => !k.retreating);
-      if (throwers.length > 0) {
-        const kid = throwers[Math.floor(random(0, throwers.length))];
+    state.kids.forEach((kid) => {
+      if (kid.retreating) return;
+
+      const dx = state.world.player.x - kid.x;
+      const dy = state.world.player.y - kid.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 0.2) {
+        kid.x += (dx / dist) * diff.kidSpeed * delta;
+        kid.y += (dy / dist) * diff.kidSpeed * delta;
+      }
+
+      if (!godMode && dist < diff.meleeRange) {
+        state.health -= delta * 0.8;
+        if (state.health <= 0) {
+          state.lost = true;
+        }
+      }
+
+      kid.throwCooldown -= delta;
+      if (kid.throwCooldown <= 0 && dist < diff.throwRange && dist > 1.5) {
+        kid.throwCooldown = diff.throwInterval + random(0, 0.5);
+        kid.holdingToy = true;
+        kid.holdTimer = 0.35;
         state.toys.push({
-          x: kid.x,
-          y: kid.y - 30,
-          vx: (width / 2 - kid.x) * (0.8 + state.night * 0.02),
-          vy: -100 - random(0, 80),
-          size: 18 + random(0, 10),
+          startX: width / 2 + (dx / dist) * 200,
+          startY: height / 2 - 80,
+          x: width / 2 + (dx / dist) * 200,
+          y: height / 2 - 80,
+          tx: width / 2,
+          ty: height / 2,
+          t: 0,
           type: Math.floor(random(0, 4)),
-          rotation: 0,
         });
       }
-    }
+
+      if (kid.holdTimer > 0) {
+        kid.holdTimer -= delta;
+        if (kid.holdTimer <= 0) {
+          kid.holdingToy = false;
+        }
+      }
+    });
   }
 
-  const babyX = width / 2;
-  const babyY = height * 0.58;
-  const hitRadius = 45;
-
   state.toys = state.toys.filter((toy) => {
-    toy.x += toy.vx * delta;
-    toy.y += toy.vy * delta;
-    toy.vy += 320 * delta;
-    toy.rotation += delta * 6;
+    toy.t += delta * (1.8 + state.night * 0.04);
+    toy.x = toy.startX + (toy.tx - toy.startX) * toy.t;
+    toy.y = toy.startY + (toy.ty - toy.startY) * toy.t;
 
-    const dist = Math.hypot(toy.x - babyX, toy.y - babyY);
-    if (dist < hitRadius && !godMode) {
+    if (toy.t >= 1 && !godMode) {
       state.health -= 1;
       if (state.health <= 0) {
         state.lost = true;
       }
       return false;
     }
-
-    return toy.y < height + 50 && toy.x > -50 && toy.x < width + 50;
+    return toy.t < 1;
   });
 
   if (state.phaseTimer <= 0) {
@@ -203,124 +293,145 @@ export function updateGameplay(state, delta, input, width, height, admin) {
       state.won = true;
     } else {
       state.night += 1;
-      state.phase = 'DAY';
-      state.phaseTimer = DAY_DURATION;
-      state.kids = [];
-      state.toys = [];
-      state.kidsRetreated = false;
-      state.toyBoxVisible = false;
+      startDay(state);
     }
   }
 
   return state;
 }
 
+function drawFlyingToys(ctx, toys) {
+  toys.forEach((toy) => {
+    const colors = ['#ef4444', '#22c55e', '#3b82f6', '#a855f7'];
+    ctx.fillStyle = colors[toy.type % colors.length];
+    ctx.beginPath();
+    ctx.arc(toy.x, toy.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawSoundOverlay(ctx, width, height, power) {
+  if (power <= 0) return;
+  for (let i = 1; i <= 4; i += 1) {
+    const r = 40 * i + power * 60;
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(250,204,21,${0.35 - i * 0.07})`;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+}
+
 export function renderGameplay(state, ctx, width, height) {
-  drawNursery(ctx, width, height);
+  const sprites = buildSpriteList(state.world, state, width, height);
+  renderWorld3D(ctx, width, height, state.world, state, sprites);
 
-  const babyX = width / 2;
-  const babyY = height * 0.58;
-
-  drawCrib(ctx, babyX, babyY + 20, 140, 90);
-  drawBaby(ctx, babyX, babyY, 70, Math.sin(Date.now() / 300) * 3);
-
-  if (state.phase === 'NIGHT' && state.soundPower > 0) {
-    drawSoundWaves(ctx, babyX, babyY - 20, state.soundPower);
+  if (state.phase === 'NIGHT') {
+    drawFlyingToys(ctx, state.toys);
+    drawSoundOverlay(ctx, width, height, state.soundPower);
   }
-
-  state.kids.forEach((kid) => {
-    drawBigKid(ctx, kid.x, kid.y, kid.size, kid.mood, kid.retreating);
-  });
-
-  state.toys.forEach((toy) => {
-    ctx.save();
-    ctx.translate(toy.x, toy.y);
-    ctx.rotate(toy.rotation);
-    drawToy(ctx, 0, 0, toy.size, toy.type);
-    ctx.restore();
-  });
-
-  if (state.toyBoxVisible) {
-    drawToyBox(ctx, width / 2 - 50, height * 0.65, 100, 70, true);
-    drawText(ctx, 'Click toy box!', width / 2, height * 0.65 + 95, {
-      size: 16,
-      color: '#b45309',
-    });
-  }
-
-  drawSoundMakerIcon(ctx, width - 60, height - 60);
-  drawText(ctx, 'Hold X', width - 60, height - 15, { size: 14, color: '#64748b' });
 
   const phaseLabel = state.phase === 'DAY' ? '☀️ DAY' : '🌙 NIGHT';
-  const phaseColor = state.phase === 'DAY' ? '#f59e0b' : '#6366f1';
+  const phaseColor = state.phase === 'DAY' ? '#fbbf24' : '#a78bfa';
 
-  drawText(ctx, `${phaseLabel} ${state.night} / ${MAX_NIGHTS}`, 16, 16, {
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(0, 0, 220, 72);
+  drawText(ctx, `${phaseLabel} ${state.night}/${MAX_NIGHTS}`, 12, 12, {
     align: 'left',
     baseline: 'top',
-    size: 26,
+    size: 24,
     color: phaseColor,
   });
-
-  drawText(ctx, formatTime(Math.max(0, state.phaseTimer)), 16, 48, {
+  drawText(ctx, formatTime(Math.max(0, state.phaseTimer)), 12, 40, {
     align: 'left',
     baseline: 'top',
-    size: 22,
-    color: '#1e293b',
+    size: 20,
+    color: '#f8fafc',
   });
 
   for (let i = 0; i < MAX_HEALTH; i += 1) {
-    const heartX = width - 30 - i * 35;
-    drawText(ctx, i < state.health ? '❤️' : '🖤', heartX, 20, { size: 24 });
+    drawText(ctx, i < Math.ceil(state.health) ? '❤️' : '🖤', width - 28 - i * 32, 12, {
+      size: 22,
+    });
   }
 
-  const chargeW = 120;
-  drawText(ctx, 'Sound', 16, height - 50, { align: 'left', size: 14, color: '#64748b' });
-  ctx.fillStyle = '#e2e8f0';
-  ctx.fillRect(16, height - 35, chargeW, 12);
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(12, height - 58, 140, 46);
+  drawText(ctx, 'Sound maker', 20, height - 50, { align: 'left', size: 13, color: '#94a3b8' });
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(20, height - 32, 120, 10);
   ctx.fillStyle = '#ec4899';
-  ctx.fillRect(16, height - 35, chargeW * (state.soundMakerCharges / 100), 12);
+  ctx.fillRect(20, height - 32, 120 * (state.soundMakerCharges / 100), 10);
+  drawText(ctx, 'Hold X', 20, height - 14, { align: 'left', size: 12, color: '#f9a8d4' });
 
-  if (state.phase === 'DAY') {
-    drawText(ctx, 'Get ready… the big kids are plotting!', width / 2, height * 0.35, {
-      size: 24,
-      color: '#7c3aed',
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(width - 200, height - 70, 188, 58);
+  drawText(ctx, 'WASD / Arrows — move & look', width - 106, height - 58, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'X — annoying sounds', width - 106, height - 40, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'E — use toy box', width - 106, height - 22, { size: 12, color: '#cbd5e1' });
+
+  if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {
+    const alpha = state.phaseElapsed > DAY_BANNER_TIME - 1
+      ? DAY_BANNER_TIME - state.phaseElapsed
+      : Math.min(1, state.phaseElapsed / 0.5);
+    ctx.fillStyle = `rgba(0,0,0,${0.45 * alpha})`;
+    ctx.fillRect(0, 0, width, height);
+    drawText(ctx, '☀️ Daytime — rest up, baby! ☀️', width / 2, height * 0.38, {
+      size: 36,
+      color: `rgba(251,191,36,${alpha})`,
     });
-    drawText(ctx, '☀️ Daytime — rest up, baby! ☀️', width / 2, height * 0.42, {
+    drawText(ctx, 'Explore the nursery in 3D', width / 2, height * 0.46, {
+      size: 20,
+      color: `rgba(255,255,255,${alpha * 0.9})`,
+    });
+    drawText(ctx, 'Walk to a TOY box and press E to recharge', width / 2, height * 0.53, {
+      size: 16,
+      color: `rgba(203,213,225,${alpha * 0.85})`,
+    });
+  }
+
+  if (state.phase === 'DAY' && state.nearToyBox) {
+    drawText(ctx, 'Press E — recharge sound maker', width / 2, height * 0.72, {
       size: 18,
-      color: '#64748b',
+      color: '#fbbf24',
+    });
+  }
+
+  if (state.phase === 'NIGHT' && state.phaseElapsed < 4) {
+    const alpha = Math.min(1, (4 - state.phaseElapsed) / 2);
+    ctx.fillStyle = `rgba(30,0,60,${0.5 * alpha})`;
+    ctx.fillRect(0, height * 0.3, width, 80);
+    drawText(ctx, '🌙 The big kids are coming!!!', width / 2, height * 0.35, {
+      size: 30,
+      color: `rgba(248,113,113,${alpha})`,
+    });
+  }
+
+  if (state.toyBoxVisible) {
+    drawText(ctx, 'Kids ran off! Find the TOY box — press E', width / 2, height * 0.78, {
+      size: 18,
+      color: '#fbbf24',
     });
   }
 
   if (state.won) {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
     ctx.fillRect(0, 0, width, height);
     drawText(ctx, 'YOU WIN!', width / 2, height / 2 - 30, { size: 52, color: '#facc15' });
-    drawText(ctx, '20 nights of baby revenge!', width / 2, height / 2 + 20, {
-      size: 22,
-      color: '#fff',
-    });
-    drawText(ctx, 'Press R to play again', width / 2, height / 2 + 60, {
-      size: 18,
-      color: '#94a3b8',
-    });
+    drawText(ctx, '20 nights of baby revenge!', width / 2, height / 2 + 20, { size: 22, color: '#fff' });
+    drawText(ctx, 'Press R to play again', width / 2, height / 2 + 60, { size: 18, color: '#94a3b8' });
   }
 
   if (state.lost) {
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
     ctx.fillRect(0, 0, width, height);
     drawText(ctx, 'GAME OVER', width / 2, height / 2 - 30, { size: 48, color: '#ef4444' });
-    drawText(ctx, 'Too many toys hit you!', width / 2, height / 2 + 15, {
-      size: 22,
-      color: '#fff',
-    });
-    drawText(ctx, `You reached Night ${state.night}`, width / 2, height / 2 + 45, {
-      size: 18,
-      color: '#94a3b8',
-    });
-    drawText(ctx, 'Press R to try again', width / 2, height / 2 + 75, {
-      size: 18,
-      color: '#94a3b8',
-    });
+    drawText(ctx, 'The big kids got you!', width / 2, height / 2 + 15, { size: 22, color: '#fff' });
+    drawText(ctx, `Night ${state.night}`, width / 2, height / 2 + 45, { size: 18, color: '#94a3b8' });
+    drawText(ctx, 'Press R to try again', width / 2, height / 2 + 75, { size: 18, color: '#94a3b8' });
   }
 }
 
