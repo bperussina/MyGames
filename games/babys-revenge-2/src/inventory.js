@@ -5,6 +5,9 @@ export function createInventory() {
     hasToyBox: true,
     toys: 20,
     maxToys: 30,
+    toyPower: 1,
+    throwSpeed: 1,
+    refillBonus: 0,
     selected: 'toybox',
   };
 }
@@ -21,7 +24,7 @@ export function useToy(inventory) {
 
 export function refillFromToyBox(inventory) {
   if (!inventory.hasToyBox) return false;
-  inventory.toys = inventory.maxToys;
+  inventory.toys = inventory.maxToys + (inventory.refillBonus ?? 0);
   return true;
 }
 
@@ -71,5 +74,5 @@ export function renderInventory(ctx, width, height, inventory, liveDucks) {
   ctx.fillStyle = 'rgba(15,23,42,0.75)';
   ctx.fillRect(12, 80, 150, 36);
   drawText(ctx, `🦆 Live Ducks: ${liveDucks}`, 20, 88, { align: 'left', baseline: 'top', size: 18, color: '#facc15' });
-  drawText(ctx, 'Click kids to throw!', 20, 108, { align: 'left', size: 12, color: '#94a3b8' });
+  drawText(ctx, 'Visit lakes · open SHOP!', 20, 108, { align: 'left', size: 12, color: '#94a3b8' });
 }

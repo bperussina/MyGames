@@ -12,17 +12,18 @@ const MAP = [
   'Mg..G...G..G...G.....gM',
   'Mg...GGG....GGG......gM',
   'Mg...................gM',
-  'Mg......gggg.........gM',
-  'Mg.....g....g........gM',
-  'Mg.....g....g...D....gM',
-  'Mg.....gggggg........gM',
-  'Mg...................gM',
+  'Mg......LLLL.........gM',
+  'Mg.....LLLLL.........gM',
+  'Mg.....LLLLL....D....gM',
+  'Mg......LLLL.........gM',
+  'Mg.........LLLL......gM',
+  'Mg.........LLLLL.....gM',
+  'Mg.........LLLLL.....gM',
   'Mg...GGG........GGG..gM',
   'Mg..G...G......G...G.gM',
   'Mg..G...G..D..G...G.gM',
   'Mg..G...G......G...G.gM',
   'Mg...GGG........GGG..gM',
-  'Mg...................gM',
   'MggggggggggggggggggggM',
   'MMMMMMMMMMMMMMMMMMMMMMMM',
 ];
@@ -37,17 +38,18 @@ const HEIGHT = [
   [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,2,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
   [3,1,0,0,0,2,2,2,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
   [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
   [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
 ];
@@ -84,6 +86,79 @@ function isWall(tx, ty) {
   return t === 'M' || t === 'G';
 }
 
+export function isLake(tx, ty) {
+  return tileAt(tx, ty) === 'L';
+}
+
+export function isOnLake(world) {
+  return isLake(Math.floor(world.player.x), Math.floor(world.player.y));
+}
+
+function getLakeRegions() {
+  const lakes = [];
+  const visited = new Set();
+
+  for (let y = 0; y < MAP_H; y += 1) {
+    for (let x = 0; x < MAP_W; x += 1) {
+      if (MAP[y][x] !== 'L') continue;
+      const startKey = `${x},${y}`;
+      if (visited.has(startKey)) continue;
+
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      const queue = [[x, y]];
+
+      while (queue.length > 0) {
+        const [cx, cy] = queue.pop();
+        const key = `${cx},${cy}`;
+        if (visited.has(key) || tileAt(cx, cy) !== 'L') continue;
+        visited.add(key);
+        minX = Math.min(minX, cx);
+        maxX = Math.max(maxX, cx);
+        minY = Math.min(minY, cy);
+        maxY = Math.max(maxY, cy);
+        queue.push([cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]);
+      }
+
+      lakes.push({
+        id: `lake-${minX}-${minY}`,
+        minX,
+        maxX,
+        minY,
+        maxY,
+        centerX: (minX + maxX) / 2 + 0.5,
+        centerY: (minY + maxY) / 2 + 0.5,
+      });
+    }
+  }
+  return lakes;
+}
+
+function spawnDucksInLakes() {
+  const ducks = [];
+  getLakeRegions().forEach((lake, lakeIndex) => {
+    const count = 1 + (lakeIndex % 2);
+    for (let i = 0; i < count; i += 1) {
+      ducks.push({
+        id: `duck-${lake.id}-${i}`,
+        lakeId: lake.id,
+        x: lake.centerX + (i - 0.5) * 0.8,
+        y: lake.centerY + (i % 2) * 0.5,
+        minX: lake.minX + 0.3,
+        maxX: lake.maxX + 0.7,
+        minY: lake.minY + 0.3,
+        maxY: lake.maxY + 0.7,
+        waddle: Math.random() * Math.PI * 2,
+        collected: false,
+        respawnTimer: 0,
+      });
+    }
+  });
+  return ducks;
+}
+
 export function getDoorPositions() {
   const doors = [];
   for (let y = 0; y < MAP_H; y += 1) {
@@ -102,13 +177,11 @@ export function getDoorPositions() {
 }
 
 export function getDuckSpawnPositions() {
-  return [
-    { x: 8.5, y: 9.5, id: 'duck0' },
-    { x: 14.5, y: 8.5, id: 'duck1' },
-    { x: 10.5, y: 14.5, id: 'duck2' },
-    { x: 17.5, y: 13.5, id: 'duck3' },
-    { x: 6.5, y: 16.5, id: 'duck4' },
-  ];
+  return getLakeRegions().map((lake) => ({
+    x: lake.centerX,
+    y: lake.centerY,
+    id: lake.id,
+  }));
 }
 
 function wallColor(wx, wy, side, isNight, elevation) {
@@ -128,11 +201,8 @@ export function createWorld3D() {
   return {
     player: { x: spawn.x, y: spawn.y, angle: spawn.angle, height: spawn.height },
     doors: getDoorPositions(),
-    wildDucks: getDuckSpawnPositions().map((d) => ({
-      ...d,
-      waddle: Math.random() * Math.PI * 2,
-      collected: false,
-    })),
+    lakes: getLakeRegions(),
+    wildDucks: spawnDucksInLakes(),
   };
 }
 
@@ -214,7 +284,8 @@ export function updateWorldMovement(world, delta, input, moveSpeed = 4.5) {
   strafe /= len;
 
   const heightBonus = 1 + player.height * 0.08;
-  const speed = moveSpeed * heightBonus * delta;
+  const lakeSlow = isOnLake(world) ? 0.5 : 1;
+  const speed = moveSpeed * heightBonus * lakeSlow * delta;
   const cos = Math.cos(player.angle);
   const sin = Math.sin(player.angle);
   tryMove(world, (cos * forward - sin * strafe) * speed, (sin * forward + cos * strafe) * speed);
@@ -330,11 +401,41 @@ function drawDuckBillboard(ctx, sx, sy, sw, sh, live = false) {
   }
 }
 
+function drawLakePatches(ctx, width, height, world, isNight) {
+  world.lakes.forEach((lake) => {
+    const proj = projectSprite(world, { x: lake.centerX, y: lake.centerY }, width, height);
+    if (!proj) return;
+
+    const lakeW = (lake.maxX - lake.minX + 1.2) * (proj.spriteH / 3.5);
+    const lakeH = (lake.maxY - lake.minY + 1) * (proj.spriteH / 5);
+    const sy = height / 2 + proj.spriteH * 0.15;
+
+    const water = ctx.createLinearGradient(0, sy, 0, sy + lakeH);
+    if (isNight) {
+      water.addColorStop(0, 'rgba(12, 74, 110, 0.85)');
+      water.addColorStop(1, 'rgba(8, 47, 73, 0.9)');
+    } else {
+      water.addColorStop(0, 'rgba(56, 189, 248, 0.75)');
+      water.addColorStop(1, 'rgba(14, 165, 233, 0.85)');
+    }
+
+    ctx.fillStyle = water;
+    ctx.beginPath();
+    ctx.ellipse(proj.screenX, sy + lakeH / 2, lakeW / 2, lakeH / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = isNight ? 'rgba(125, 211, 252, 0.3)' : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
 export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
   const isNight = gameState.phase === 'NIGHT';
   const { player } = world;
 
   drawSkyAndGround(ctx, width, height, isNight, player.height);
+  drawLakePatches(ctx, width, height, world, isNight);
 
   const rayCount = Math.floor(width / 2);
   const stripW = width / rayCount;
@@ -375,17 +476,15 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
 export function buildSpriteList(world, gameState, width, height) {
   const sprites = [];
 
-  if (gameState.phase === 'DAY') {
-    world.wildDucks.forEach((duck) => {
-      if (duck.collected) return;
-      sprites.push({
-        sprite: { ...duck, live: true },
-        dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y),
-        type: 'duck',
-        proj: projectSprite(world, duck, width, height),
-      });
+  world.wildDucks.forEach((duck) => {
+    if (duck.collected) return;
+    sprites.push({
+      sprite: { ...duck, live: true },
+      dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y),
+      type: 'duck',
+      proj: projectSprite(world, duck, width, height),
     });
-  }
+  });
 
   gameState.kids.forEach((kid) => {
     if (kid.defeated) return;
@@ -419,7 +518,7 @@ export function findClickTarget(world, gameState, width, height, clickX, clickY)
     }
   }
 
-  if (gameState.phase === 'DAY') {
+  if (gameState.phase === 'DAY' || gameState.phase === 'NIGHT') {
     for (const duck of world.wildDucks) {
       if (duck.collected) continue;
       const proj = projectSprite(world, duck, width, height);
@@ -442,9 +541,28 @@ export function findClickTarget(world, gameState, width, height, clickX, clickY)
 
 export function updateWildDucks(world, delta) {
   world.wildDucks.forEach((duck) => {
-    if (duck.collected) return;
-    duck.waddle += delta * 2;
-    duck.x += Math.sin(duck.waddle) * delta * 0.3;
-    duck.y += Math.cos(duck.waddle * 0.7) * delta * 0.2;
+    if (duck.collected) {
+      duck.respawnTimer -= delta;
+      if (duck.respawnTimer <= 0) {
+        duck.collected = false;
+        duck.x = (duck.minX + duck.maxX) / 2;
+        duck.y = (duck.minY + duck.maxY) / 2;
+      }
+      return;
+    }
+
+    duck.waddle += delta * 1.5;
+    duck.x += Math.sin(duck.waddle) * delta * 0.25;
+    duck.y += Math.cos(duck.waddle * 0.8) * delta * 0.2;
+
+    duck.x = Math.max(duck.minX, Math.min(duck.maxX, duck.x));
+    duck.y = Math.max(duck.minY, Math.min(duck.maxY, duck.y));
   });
+}
+
+export function collectDuck(duck) {
+  if (duck.collected) return false;
+  duck.collected = true;
+  duck.respawnTimer = 45;
+  return true;
 }

@@ -70,11 +70,15 @@ canvas.addEventListener('mouseup', (event) => {
 
   if (mode === 'GAME' && !game.won && !game.lost && !admin.open) {
     if (!mouseLook.moved) {
-      const slot = getClickedInventorySlot(event.clientX, event.clientY, canvas.width, canvas.height);
-      if (slot === 'toybox') {
-        game = handleInventoryClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
-      } else {
+      if (game.shop?.open) {
         game = handleGameClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+      } else {
+        const slot = getClickedInventorySlot(event.clientX, event.clientY, canvas.width, canvas.height);
+        if (slot === 'toybox') {
+          game = handleInventoryClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+        } else {
+          game = handleGameClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+        }
       }
     }
   }
