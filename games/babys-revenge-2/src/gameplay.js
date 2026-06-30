@@ -12,6 +12,8 @@ import {
   updateWildDucks,
   findClickTarget,
   collectDuck,
+  chopTree,
+  updateCampfire,
 } from './world3d.js';
 import {
   createInventory,
@@ -20,8 +22,20 @@ import {
   refillFromToyBox,
   getClickedInventorySlot,
   selectToyBox,
+  selectAxe,
+  isAxeSelected,
+  addLogs,
+  takeLogs,
+  LOGS_PER_TREE,
   renderInventory,
 } from './inventory.js';
+import {
+  feedCampfire,
+  isCampfireInRange,
+  getCampfireProgress,
+  MAX_CAMPFIRE_LEVEL,
+  LOGS_PER_LEVEL,
+} from './campfire.js';
 import {
   createShopState,
   renderShop,
@@ -145,6 +159,23 @@ export function handleGameClick(state, clickX, clickY, width, height) {
 
   const target = findClickTarget(state.world, state, width, height, clickX, clickY);
 
+  if (target?.type === 'tree' && isAxeSelected(state.inventory)) {
+    if (chopTree(state.world, target.sprite)) {
+      addLogs(state.inventory, LOGS_PER_TREE);
+    }
+    return state;
+  }
+
+  if (target?.type === 'campfire') {
+    if (isCampfireInRange(state.world.player.x, state.world.player.y, state.world.campfire)) {
+      const logs = takeLogs(state.inventory, state.inventory.logs);
+      if (logs > 0) {
+        feedCampfire(state.world.campfire, state.world, logs);
+      }
+    }
+    return state;
+  }
+
   if (target?.type === 'duck') {
     if (collectDuck(target.sprite)) {
       addLiveDuck(state);
@@ -177,6 +208,8 @@ export function handleInventoryClick(state, clickX, clickY, width, height) {
   const slot = state.inventory.slots[slotIndex];
   if (slot?.type === 'toybox') {
     selectToyBox(state.inventory);
+  } else if (slot?.type === 'axe') {
+    selectAxe(state.inventory);
   }
   return state;
 }
@@ -195,6 +228,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
 
   state.phaseElapsed += delta;
   updateWildDucks(state.world, delta);
+  updateCampfire(state.world, delta);
 
   if (input.isPressed('b')) {
     state.shop.open = !state.shop.open;
@@ -406,10 +440,20 @@ export function renderGameplay(state, ctx, width, height) {
 
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
   ctx.fillRect(width - 210, height - 130, 198, 58);
-  drawText(ctx, '↑↓←→ move | drag look', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'Axe — chop trees · Campfire — feed logs', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
   drawText(ctx, 'Select Toy Box · click kids', width - 106, height - 102, { size: 12, color: '#fbbf24' });
   drawText(ctx, 'Lakes — collect ducks 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
   drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
+
+  const cf = getCampfireProgress(state.world.campfire);
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(width - 200, 56, 188, 48);
+  drawText(ctx, `🔥 Campfire Lv${cf.level}/${MAX_CAMPFIRE_LEVEL}`, width - 106, 64, {
+    size: 14, color: '#fb923c',
+  });
+  drawText(ctx, `${cf.logsInLevel}/${LOGS_PER_LEVEL} logs · barrier ${cf.level + 1}`, width - 106, 84, {
+    size: 12, color: '#fdba74',
+  });
 
   if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {
     const alpha = state.phaseElapsed > DAY_BANNER_TIME - 1
@@ -423,10 +467,10 @@ export function renderGameplay(state, ctx, width, height) {
     drawText(ctx, 'Explore the open green meadow!', width / 2, height * 0.4, {
       size: 20, color: `rgba(255,255,255,${alpha * 0.9})`,
     });
-    drawText(ctx, 'Find lakes — collect live ducks 🦆', width / 2, height * 0.47, {
+    drawText(ctx, 'Chop trees 🪵 · feed the campfire 🔥', width / 2, height * 0.47, {
       size: 16, color: `rgba(203,213,225,${alpha * 0.85})`,
     });
-    drawText(ctx, 'Collect ducks · open SHOP at the top!', width / 2, height * 0.54, {
+    drawText(ctx, 'Grow the fire to expand the world!', width / 2, height * 0.54, {
       size: 14, color: `rgba(250,204,21,${alpha * 0.8})`,
     });
   }

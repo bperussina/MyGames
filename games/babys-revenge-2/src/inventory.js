@@ -1,4 +1,5 @@
 import { drawText, drawRect } from '@mygames/shared';
+import { LOGS_PER_TREE } from './campfire.js';
 
 export const SLOT_COUNT = 5;
 
@@ -13,12 +14,13 @@ export function createInventory() {
         maxToys: 40,
         powerLevel: 0,
       },
-      null,
+      { type: 'axe', id: 'axe', label: 'Axe' },
       null,
       null,
       null,
     ],
     selectedSlot: 0,
+    logs: 0,
   };
 }
 
@@ -31,9 +33,29 @@ export function isToyBoxSelected(inventory) {
   return slot?.type === 'toybox';
 }
 
+export function isAxeSelected(inventory) {
+  const slot = inventory.slots[inventory.selectedSlot];
+  return slot?.type === 'axe';
+}
+
 export function selectToyBox(inventory) {
   const index = inventory.slots.findIndex((slot) => slot?.type === 'toybox');
   if (index >= 0) inventory.selectedSlot = index;
+}
+
+export function selectAxe(inventory) {
+  const index = inventory.slots.findIndex((slot) => slot?.type === 'axe');
+  if (index >= 0) inventory.selectedSlot = index;
+}
+
+export function addLogs(inventory, count) {
+  inventory.logs += count;
+}
+
+export function takeLogs(inventory, count) {
+  const taken = Math.min(inventory.logs, count);
+  inventory.logs -= taken;
+  return taken;
 }
 
 export function canThrowToy(inventory) {
@@ -115,16 +137,23 @@ function drawSlotContents(ctx, slot, bounds, selected) {
     drawRect(ctx, x, y, w, h, selected ? '#fbbf24' : '#78350f');
     drawText(ctx, '📦', cx, cy - 10, { size: 20 });
     drawText(ctx, `${slot.toys}`, cx, cy + 10, { size: 12, color: '#fff' });
-    if (selected) {
-      drawText(ctx, 'READY', cx, cy + 22, { size: 8, color: '#fef08a' });
-    } else {
-      drawText(ctx, 'Box', cx, cy + 22, { size: 8, color: '#fde68a' });
-    }
+    drawText(ctx, selected ? 'READY' : 'Box', cx, cy + 22, {
+      size: 8, color: selected ? '#fef08a' : '#fde68a',
+    });
     if (slot.powerLevel > 0) {
       drawText(ctx, `💥${slot.powerLevel}`, x + w - 4, y + 6, {
         align: 'right', baseline: 'top', size: 9, color: '#fca5a5',
       });
     }
+    return;
+  }
+
+  if (slot.type === 'axe') {
+    drawRect(ctx, x, y, w, h, selected ? '#38bdf8' : '#475569');
+    drawText(ctx, '🪓', cx, cy - 4, { size: 22 });
+    drawText(ctx, selected ? 'CHOP' : 'Axe', cx, cy + 18, {
+      size: 8, color: selected ? '#bae6fd' : '#cbd5e1',
+    });
   }
 }
 
@@ -137,7 +166,7 @@ export function renderInventory(ctx, width, height, inventory, liveDucks) {
     layout.startX - panelPad,
     layout.y - 28,
     layout.totalW + panelPad * 2,
-    layout.slotSize + 40,
+    layout.slotSize + 52,
   );
 
   drawText(ctx, 'INVENTORY', width / 2, layout.y - 12, { size: 14, color: '#94a3b8' });
@@ -147,13 +176,19 @@ export function renderInventory(ctx, width, height, inventory, liveDucks) {
     drawSlotContents(ctx, slot, bounds, inventory.selectedSlot === bounds.index);
   });
 
-  if (isToyBoxSelected(inventory)) {
-    drawText(ctx, 'Click a big kid to throw!', width / 2, layout.y + layout.slotSize + 28, {
-      size: 11, color: '#fbbf24',
-    });
+  let hint = '';
+  if (isToyBoxSelected(inventory)) hint = 'Click a big kid to throw!';
+  else if (isAxeSelected(inventory)) hint = 'Click trees to chop!';
+  if (hint) {
+    drawText(ctx, hint, width / 2, layout.y + layout.slotSize + 24, { size: 11, color: '#fbbf24' });
   }
 
-  drawText(ctx, `🦆 ${liveDucks}`, layout.startX, layout.y - 26, {
+  drawText(ctx, `🪵 ${inventory.logs}`, layout.startX, layout.y - 26, {
+    align: 'left', baseline: 'top', size: 14, color: '#d97706',
+  });
+  drawText(ctx, `🦆 ${liveDucks}`, layout.startX + 56, layout.y - 26, {
     align: 'left', baseline: 'top', size: 14, color: '#facc15',
   });
 }
+
+export { LOGS_PER_TREE };

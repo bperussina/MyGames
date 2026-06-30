@@ -1,29 +1,36 @@
 /**
- * Open green meadow with lakes, scattered mountains, and a distant border ridge.
+ * Open green meadow with lakes, mountains, trees, campfire, and expanding gray barriers.
  */
+
+import {
+  createCampfire,
+  BARRIER_BOUNDS,
+  getCampfireRadius,
+  isCampfireInRange,
+} from './campfire.js';
 
 const MAP = [
   'MMMMMMMMMMMMMMMMMMMMMMMM',
   'M......................M',
-  'M......................M',
-  'M......TTT.............M',
+  'M..R.......R.....R.....M',
+  'M......TTT....R........M',
   'M.....TTTTT............M',
-  'M.....TTTTT............M',
+  'M..R..TTTTT...R........M',
   'M......TTT..........TT.M',
-  'M..................TTT.M',
-  'M.........@.......TTTT.M',
-  'M..................TTT.M',
+  'M.R...............TTT..M',
+  'M.........F.@.....TTTT.M',
+  'M..R.............TTT...M',
   'M......................M',
-  'M..........LLLL........M',
+  'M..........LLLL....R...M',
   'M.........LLLLL........M',
   'M..........LLLL........M',
-  'M......................M',
+  'M..R...................M',
   'M...............LLL....M',
-  'M..............LLLL....M',
+  'M.R............LLLL....M',
   'M...............LLL....M',
   'M......................M',
   'M..........TTTT....D...M',
-  'M.........TTTTTT.......M',
+  'M..R......TTTTTT..R....M',
   'M..........TTTT....D...M',
   'MMMMMMMMMMMMMMMMMMMMMMMM',
 ];
@@ -88,8 +95,34 @@ function tileAt(tx, ty) {
   return MAP[ty][tx] ?? 'M';
 }
 
-function isWall(tx, ty) {
-  return tileAt(tx, ty) === 'M';
+function isInsidePlayable(tx, ty, bounds) {
+  return tx > bounds.minX && tx < bounds.maxX && ty > bounds.minY && ty < bounds.maxY;
+}
+
+function isOnBarrierRing(tx, ty, bounds) {
+  if (tx < bounds.minX || tx > bounds.maxX || ty < bounds.minY || ty > bounds.maxY) {
+    return false;
+  }
+  return tx === bounds.minX || tx === bounds.maxX || ty === bounds.minY || ty === bounds.maxY;
+}
+
+function hasTreeAt(world, tx, ty) {
+  return world.trees.some(
+    (tree) => !tree.chopped && Math.floor(tree.x) === tx && Math.floor(tree.y) === ty,
+  );
+}
+
+function isWall(tx, ty, world) {
+  if (tileAt(tx, ty) === 'M') return true;
+  if (hasTreeAt(world, tx, ty)) return true;
+  const bounds = world.barrierBounds;
+  if (isOnBarrierRing(tx, ty, bounds)) return true;
+  if (!isInsidePlayable(tx, ty, bounds)) return true;
+  return false;
+}
+
+function isBarrierTile(tx, ty, world) {
+  return isOnBarrierRing(tx, ty, world.barrierBounds);
 }
 
 function isMountain(tx, ty) {
@@ -194,7 +227,40 @@ export function getDuckSpawnPositions() {
   }));
 }
 
-function wallColor(wx, wy, side, isNight, elevation) {
+function spawnTrees() {
+  const trees = [];
+  for (let y = 0; y < MAP_H; y += 1) {
+    for (let x = 0; x < MAP_W; x += 1) {
+      if (MAP[y][x] === 'R') {
+        trees.push({
+          id: `tree-${x}-${y}`,
+          x: x + 0.5,
+          y: y + 0.5,
+          chopped: false,
+        });
+      }
+    }
+  }
+  return trees;
+}
+
+function getCampfirePosition() {
+  for (let y = 0; y < MAP_H; y += 1) {
+    for (let x = 0; x < MAP_W; x += 1) {
+      if (MAP[y][x] === 'F') {
+        return { x: x + 0.5, y: y + 0.5 };
+      }
+    }
+  }
+  return { x: 11.5, y: 8.5 };
+}
+
+function wallColor(wx, wy, side, isNight, elevation, world) {
+  if (isBarrierTile(wx, wy, world)) {
+    return isNight
+      ? (side === 0 ? '#64748b' : '#475569')
+      : (side === 0 ? '#94a3b8' : '#64748b');
+  }
   if (isNight) {
     return side === 0 ? '#1e3a5f' : '#0f172a';
   }
@@ -207,11 +273,16 @@ function wallColor(wx, wy, side, isNight, elevation) {
 
 export function createWorld3D() {
   const spawn = getSpawn();
+  const campfirePos = getCampfirePosition();
   return {
-    player: { x: spawn.x, y: spawn.y, angle: spawn.angle, height: spawn.height },
+    player: { x: spawn.x, y: spawn.y, angle: 0, height: spawn.height },
     doors: getDoorPositions(),
     lakes: getLakeRegions(),
     wildDucks: spawnDucksInLakes(),
+    trees: spawnTrees(),
+    campfire: createCampfire(campfirePos.x, campfirePos.y),
+    barrierLevel: 0,
+    barrierBounds: { ...BARRIER_BOUNDS[0] },
   };
 }
 
@@ -223,7 +294,7 @@ export function resetPlayer(world) {
   world.player.height = spawn.height;
 }
 
-function castRay(px, py, angle, playerHeight) {
+function castRay(px, py, angle, playerHeight, world) {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
   let depth = 0.05;
@@ -234,7 +305,7 @@ function castRay(px, py, angle, playerHeight) {
     const tx = Math.floor(rx);
     const ty = Math.floor(ry);
 
-    if (isWall(tx, ty)) {
+    if (isWall(tx, ty, world)) {
       const side = Math.abs(rx - tx - 0.5) > Math.abs(ry - ty - 0.5) ? 0 : 1;
       const elev = getHeightAt(tx, ty);
       return { depth, wallX: rx, wallY: ry, mapX: tx, mapY: ty, side, elev };
@@ -248,7 +319,7 @@ function castRay(px, py, angle, playerHeight) {
 function canMoveTo(world, nx, ny) {
   const tx = Math.floor(nx);
   const ty = Math.floor(ny);
-  if (isWall(tx, ty)) return false;
+  if (isWall(tx, ty, world)) return false;
   const targetH = getHeightAt(tx, ty);
   const climb = targetH - world.player.height;
   return climb <= 1.05 && climb >= -2;
@@ -442,6 +513,75 @@ function drawKidBillboard(ctx, sx, sy, sw, sh, kid, isNight) {
   }
 }
 
+function drawTreeBillboard(ctx, sx, sy, sw, sh, isNight) {
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(sx, sy + sh * 0.42, sw * 0.2, sh * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = isNight ? '#78350f' : '#92400e';
+  ctx.fillRect(sx - sw * 0.06, sy + sh * 0.05, sw * 0.12, sh * 0.35);
+  ctx.fillStyle = isNight ? '#14532d' : '#16a34a';
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - sh * 0.35);
+  ctx.lineTo(sx - sw * 0.28, sy + sh * 0.12);
+  ctx.lineTo(sx + sw * 0.28, sy + sh * 0.12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = isNight ? '#166534' : '#22c55e';
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - sh * 0.2);
+  ctx.lineTo(sx - sw * 0.22, sy + sh * 0.02);
+  ctx.lineTo(sx + sw * 0.22, sy + sh * 0.02);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawCampfireBillboard(ctx, sx, sy, sw, sh, campfire, isNight) {
+  const radius = getCampfireRadius(campfire);
+  const scale = 0.7 + radius * 0.55;
+  const bw = sw * scale;
+  const bh = sh * scale * 0.5;
+  const flicker = Math.sin(Date.now() / 120) * 4;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(sx, sy + bh * 0.5, bw * 0.5, bh * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const logColors = ['#78350f', '#92400e', '#a16207'];
+  for (let i = 0; i < 5; i += 1) {
+    ctx.strokeStyle = logColors[i % logColors.length];
+    ctx.lineWidth = 3 + radius * 2;
+    ctx.beginPath();
+    ctx.moveTo(sx - bw * 0.25 + i * 3, sy + bh * 0.2);
+    ctx.lineTo(sx + bw * 0.2 - i * 2, sy + bh * 0.25);
+    ctx.stroke();
+  }
+
+  const fire = ctx.createRadialGradient(sx, sy - flicker, 2, sx, sy - flicker, bw * 0.45);
+  if (isNight) {
+    fire.addColorStop(0, '#fef08a');
+    fire.addColorStop(0.4, '#f97316');
+    fire.addColorStop(1, 'rgba(239,68,68,0)');
+  } else {
+    fire.addColorStop(0, '#fde68a');
+    fire.addColorStop(0.45, '#fb923c');
+    fire.addColorStop(1, 'rgba(251,146,60,0)');
+  }
+  ctx.fillStyle = fire;
+  ctx.beginPath();
+  ctx.ellipse(sx, sy - bh * 0.1 + flicker, bw * 0.35, bh * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (campfire.expandFlash > 0) {
+    ctx.strokeStyle = `rgba(250,204,21,${campfire.expandFlash / 2.5})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(sx, sy, bw * 0.6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
 function drawDuckBillboard(ctx, sx, sy, sw, sh, live = false) {
   const bounce = Math.sin(Date.now() / 200) * 3;
   ctx.fillStyle = '#facc15';
@@ -505,13 +645,13 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
 
   for (let i = 0; i < rayCount; i += 1) {
     const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
-    const hit = castRay(player.x, player.y, rayAngle, player.height);
+    const hit = castRay(player.x, player.y, rayAngle, player.height, world);
     const corrected = hit.depth * Math.cos(rayAngle - player.angle);
     const elevScale = 1 + Math.min(hit.elev, 4) * 0.12;
     const wallH = Math.min(height * 0.95, (height / corrected) * WALL_HEIGHT * elevScale);
     const wallTop = (height - wallH) / 2 - Math.min(hit.elev, 4) * 10;
 
-    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev);
+    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev, world);
     drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, corrected);
   }
 
@@ -523,6 +663,8 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
     const sh = proj.spriteH;
     if (type === 'kid') drawKidBillboard(ctx, sx, sy, sw, sh, sprite, isNight);
     else if (type === 'duck') drawDuckBillboard(ctx, sx, sy, sw, sh, sprite.live);
+    else if (type === 'tree') drawTreeBillboard(ctx, sx, sy, sw, sh, isNight);
+    else if (type === 'campfire') drawCampfireBillboard(ctx, sx, sy, sw, sh, sprite, isNight);
   });
 
   ctx.strokeStyle = 'rgba(255,255,255,0.4)';
@@ -538,6 +680,23 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
 
 export function buildSpriteList(world, gameState, width, height) {
   const sprites = [];
+
+  sprites.push({
+    sprite: world.campfire,
+    dist: worldDistance(world.player.x, world.player.y, world.campfire.x, world.campfire.y),
+    type: 'campfire',
+    proj: projectSprite(world, world.campfire, width, height),
+  });
+
+  world.trees.forEach((tree) => {
+    if (tree.chopped) return;
+    sprites.push({
+      sprite: tree,
+      dist: worldDistance(world.player.x, world.player.y, tree.x, tree.y),
+      type: 'tree',
+      proj: projectSprite(world, tree, width, height),
+    });
+  });
 
   world.wildDucks.forEach((duck) => {
     if (duck.collected) return;
@@ -563,11 +722,31 @@ export function buildSpriteList(world, gameState, width, height) {
 }
 
 export function findClickTarget(world, gameState, width, height, clickX, clickY) {
-  const sprites = buildSpriteList(world, gameState, width, height)
-    .filter((s) => s.type === 'kid' && s.proj)
+  const allSprites = buildSpriteList(world, gameState, width, height)
+    .filter((s) => s.proj)
     .sort((a, b) => a.dist - b.dist);
 
-  for (const entry of sprites) {
+  for (const entry of allSprites) {
+    if (entry.type === 'campfire' || entry.type === 'tree') {
+      const { proj, sprite, type } = entry;
+      const sx = proj.screenX;
+      const sy = (proj.screenY ?? height / 2) + proj.spriteH * 0.08;
+      const sw = proj.spriteW * (type === 'campfire' ? 1 + getCampfireRadius(sprite) * 0.4 : 1);
+      const sh = proj.spriteH * (type === 'campfire' ? 1 + getCampfireRadius(sprite) * 0.3 : 1);
+      if (
+        clickX >= sx - sw / 2 && clickX <= sx + sw / 2 &&
+        clickY >= sy - sh / 2 && clickY <= sy + sh / 2
+      ) {
+        return { type, sprite, dist: entry.dist };
+      }
+    }
+  }
+
+  const kids = allSprites
+    .filter((s) => s.type === 'kid')
+    .sort((a, b) => a.dist - b.dist);
+
+  for (const entry of kids) {
     const { proj, sprite } = entry;
     const sx = proj.screenX;
     const sy = (proj.screenY ?? height / 2) + proj.spriteH * 0.08;
@@ -621,6 +800,18 @@ export function updateWildDucks(world, delta) {
     duck.x = Math.max(duck.minX, Math.min(duck.maxX, duck.x));
     duck.y = Math.max(duck.minY, Math.min(duck.maxY, duck.y));
   });
+}
+
+export function chopTree(world, tree) {
+  if (tree.chopped) return false;
+  tree.chopped = true;
+  return true;
+}
+
+export function updateCampfire(world, delta) {
+  if (world.campfire.expandFlash > 0) {
+    world.campfire.expandFlash -= delta;
+  }
 }
 
 export function collectDuck(duck) {
