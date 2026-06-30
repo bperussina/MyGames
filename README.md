@@ -13,6 +13,12 @@ npm run dev -- bounce-ball
 
 Your browser opens with the example game. Edit `games/bounce-ball/src/main.js` and save — the page updates automatically.
 
+Try Snake too:
+
+```bash
+npm run dev -- snake
+```
+
 ## Commands
 
 | Command | What it does |
@@ -31,6 +37,7 @@ mygames/
 ├── games/                  # One folder per game
 │   ├── _template/          # Copy this to start a new game (not playable)
 │   └── bounce-ball/        # Example game
+│   └── snake/              # Classic Snake
 ├── packages/
 │   └── shared/             # Reusable helpers for all games
 ├── docs/                   # Docs for the repo and each game
