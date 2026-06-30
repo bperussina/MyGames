@@ -38,6 +38,7 @@ mygames/
 │   ├── _template/          # Copy this to start a new game (not playable)
 │   └── bounce-ball/        # Example game
 │   └── snake/              # Classic Snake
+│   └── snake-tris/         # Snake + CPU Tetris same screen
 ├── packages/
 │   └── shared/             # Reusable helpers for all games
 ├── docs/                   # Docs for the repo and each game
