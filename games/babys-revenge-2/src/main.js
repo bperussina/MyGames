@@ -1,9 +1,16 @@
 import { createCanvas, clearCanvas, Input, loop } from '@mygames/shared';
 import { initAudio } from './audio.js';
 import { createCutsceneState, updateCutscene, renderCutscene } from './cutscenes.js';
-import { createGameState, updateGameplay, renderGameplay } from './gameplay.js';
+import {
+  createGameState,
+  updateGameplay,
+  renderGameplay,
+  handleGameClick,
+  handleInventoryClick,
+} from './gameplay.js';
 import { createAdminState, updateAdmin, renderAdmin, handleAdminClick } from './admin.js';
 import { updateMenu, renderMenu, isPlayClicked } from './menu.js';
+import { getClickedInventorySlot } from './inventory.js';
 
 const { canvas, ctx } = createCanvas();
 const input = new Input(window);
@@ -21,9 +28,13 @@ let pendingPlayClick = null;
 const mouseLook = {
   active: false,
   lastX: 0,
+  lastY: 0,
+  moved: false,
   sensitivity: 0.004,
   lookDelta: 0,
 };
+
+const DRAG_THRESHOLD = 6;
 
 canvas.style.cursor = 'default';
 
@@ -48,16 +59,28 @@ canvas.addEventListener('mousedown', (event) => {
   if (mode === 'GAME' && !game.won && !game.lost) {
     mouseLook.active = true;
     mouseLook.lastX = event.clientX;
-    canvas.style.cursor = 'grabbing';
+    mouseLook.lastY = event.clientY;
+    mouseLook.moved = false;
     initAudio();
   }
 });
 
 canvas.addEventListener('mouseup', (event) => {
-  if (event.button === 0) {
-    mouseLook.active = false;
-    canvas.style.cursor = mode === 'MENU' ? (menuHover ? 'pointer' : 'default') : 'default';
+  if (event.button !== 0) return;
+
+  if (mode === 'GAME' && !game.won && !game.lost && !admin.open) {
+    if (!mouseLook.moved) {
+      const slot = getClickedInventorySlot(event.clientX, event.clientY, canvas.width, canvas.height);
+      if (slot === 'toybox') {
+        game = handleInventoryClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+      } else {
+        game = handleGameClick(game, event.clientX, event.clientY, canvas.width, canvas.height);
+      }
+    }
   }
+
+  mouseLook.active = false;
+  canvas.style.cursor = mode === 'MENU' ? (menuHover ? 'pointer' : 'default') : 'default';
 });
 
 canvas.addEventListener('mouseleave', () => {
@@ -74,8 +97,16 @@ canvas.addEventListener('mousemove', (event) => {
   }
 
   if (!mouseLook.active || mode !== 'GAME') return;
+
   const dx = event.clientX - mouseLook.lastX;
+  const dy = event.clientY - mouseLook.lastY;
+  if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+    mouseLook.moved = true;
+    canvas.style.cursor = 'grabbing';
+  }
+
   mouseLook.lastX = event.clientX;
+  mouseLook.lastY = event.clientY;
   mouseLook.lookDelta += dx * mouseLook.sensitivity;
 });
 
@@ -102,7 +133,7 @@ function update(delta) {
     return;
   }
 
-  if (input.isPressed('x') || input.isPressed(' ') || input.isPressed('arrowup')) {
+  if (input.isPressed('x') || input.isPressed('arrowup')) {
     initAudio();
   }
 
@@ -127,7 +158,7 @@ function render() {
     return;
   }
 
-  clearCanvas(ctx, '#fce7f3');
+  clearCanvas(ctx, '#22c55e');
 
   if (mode === 'CUTSCENE') {
     renderCutscene(cutscene, ctx, canvas.width, canvas.height);

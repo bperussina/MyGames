@@ -1,43 +1,87 @@
 /**
- * First-person 3D nursery (raycasting) — Baby's Revenge 1 style.
+ * Outdoor green platform world with climbable hills — raycasting.
  */
 
 const MAP = [
-  '####################',
-  '#......##..........#',
-  '#..T...##...T......#',
-  '#......D#D.........#',
-  '#......##..........#',
-  '#......##..........#',
-  '####....##....######',
-  '#........#.........#',
-  '#...@....#....D....#',
-  '#........#.........#',
-  '####....##....######',
-  '#......##..........#',
-  '#..D...##...D......#',
-  '#......##..........#',
-  '#......##..........#',
-  '####################',
+  'MMMMMMMMMMMMMMMMMMMMMMMM',
+  'Mgg..............ggggggM',
+  'Mg..................gM',
+  'Mg...GGG....GGG......gM',
+  'Mg..G...G..G...G.....gM',
+  'Mg..G.@.G..G...G.....gM',
+  'Mg..G...G..G...G.....gM',
+  'Mg...GGG....GGG......gM',
+  'Mg...................gM',
+  'Mg......gggg.........gM',
+  'Mg.....g....g........gM',
+  'Mg.....g....g...D....gM',
+  'Mg.....gggggg........gM',
+  'Mg...................gM',
+  'Mg...GGG........GGG..gM',
+  'Mg..G...G......G...G.gM',
+  'Mg..G...G..D..G...G.gM',
+  'Mg..G...G......G...G.gM',
+  'Mg...GGG........GGG..gM',
+  'Mg...................gM',
+  'MggggggggggggggggggggM',
+  'MMMMMMMMMMMMMMMMMMMMMMMM',
+];
+
+const HEIGHT = [
+  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
+  [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,2,2,0,0,2,2,2,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,2,0,0,2,0,2,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,2,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,2,0,0,2,0,0,0,2,0,0,2,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,2,2,2,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,3],
+  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
+  [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
+  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
 ];
 
 const MAP_H = MAP.length;
 const MAP_W = MAP[0].length;
-const FOV = Math.PI / 2.8;
-const MAX_DEPTH = 22;
-const WALL_HEIGHT = 1;
-
-export const DOOR_TILES = new Set(['D']);
+const FOV = Math.PI / 2.6;
+const MAX_DEPTH = 28;
+const WALL_HEIGHT = 1.1;
 
 export function getSpawn() {
   for (let y = 0; y < MAP_H; y += 1) {
     for (let x = 0; x < MAP_W; x += 1) {
       if (MAP[y][x] === '@') {
-        return { x: x + 0.5, y: y + 0.5, angle: 0 };
+        return { x: x + 0.5, y: y + 0.5, angle: 0, height: getHeightAt(x, y) };
       }
     }
   }
-  return { x: 2.5, y: 2.5, angle: 0 };
+  return { x: 12.5, y: 5.5, angle: 0, height: 0 };
+}
+
+export function getHeightAt(tx, ty) {
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return 3;
+  return HEIGHT[ty][tx];
+}
+
+function tileAt(tx, ty) {
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return 'M';
+  return MAP[ty][tx];
+}
+
+function isWall(tx, ty) {
+  const t = tileAt(tx, ty);
+  return t === 'M' || t === 'G';
 }
 
 export function getDoorPositions() {
@@ -49,47 +93,46 @@ export function getDoorPositions() {
       }
     }
   }
+  if (doors.length === 0) {
+    doors.push({ x: 20.5, y: 11.5, id: 'd0' });
+    doors.push({ x: 16.5, y: 16.5, id: 'd1' });
+    doors.push({ x: 6.5, y: 11.5, id: 'd2' });
+  }
   return doors;
 }
 
-export function getToyBoxPositions() {
-  const boxes = [];
-  for (let y = 0; y < MAP_H; y += 1) {
-    for (let x = 0; x < MAP_W; x += 1) {
-      if (MAP[y][x] === 'T') {
-        boxes.push({ x: x + 0.5, y: y + 0.5, id: `t${x}-${y}` });
-      }
-    }
-  }
-  return boxes;
+export function getDuckSpawnPositions() {
+  return [
+    { x: 8.5, y: 9.5, id: 'duck0' },
+    { x: 14.5, y: 8.5, id: 'duck1' },
+    { x: 10.5, y: 14.5, id: 'duck2' },
+    { x: 17.5, y: 13.5, id: 'duck3' },
+    { x: 6.5, y: 16.5, id: 'duck4' },
+  ];
 }
 
-function isWall(tx, ty) {
-  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) {
-    return true;
-  }
-  const c = MAP[ty][tx];
-  return c === '#' || c === 'D';
-}
-
-function wallColor(wx, wy, side, isNight) {
-  const stripe = (Math.floor(wx) + Math.floor(wy)) % 2;
+function wallColor(wx, wy, side, isNight, elevation) {
+  const base = elevation >= 2 ? '#14532d' : elevation >= 1 ? '#16a34a' : '#22c55e';
   if (isNight) {
-    return side === 0
-      ? (stripe ? '#4c1d95' : '#5b21b6')
-      : (stripe ? '#3b0764' : '#4c1d95');
+    return side === 0 ? '#14532d' : '#052e16';
   }
-  return side === 0
-    ? (stripe ? '#fbcfe8' : '#f9a8d4')
-    : (stripe ? '#fda4af' : '#fb7185');
+  const stripe = (Math.floor(wx) + Math.floor(wy)) % 2;
+  if (stripe) {
+    return side === 0 ? base : '#15803d';
+  }
+  return side === 0 ? '#4ade80' : base;
 }
 
 export function createWorld3D() {
   const spawn = getSpawn();
   return {
-    player: { x: spawn.x, y: spawn.y, angle: spawn.angle },
+    player: { x: spawn.x, y: spawn.y, angle: spawn.angle, height: spawn.height },
     doors: getDoorPositions(),
-    toyBoxes: getToyBoxPositions(),
+    wildDucks: getDuckSpawnPositions().map((d) => ({
+      ...d,
+      waddle: Math.random() * Math.PI * 2,
+      collected: false,
+    })),
   };
 }
 
@@ -98,9 +141,10 @@ export function resetPlayer(world) {
   world.player.x = spawn.x;
   world.player.y = spawn.y;
   world.player.angle = spawn.angle;
+  world.player.height = spawn.height;
 }
 
-function castRay(px, py, angle) {
+function castRay(px, py, angle, playerHeight) {
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
   let depth = 0.05;
@@ -112,32 +156,49 @@ function castRay(px, py, angle) {
     const ty = Math.floor(ry);
 
     if (isWall(tx, ty)) {
-      const side =
-        Math.abs(rx - tx - 0.5) > Math.abs(ry - ty - 0.5) ? 0 : 1;
-      return { depth, wallX: rx, wallY: ry, mapX: tx, mapY: ty, side };
+      const side = Math.abs(rx - tx - 0.5) > Math.abs(ry - ty - 0.5) ? 0 : 1;
+      const elev = getHeightAt(tx, ty);
+      return { depth, wallX: rx, wallY: ry, mapX: tx, mapY: ty, side, elev };
     }
     depth += 0.02;
   }
 
-  return { depth: MAX_DEPTH, wallX: 0, wallY: 0, mapX: 0, mapY: 0, side: 0 };
+  return { depth: MAX_DEPTH, wallX: 0, wallY: 0, mapX: 0, mapY: 0, side: 0, elev: 0 };
+}
+
+function canMoveTo(world, nx, ny) {
+  const tx = Math.floor(nx);
+  const ty = Math.floor(ny);
+  if (isWall(tx, ty)) return false;
+  const targetH = getHeightAt(tx, ty);
+  const climb = targetH - world.player.height;
+  return climb <= 1.05 && climb >= -2;
 }
 
 function tryMove(world, dx, dy) {
-  const margin = 0.22;
+  const margin = 0.2;
   const nx = world.player.x + dx;
   const ny = world.player.y + dy;
 
-  if (!isWall(Math.floor(nx - margin), Math.floor(world.player.y))) {
+  if (canMoveTo(world, nx, world.player.y)) {
     world.player.x = nx;
   }
-  if (!isWall(Math.floor(world.player.x), Math.floor(ny - margin))) {
+  if (canMoveTo(world, world.player.x, ny)) {
     world.player.y = ny;
+  }
+
+  const tx = Math.floor(world.player.x);
+  const ty = Math.floor(world.player.y);
+  const groundH = getHeightAt(tx, ty);
+  if (groundH > world.player.height) {
+    world.player.height += Math.min(2.5 * 0.016, groundH - world.player.height);
+  } else if (groundH < world.player.height) {
+    world.player.height -= Math.min(2.5 * 0.016, world.player.height - groundH);
   }
 }
 
-export function updateWorldMovement(world, delta, input, moveSpeed = 3.8) {
+export function updateWorldMovement(world, delta, input, moveSpeed = 4.5) {
   const { player } = world;
-
   let forward = 0;
   let strafe = 0;
 
@@ -146,21 +207,17 @@ export function updateWorldMovement(world, delta, input, moveSpeed = 3.8) {
   if (input.isPressed('arrowleft')) strafe -= 1;
   if (input.isPressed('arrowright')) strafe += 1;
 
-  if (forward === 0 && strafe === 0) {
-    return;
-  }
+  if (forward === 0 && strafe === 0) return;
 
   const len = Math.hypot(forward, strafe);
   forward /= len;
   strafe /= len;
 
-  const speed = moveSpeed * delta;
+  const heightBonus = 1 + player.height * 0.08;
+  const speed = moveSpeed * heightBonus * delta;
   const cos = Math.cos(player.angle);
   const sin = Math.sin(player.angle);
-  const dx = (cos * forward - sin * strafe) * speed;
-  const dy = (sin * forward + cos * strafe) * speed;
-
-  tryMove(world, dx, dy);
+  tryMove(world, (cos * forward - sin * strafe) * speed, (sin * forward + cos * strafe) * speed);
 }
 
 export function worldDistance(ax, ay, bx, by) {
@@ -172,142 +229,104 @@ export function projectSprite(world, sprite, width, height) {
   const dx = sprite.x - player.x;
   const dy = sprite.y - player.y;
   const dist = Math.hypot(dx, dy);
-  if (dist < 0.15) {
-    return null;
-  }
+  if (dist < 0.12) return null;
 
   let angle = Math.atan2(dy, dx) - player.angle;
   while (angle > Math.PI) angle -= Math.PI * 2;
   while (angle < -Math.PI) angle += Math.PI * 2;
-
-  if (Math.abs(angle) > FOV / 2 + 0.3) {
-    return null;
-  }
+  if (Math.abs(angle) > FOV / 2 + 0.35) return null;
 
   const screenX = width / 2 + (angle / (FOV / 2)) * (width / 2);
-  const spriteH = Math.min(height * 0.9, (height / dist) * 0.75);
+  const spriteH = Math.min(height * 0.85, (height / dist) * 0.8);
   const spriteW = spriteH * 0.55;
+  const heightOff = ((sprite.height ?? 0) - player.height) * 12;
 
-  return { screenX, dist, spriteH, spriteW, angle };
+  return { screenX, dist, spriteH, spriteW, angle, screenY: height / 2 + heightOff };
 }
 
-function drawCeilingFloor(ctx, width, height, isNight) {
-  const ceilGrad = ctx.createLinearGradient(0, 0, 0, height / 2);
-  const floorGrad = ctx.createLinearGradient(0, height / 2, 0, height);
+function drawSkyAndGround(ctx, width, height, isNight, playerHeight) {
+  const sky = ctx.createLinearGradient(0, 0, 0, height / 2);
+  const ground = ctx.createLinearGradient(0, height / 2, 0, height);
 
   if (isNight) {
-    ceilGrad.addColorStop(0, '#0f172a');
-    ceilGrad.addColorStop(1, '#1e1b4b');
-    floorGrad.addColorStop(0, '#1e293b');
-    floorGrad.addColorStop(1, '#312e81');
+    sky.addColorStop(0, '#0c4a6e');
+    sky.addColorStop(1, '#14532d');
+    ground.addColorStop(0, '#166534');
+    ground.addColorStop(1, '#052e16');
   } else {
-    ceilGrad.addColorStop(0, '#bae6fd');
-    ceilGrad.addColorStop(1, '#e0f2fe');
-    floorGrad.addColorStop(0, '#fde68a');
-    floorGrad.addColorStop(1, '#d4a574');
+    sky.addColorStop(0, '#7dd3fc');
+    sky.addColorStop(1, '#bbf7d0');
+    const gShift = Math.min(0.3, playerHeight * 0.08);
+    ground.addColorStop(0, `rgb(${34 + gShift * 40}, ${197 - gShift * 30}, ${94})`);
+    ground.addColorStop(1, '#16a34a');
   }
 
-  ctx.fillStyle = ceilGrad;
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, height / 2);
-  ctx.fillStyle = floorGrad;
+  ctx.fillStyle = ground;
   ctx.fillRect(0, height / 2, width, height / 2);
 
-  if (!isNight) {
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    for (let i = 0; i < 12; i += 1) {
-      const fy = height / 2 + 20 + i * 28;
-      ctx.fillRect(0, fy, width, 2);
-    }
+  ctx.fillStyle = isNight ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.12)';
+  for (let i = 0; i < 16; i += 1) {
+    ctx.fillRect(0, height / 2 + 15 + i * 22, width, 2);
   }
 }
 
-function drawWallStripes(ctx, x, y, w, h, color, depth, isNight) {
-  const shade = Math.max(0.25, 1 - depth / MAX_DEPTH);
+function drawWallStripes(ctx, x, y, w, h, color, depth) {
+  const shade = Math.max(0.3, 1 - depth / MAX_DEPTH);
   ctx.fillStyle = color;
   ctx.fillRect(x, y, w + 1, h);
-
-  const stripeCount = Math.max(2, Math.floor(h / 18));
-  for (let i = 0; i < stripeCount; i += 1) {
-    const sy = y + (h / stripeCount) * i;
-    ctx.fillStyle = `rgba(0,0,0,${isNight ? 0.15 : 0.06})`;
-    ctx.fillRect(x, sy, w + 1, 2);
-  }
-
-  ctx.fillStyle = `rgba(0,0,0,${0.45 * (1 - shade)})`;
+  ctx.fillStyle = `rgba(0,0,0,${0.35 * (1 - shade)})`;
   ctx.fillRect(x, y, w + 1, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.08)';
+  ctx.fillRect(x, y, w + 1, 3);
 }
 
 function drawKidBillboard(ctx, sx, sy, sw, sh, kid, isNight) {
   const mood = kid.mood || 'angry';
-  const body = mood === 'scared' ? '#94a3b8' : (isNight ? '#4338ca' : '#6366f1');
-  const head = mood === 'scared' ? '#cbd5e1' : '#818cf8';
-
-  ctx.fillStyle = `rgba(0,0,0,0.35)`;
+  const body = mood === 'scared' ? '#94a3b8' : '#6366f1';
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   ctx.ellipse(sx, sy + sh * 0.48, sw * 0.45, sh * 0.08, 0, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.fillStyle = body;
   ctx.fillRect(sx - sw * 0.22, sy - sh * 0.05, sw * 0.44, sh * 0.42);
   ctx.fillRect(sx - sw * 0.38, sy + sh * 0.02, sw * 0.18, sh * 0.32);
   ctx.fillRect(sx + sw * 0.2, sy + sh * 0.02, sw * 0.18, sh * 0.32);
-
-  ctx.fillStyle = head;
+  ctx.fillStyle = '#818cf8';
   ctx.beginPath();
   ctx.arc(sx, sy - sh * 0.22, sw * 0.22, 0, Math.PI * 2);
   ctx.fill();
-
   ctx.fillStyle = '#1e293b';
   ctx.beginPath();
   ctx.arc(sx - sw * 0.08, sy - sh * 0.24, sw * 0.04, 0, Math.PI * 2);
   ctx.arc(sx + sw * 0.08, sy - sh * 0.24, sw * 0.04, 0, Math.PI * 2);
   ctx.fill();
-
-  if (mood === 'angry') {
-    ctx.strokeStyle = '#1e293b';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx - sw * 0.14, sy - sh * 0.3);
-    ctx.lineTo(sx - sw * 0.04, sy - sh * 0.26);
-    ctx.moveTo(sx + sw * 0.14, sy - sh * 0.3);
-    ctx.lineTo(sx + sw * 0.04, sy - sh * 0.26);
-    ctx.stroke();
-  }
-
-  if (kid.holdingToy) {
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(sx + sw * 0.25, sy - sh * 0.1, sw * 0.15, sw * 0.15);
+  if (kid.hitFlash > 0) {
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(sx - sw / 2, sy - sh / 2, sw, sh);
   }
 }
 
-function drawDuckBillboard(ctx, sx, sy, sw, sh) {
+function drawDuckBillboard(ctx, sx, sy, sw, sh, live = false) {
+  const bounce = Math.sin(Date.now() / 200) * 3;
   ctx.fillStyle = '#facc15';
   ctx.beginPath();
-  ctx.ellipse(sx, sy, sw * 0.35, sh * 0.25, 0, 0, Math.PI * 2);
+  ctx.ellipse(sx, sy + bounce, sw * 0.35, sh * 0.22, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(sx + sw * 0.15, sy - sh * 0.12, sw * 0.2, 0, Math.PI * 2);
+  ctx.arc(sx + sw * 0.15, sy - sh * 0.12 + bounce, sw * 0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#f97316';
   ctx.beginPath();
-  ctx.arc(sx + sw * 0.28, sy - sh * 0.08, sw * 0.07, 0, Math.PI * 2);
+  ctx.arc(sx + sw * 0.28, sy - sh * 0.08 + bounce, sw * 0.07, 0, Math.PI * 2);
   ctx.fill();
-}
-
-function drawToyBoxBillboard(ctx, sx, sy, sw, sh, glowing) {
-  ctx.fillStyle = glowing ? '#fbbf24' : '#b45309';
-  ctx.fillRect(sx - sw / 2, sy - sh / 2, sw, sh);
-  ctx.fillStyle = '#78350f';
-  ctx.fillRect(sx - sw / 2 + 4, sy - sh / 2 + 4, sw - 8, sh - 8);
-  ctx.fillStyle = '#fef3c7';
-  ctx.font = `bold ${Math.max(10, sh * 0.18)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('TOYS', sx, sy);
-  if (glowing) {
-    ctx.strokeStyle = '#fde047';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(sx - sw / 2 - 3, sy - sh / 2 - 3, sw + 6, sh + 6);
+  if (live) {
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(sx - sw * 0.2, sy - sh * 0.3 + bounce, 4, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 
@@ -315,53 +334,34 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
   const isNight = gameState.phase === 'NIGHT';
   const { player } = world;
 
-  drawCeilingFloor(ctx, width, height, isNight);
+  drawSkyAndGround(ctx, width, height, isNight, player.height);
 
   const rayCount = Math.floor(width / 2);
   const stripW = width / rayCount;
 
   for (let i = 0; i < rayCount; i += 1) {
     const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
-    const hit = castRay(player.x, player.y, rayAngle);
+    const hit = castRay(player.x, player.y, rayAngle, player.height);
     const corrected = hit.depth * Math.cos(rayAngle - player.angle);
-    const wallH = Math.min(height, (height / corrected) * WALL_HEIGHT);
-    const wallTop = (height - wallH) / 2;
+    const elevScale = 1 + hit.elev * 0.15;
+    const wallH = Math.min(height * 0.95, (height / corrected) * WALL_HEIGHT * elevScale);
+    const wallTop = (height - wallH) / 2 - hit.elev * 8;
 
-    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight);
-    drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, corrected, isNight);
+    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev);
+    drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, corrected);
   }
 
-  const sorted = [...sprites].sort((a, b) => b.dist - a.dist);
-  sorted.forEach((entry) => {
-    const { sprite, proj, type } = entry;
+  [...sprites].sort((a, b) => b.dist - a.dist).forEach(({ sprite, proj, type }) => {
     if (!proj) return;
-
     const sx = proj.screenX;
-    const sy = height / 2 + proj.spriteH * 0.08;
+    const sy = (proj.screenY ?? height / 2) + proj.spriteH * 0.08;
     const sw = proj.spriteW;
     const sh = proj.spriteH;
-
-    if (type === 'kid') {
-      drawKidBillboard(ctx, sx, sy, sw, sh, sprite, isNight);
-    } else if (type === 'duck') {
-      drawDuckBillboard(ctx, sx, sy, sw, sh);
-    } else if (type === 'toybox') {
-      drawToyBoxBillboard(ctx, sx, sy, sw, sh, sprite.glowing);
-    }
+    if (type === 'kid') drawKidBillboard(ctx, sx, sy, sw, sh, sprite, isNight);
+    else if (type === 'duck') drawDuckBillboard(ctx, sx, sy, sw, sh, sprite.live);
   });
 
-  if (isNight) {
-    const vig = ctx.createRadialGradient(
-      width / 2, height / 2, height * 0.2,
-      width / 2, height / 2, height * 0.85
-    );
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,0.55)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, width, height);
-  }
-
-  ctx.strokeStyle = isNight ? 'rgba(99,102,241,0.5)' : 'rgba(255,255,255,0.35)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
   ctx.lineWidth = 2;
   const ch = 8;
   ctx.beginPath();
@@ -374,72 +374,77 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
 
 export function buildSpriteList(world, gameState, width, height) {
   const sprites = [];
-  const isNight = gameState.phase === 'NIGHT';
 
-  if (!isNight) {
-    world.toyBoxes.forEach((box) => {
-      const dist = worldDistance(world.player.x, world.player.y, box.x, box.y);
+  if (gameState.phase === 'DAY') {
+    world.wildDucks.forEach((duck) => {
+      if (duck.collected) return;
       sprites.push({
-        sprite: { ...box, glowing: false },
-        dist,
-        type: 'toybox',
-        proj: projectSprite(world, box, width, height),
-      });
-    });
-
-    const duckSpots = [
-      { x: 4.5, y: 2.5 },
-      { x: 15.5, y: 2.5 },
-      { x: 10.5, y: 13.5 },
-    ];
-    duckSpots.forEach((d) => {
-      const dist = worldDistance(world.player.x, world.player.y, d.x, d.y);
-      sprites.push({
-        sprite: d,
-        dist,
+        sprite: { ...duck, live: true },
+        dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y),
         type: 'duck',
-        proj: projectSprite(world, d, width, height),
+        proj: projectSprite(world, duck, width, height),
       });
     });
   }
 
   gameState.kids.forEach((kid) => {
-    const dist = worldDistance(world.player.x, world.player.y, kid.x, kid.y);
+    if (kid.defeated) return;
     sprites.push({
       sprite: kid,
-      dist,
+      dist: worldDistance(world.player.x, world.player.y, kid.x, kid.y),
       type: 'kid',
       proj: projectSprite(world, kid, width, height),
     });
   });
 
-  if (gameState.toyBoxVisible && gameState.toyBoxWorld) {
-    const dist = worldDistance(
-      world.player.x,
-      world.player.y,
-      gameState.toyBoxWorld.x,
-      gameState.toyBoxWorld.y
-    );
-    sprites.push({
-      sprite: { ...gameState.toyBoxWorld, glowing: true },
-      dist,
-      type: 'toybox',
-      proj: projectSprite(world, gameState.toyBoxWorld, width, height),
-    });
-  }
-
   return sprites;
 }
 
-export function getNearestToyBox(world) {
-  let best = null;
-  let bestDist = Infinity;
-  world.toyBoxes.forEach((box) => {
-    const d = worldDistance(world.player.x, world.player.y, box.x, box.y);
-    if (d < bestDist) {
-      bestDist = d;
-      best = box;
+export function findClickTarget(world, gameState, width, height, clickX, clickY) {
+  const sprites = buildSpriteList(world, gameState, width, height)
+    .filter((s) => s.type === 'kid' && s.proj)
+    .sort((a, b) => a.dist - b.dist);
+
+  for (const entry of sprites) {
+    const { proj, sprite } = entry;
+    const sx = proj.screenX;
+    const sy = (proj.screenY ?? height / 2) + proj.spriteH * 0.08;
+    const sw = proj.spriteW;
+    const sh = proj.spriteH;
+    if (
+      clickX >= sx - sw / 2 && clickX <= sx + sw / 2 &&
+      clickY >= sy - sh / 2 && clickY <= sy + sh / 2
+    ) {
+      return { type: 'kid', sprite, dist: entry.dist };
     }
+  }
+
+  if (gameState.phase === 'DAY') {
+    for (const duck of world.wildDucks) {
+      if (duck.collected) continue;
+      const proj = projectSprite(world, duck, width, height);
+      if (!proj) continue;
+      const sx = proj.screenX;
+      const sy = (proj.screenY ?? height / 2) + proj.spriteH * 0.08;
+      const sw = proj.spriteW;
+      const sh = proj.spriteH;
+      if (
+        clickX >= sx - sw / 2 && clickX <= sx + sw / 2 &&
+        clickY >= sy - sh / 2 && clickY <= sy + sh / 2
+      ) {
+        return { type: 'duck', sprite: duck, dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y) };
+      }
+    }
+  }
+
+  return null;
+}
+
+export function updateWildDucks(world, delta) {
+  world.wildDucks.forEach((duck) => {
+    if (duck.collected) return;
+    duck.waddle += delta * 2;
+    duck.x += Math.sin(duck.waddle) * delta * 0.3;
+    duck.y += Math.cos(duck.waddle * 0.7) * delta * 0.2;
   });
-  return { box: best, dist: bestDist };
 }
