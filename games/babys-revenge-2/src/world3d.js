@@ -1,63 +1,69 @@
 /**
- * Outdoor green platform world with climbable hills — raycasting.
+ * Open green meadow with lakes, scattered mountains, and a distant border ridge.
  */
 
 const MAP = [
   'MMMMMMMMMMMMMMMMMMMMMMMM',
-  'Mgg..............ggggggM',
-  'Mg....................gM',
-  'Mg...hhh....hhh.......gM',
-  'Mg..h...h..h...h......gM',
-  'Mg..h.@.h..h...h......gM',
-  'Mg..h...h..h...h......gM',
-  'Mg...hhh....hhh.......gM',
-  'Mg....................gM',
-  'Mg......LLLL..........gM',
-  'Mg.....LLLLL..........gM',
-  'Mg.....LLLLL....D.....gM',
-  'Mg......LLLL..........gM',
-  'Mg.........LLLL.......gM',
-  'Mg.........LLLLL......gM',
-  'Mg.........LLLLL......gM',
-  'Mg...hhh........hhh...gM',
-  'Mg..h...h......h...h..gM',
-  'Mg..h...h..D..h...h...gM',
-  'Mg..h...h......h...h..gM',
-  'Mg...hhh........hhh...gM',
-  'MggggggggggggggggggggggM',
+  'M......................M',
+  'M......................M',
+  'M......TTT.............M',
+  'M.....TTTTT............M',
+  'M.....TTTTT............M',
+  'M......TTT..........TT.M',
+  'M..................TTT.M',
+  'M.........@.......TTTT.M',
+  'M..................TTT.M',
+  'M......................M',
+  'M..........LLLL........M',
+  'M.........LLLLL........M',
+  'M..........LLLL........M',
+  'M......................M',
+  'M...............LLL....M',
+  'M..............LLLL....M',
+  'M...............LLL....M',
+  'M......................M',
+  'M..........TTTT....D...M',
+  'M.........TTTTTT.......M',
+  'M..........TTTT....D...M',
   'MMMMMMMMMMMMMMMMMMMMMMMM',
-];
-
-const HEIGHT = [
-  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
-  [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,1,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,3],
-  [3,1,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,3],
-  [3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3],
-  [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3],
 ];
 
 const MAP_H = MAP.length;
 const MAP_W = MAP[0].length;
+
+function buildHeightMap() {
+  const heights = [];
+  for (let y = 0; y < MAP_H; y += 1) {
+    const row = [];
+    for (let x = 0; x < MAP_W; x += 1) {
+      const tile = MAP[y][x] ?? 'M';
+      if (tile === 'M') {
+        row.push(4);
+      } else if (tile === 'T') {
+        let cluster = 0;
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            const ny = y + dy;
+            const nx = x + dx;
+            if (ny >= 0 && ny < MAP_H && nx >= 0 && nx < MAP_W && MAP[ny][nx] === 'T') {
+              cluster += 1;
+            }
+          }
+        }
+        row.push(cluster >= 7 ? 3 : cluster >= 4 ? 2 : 1);
+      } else {
+        row.push(0);
+      }
+    }
+    heights.push(row);
+  }
+  return heights;
+}
+
+const HEIGHT = buildHeightMap();
+
 const FOV = Math.PI / 2.6;
-const MAX_DEPTH = 24;
+const MAX_DEPTH = 32;
 const WALL_HEIGHT = 1.1;
 const RAY_STEP = 0.04;
 
@@ -84,6 +90,10 @@ function tileAt(tx, ty) {
 
 function isWall(tx, ty) {
   return tileAt(tx, ty) === 'M';
+}
+
+function isMountain(tx, ty) {
+  return tileAt(tx, ty) === 'T';
 }
 
 export function isLake(tx, ty) {
@@ -186,13 +196,13 @@ export function getDuckSpawnPositions() {
 
 function wallColor(wx, wy, side, isNight, elevation) {
   if (isNight) {
-    return side === 0 ? '#14532d' : '#052e16';
+    return side === 0 ? '#1e3a5f' : '#0f172a';
+  }
+  if (elevation >= 4) {
+    return side === 0 ? '#94a3b8' : '#64748b';
   }
   const stripe = (Math.floor(wx) + Math.floor(wy)) % 2;
-  if (stripe) {
-    return side === 0 ? '#166534' : '#14532d';
-  }
-  return side === 0 ? '#15803d' : '#166534';
+  return stripe ? (side === 0 ? '#166534' : '#14532d') : (side === 0 ? '#15803d' : '#166534');
 }
 
 export function createWorld3D() {
@@ -342,10 +352,10 @@ function drawSkyAndGround(ctx, width, height, isNight, playerHeight) {
   }
 }
 
-function drawFloorHills(ctx, width, height, world, isNight) {
+function drawMountains(ctx, width, height, world, isNight) {
   const { player } = world;
   const halfH = height / 2;
-  const rayCount = Math.floor(width / 3);
+  const rayCount = Math.floor(width / 2.5);
   const stripW = width / rayCount;
 
   for (let i = 0; i < rayCount; i += 1) {
@@ -355,20 +365,42 @@ function drawFloorHills(ctx, width, height, world, isNight) {
 
     const screenX = width / 2 + (Math.tan(rayAngle - player.angle) / Math.tan(FOV / 2)) * (width / 2);
 
-    for (const dist of [4, 8, 14]) {
+    for (const dist of [3, 6, 10, 16, 22]) {
       const rx = player.x + Math.cos(rayAngle) * dist;
       const ry = player.y + Math.sin(rayAngle) * dist;
       const groundH = getHeightAt(Math.floor(rx), Math.floor(ry));
       if (groundH <= 0) continue;
 
       const corrected = dist * cosA;
-      const moundH = Math.min(48, (height / corrected) * groundH * 0.18);
-      const floorY = halfH - moundH * 0.35;
+      const scale = height / corrected;
+      const moundH = Math.min(groundH >= 3 ? 120 : 72, scale * groundH * (groundH >= 3 ? 0.42 : 0.22));
+      const floorY = halfH - moundH * 0.55 + (player.height - groundH) * 2;
 
-      ctx.fillStyle = isNight
-        ? `rgba(21,128,61,${0.2 + groundH * 0.12})`
-        : `rgba(74,222,128,${0.22 + groundH * 0.14})`;
-      ctx.fillRect(screenX - stripW / 2, floorY, stripW + 1, moundH + 6);
+      if (groundH >= 3) {
+        const rock = ctx.createLinearGradient(0, floorY, 0, floorY + moundH);
+        if (isNight) {
+          rock.addColorStop(0, 'rgba(71,85,105,0.9)');
+          rock.addColorStop(0.7, 'rgba(51,65,85,0.95)');
+          rock.addColorStop(1, 'rgba(30,41,59,1)');
+        } else {
+          rock.addColorStop(0, 'rgba(226,232,240,0.95)');
+          rock.addColorStop(0.15, 'rgba(148,163,184,0.9)');
+          rock.addColorStop(0.55, 'rgba(100,116,139,0.95)');
+          rock.addColorStop(1, 'rgba(71,85,105,1)');
+        }
+        ctx.fillStyle = rock;
+        ctx.beginPath();
+        ctx.moveTo(screenX - stripW * 0.8, halfH + 20);
+        ctx.lineTo(screenX, floorY);
+        ctx.lineTo(screenX + stripW * 0.8, halfH + 20);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = isNight
+          ? `rgba(21,128,61,${0.25 + groundH * 0.1})`
+          : `rgba(74,222,128,${0.28 + groundH * 0.12})`;
+        ctx.fillRect(screenX - stripW / 2, floorY, stripW + 1, moundH + 8);
+      }
     }
   }
 }
@@ -465,7 +497,7 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
   const { player } = world;
 
   drawSkyAndGround(ctx, width, height, isNight, player.height);
-  drawFloorHills(ctx, width, height, world, isNight);
+  drawMountains(ctx, width, height, world, isNight);
   drawLakePatches(ctx, width, height, world, isNight);
 
   const rayCount = Math.floor(width / 3);
@@ -475,9 +507,9 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
     const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
     const hit = castRay(player.x, player.y, rayAngle, player.height);
     const corrected = hit.depth * Math.cos(rayAngle - player.angle);
-    const elevScale = 1 + hit.elev * 0.15;
+    const elevScale = 1 + Math.min(hit.elev, 4) * 0.12;
     const wallH = Math.min(height * 0.95, (height / corrected) * WALL_HEIGHT * elevScale);
-    const wallTop = (height - wallH) / 2 - hit.elev * 8;
+    const wallTop = (height - wallH) / 2 - Math.min(hit.elev, 4) * 10;
 
     const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev);
     drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, corrected);

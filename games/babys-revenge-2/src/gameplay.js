@@ -420,7 +420,7 @@ export function renderGameplay(state, ctx, width, height) {
     drawText(ctx, '☀️ Daytime — rest up, baby! ☀️', width / 2, height * 0.32, {
       size: 36, color: `rgba(251,191,36,${alpha})`,
     });
-    drawText(ctx, 'Explore the green hills!', width / 2, height * 0.4, {
+    drawText(ctx, 'Explore the open green meadow!', width / 2, height * 0.4, {
       size: 20, color: `rgba(255,255,255,${alpha * 0.9})`,
     });
     drawText(ctx, 'Find lakes — collect live ducks 🦆', width / 2, height * 0.47, {
