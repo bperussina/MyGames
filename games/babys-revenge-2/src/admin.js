@@ -1,5 +1,6 @@
 import { drawText, drawRect } from '@mygames/shared';
 import { MAX_NIGHTS } from './gameplay.js';
+import { getMaxHealth } from './shop.js';
 
 export function createAdminState() {
   return {
@@ -64,9 +65,10 @@ export function handleAdminClick(admin, gameState, setGameState, x, y, width, he
           night: Math.min(MAX_NIGHTS, s.night + 1),
           phase: 'DAY',
           phaseTimer: 0.1,
-          health: 3,
+          health: getMaxHealth(s.shop),
           kids: [],
-          toys: [],
+          thrownToys: [],
+          incomingToys: [],
           lost: false,
         }));
       },

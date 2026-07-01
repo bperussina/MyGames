@@ -1,4 +1,4 @@
-export const LOGS_PER_LEVEL = 100;
+export const LOGS_PER_LEVEL = 25;
 export const LOGS_PER_TREE = 5;
 export const MAX_CAMPFIRE_LEVEL = 6;
 export const CAMPFIRE_INTERACT_RANGE = 2.8;

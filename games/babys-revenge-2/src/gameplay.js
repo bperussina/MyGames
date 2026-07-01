@@ -14,6 +14,7 @@ import {
   collectDuck,
   chopTree,
   updateCampfire,
+  projectSprite,
 } from './world3d.js';
 import {
   createInventory,
@@ -53,6 +54,8 @@ const DAY_DURATION = 180;
 const NIGHT_DURATION = 180;
 const MAX_NIGHTS = 20;
 const DAY_BANNER_TIME = 5;
+const SOUND_MAKER_MAX = 100;
+const WIN_SCREEN_TIME = 8;
 
 export function createGameState() {
   return {
@@ -68,7 +71,8 @@ export function createGameState() {
     soundPower: 0,
     won: false,
     lost: false,
-    soundMakerCharges: 100,
+    soundMakerCharges: SOUND_MAKER_MAX,
+    winTimer: 0,
     world: createWorld3D(),
     inventory: createInventory(),
     shop: createShopState(),
@@ -140,6 +144,7 @@ function startDay(state) {
   state.thrownToys = [];
   state.incomingToys = [];
   state.health = getMaxHealth(state.shop);
+  state.soundMakerCharges = SOUND_MAKER_MAX;
   resetPlayer(state.world);
 }
 
@@ -216,6 +221,7 @@ export function handleInventoryClick(state, clickX, clickY, width, height) {
 
 export function updateGameplay(state, delta, input, width, height, admin) {
   if (state.won || state.lost) {
+    if (state.won) state.winTimer = (state.winTimer ?? 0) + delta;
     if (input.isPressed('r', ' ')) {
       return createGameState();
     }
@@ -289,8 +295,19 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   }
 
   state.kids.forEach((kid) => {
-    if (kid.defeated || kid.retreating) return;
+    if (kid.defeated) return;
     kid.hitFlash = Math.max(0, kid.hitFlash - delta);
+
+    if (kid.retreating) {
+      const dx = kid.homeX - kid.x;
+      const dy = kid.homeY - kid.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0.2) {
+        kid.x += (dx / dist) * diff.kidSpeed * 0.9 * delta;
+        kid.y += (dy / dist) * diff.kidSpeed * 0.9 * delta;
+      }
+      return;
+    }
 
     const dx = state.world.player.x - kid.x;
     const dy = state.world.player.y - kid.y;
@@ -371,6 +388,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   if (state.phaseTimer <= 0) {
     if (state.night >= MAX_NIGHTS) {
       state.won = true;
+      state.winTimer = 0;
     } else {
       state.night += 1;
       startDay(state);
@@ -378,6 +396,38 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   }
 
   return state;
+}
+
+function drawWorldToys(ctx, world, toys, width, height) {
+  toys.forEach((toy) => {
+    const proj = projectSprite(world, { x: toy.x, y: toy.y }, width, height);
+    if (!proj) return;
+    const colors = ['#ef4444', '#22c55e', '#3b82f6', '#a855f7'];
+    const r = Math.max(6, proj.spriteH * 0.08);
+    ctx.fillStyle = colors[toy.type % colors.length];
+    ctx.beginPath();
+    ctx.arc(proj.screenX, proj.groundY - proj.spriteH * 0.2, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawSoundChargeMeter(ctx, width, charges) {
+  const barW = 120;
+  const barH = 10;
+  const x = width / 2 - barW / 2;
+  const y = height - 168;
+  const pct = Math.max(0, charges / SOUND_MAKER_MAX);
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(x - 4, y - 18, barW + 8, 32);
+  drawText(ctx, 'Sound maker (hold X)', width / 2, y - 10, { size: 11, color: '#fde68a' });
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(x, y, barW, barH);
+  ctx.fillStyle = pct > 0.25 ? '#facc15' : '#ef4444';
+  ctx.fillRect(x, y, barW * pct, barH);
 }
 
 function drawScreenToys(ctx, toys) {
@@ -417,7 +467,9 @@ export function renderGameplay(state, ctx, width, height) {
   const sprites = buildSpriteList(state.world, state, width, height);
   renderWorld3D(ctx, width, height, state.world, state, sprites);
 
+  drawWorldToys(ctx, state.world, state.thrownToys, width, height);
   drawScreenToys(ctx, state.incomingToys);
+  if (state.phase === 'NIGHT') drawSoundChargeMeter(ctx, width, state.soundMakerCharges);
   drawSoundOverlay(ctx, width, height, state.soundPower);
   renderInventory(ctx, width, height, state.inventory, state.liveDucks);
   renderShopButton(ctx, width, height, state.liveDucks);
@@ -486,11 +538,19 @@ export function renderGameplay(state, ctx, width, height) {
   }
 
   if (state.won) {
-    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    const t = state.winTimer ?? 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
     ctx.fillRect(0, 0, width, height);
-    drawText(ctx, 'YOU WIN!', width / 2, height / 2 - 30, { size: 52, color: '#facc15' });
-    drawText(ctx, `${state.liveDucks} live ducks collected!`, width / 2, height / 2 + 20, { size: 22, color: '#fff' });
-    drawText(ctx, 'Press R to play again', width / 2, height / 2 + 60, { size: 18, color: '#94a3b8' });
+
+    const bounce = Math.sin(t * 3) * 6;
+    drawText(ctx, '🎉 YOU WIN! 🎉', width / 2, height * 0.28 + bounce, { size: 52, color: '#facc15' });
+    drawText(ctx, 'Baby survived all 20 nights!', width / 2, height * 0.38, { size: 24, color: '#fff' });
+    drawText(ctx, `${state.liveDucks} live ducks saved 🦆`, width / 2, height * 0.46, { size: 22, color: '#38bdf8' });
+    drawText(ctx, `Campfire level ${getCampfireProgress(state.world.campfire).level} · World fully explored`, width / 2, height * 0.54, {
+      size: 18, color: '#fb923c',
+    });
+    drawText(ctx, 'The big kids learned their lesson… for now.', width / 2, height * 0.62, { size: 18, color: '#c4b5fd' });
+    drawText(ctx, 'Press R to play again', width / 2, height * 0.78, { size: 18, color: '#94a3b8' });
   }
 
   if (state.lost) {
