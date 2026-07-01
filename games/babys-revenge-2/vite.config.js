@@ -4,17 +4,16 @@ export default defineConfig({
   root: '.',
   server: {
     port: 5176,
-    host: true,
+    host: '0.0.0.0',
     strictPort: true,
-    open: true,
-    // Avoid surprise mid-game reloads when the dev connection drops.
+    open: false,
     hmr: false,
   },
   preview: {
     port: 5176,
-    host: true,
+    host: '0.0.0.0',
     strictPort: true,
-    open: true,
+    open: false,
   },
   build: {
     outDir: 'dist',

@@ -18,11 +18,29 @@ npm install
 # Stable build — best for playing without disconnects (recommended)
 npm run play -- babys-revenge-2
 
+# Family play on the same Wi-Fi — prints a link to text everyone
+npm run family -- babys-revenge-2
+
 # Dev mode (for testing changes)
 npm run dev -- babys-revenge-2
 ```
 
 **Tip:** Use `npm run play` for the full game. Trees and ducks are **real 3D meshes** (WebGL/Three.js) with a sprite-pack texture atlas — walk around them and they have volume from every angle.
+
+## Play with family (same Wi-Fi)
+
+1. On the computer running the game, open a terminal in this repo folder.
+2. Run:
+
+```bash
+npm run family -- babys-revenge-2
+```
+
+3. Copy the **share link** it prints (looks like `http://192.168.x.x:5176/`).
+4. Text that link to everyone on the **same Wi-Fi**.
+5. They tap the link — the game opens right away. Keep the terminal open while you play.
+
+**You** can use `http://localhost:5176/` on the host computer. **Family** uses the `192.168...` link from the same screen.
 
 When a **new version** is ready, you'll see a **"New Game Ready!"** screen — tap **Play Updated Game** to get the fresh build.
 
