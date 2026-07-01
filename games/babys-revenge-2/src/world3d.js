@@ -10,6 +10,7 @@ import {
 } from './campfire.js';
 import {
   drawTreeColumn,
+  drawTree3D,
   drawDuck3D,
   drawCampfire3D,
   drawKid3D,
@@ -29,12 +30,12 @@ const MAP = [
   'M..R..TTTTT...R........M',
   'M......TTT..........TT.M',
   'M.R...............TTT..M',
-  'M.........F.@.....TTTT.M',
+  'M........RF.@R....TTTT.M',
   'M..R.............TTT...M',
-  'M......................M',
-  'M..........LLLL....R...M',
-  'M.........LLLLL........M',
-  'M..........LLLL........M',
+  'M......R....R..........M',
+  'M....R.....LLLL....R...M',
+  'M.........LLLLL..R.....M',
+  'M....R.....LLLL........M',
   'M..R...................M',
   'M...............LLL....M',
   'M.R............LLLL....M',
@@ -621,6 +622,7 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
     const viewAngle = proj.angle;
     if (type === 'kid') drawKid3D(ctx, sx, gy, sw, sh, sprite, viewAngle, isNight);
     else if (type === 'duck') drawDuck3D(ctx, sx, gy, sw, sh, viewAngle, isNight, sprite.live);
+    else if (type === 'tree') drawTree3D(ctx, sx, gy, sw, sh, viewAngle, isNight);
     else if (type === 'campfire') drawCampfire3D(ctx, sx, gy, sw, sh, sprite, viewAngle, isNight);
   });
 

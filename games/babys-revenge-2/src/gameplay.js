@@ -244,8 +244,9 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   state.world.wildDucks.forEach((duck) => {
     if (duck.collected) return;
     const d = worldDistance(state.world.player.x, state.world.player.y, duck.x, duck.y);
-    if (d < 1.4 && collectDuck(duck)) {
-      addLiveDuck(state);
+    if (d < 0.8) {
+      duck.waddle += delta * 2;
+      duck.x += Math.sin(duck.waddle) * delta * 0.4;
     }
   });
 
