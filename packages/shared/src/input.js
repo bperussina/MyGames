@@ -11,9 +11,7 @@ export class Input {
     this.keys = new Set();
     this.pointer = { x: 0, y: 0, down: false };
 
-    const keyTarget = target === window || target === document.body ? target : window;
-
-    keyTarget.addEventListener('keydown', (event) => {
+    document.addEventListener('keydown', (event) => {
       const key = event.key.toLowerCase();
       this.keys.add(key);
       if (GAME_KEYS.has(key)) {
@@ -21,7 +19,7 @@ export class Input {
       }
     });
 
-    keyTarget.addEventListener('keyup', (event) => {
+    document.addEventListener('keyup', (event) => {
       this.keys.delete(event.key.toLowerCase());
     });
 

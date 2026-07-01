@@ -382,10 +382,10 @@ export function updateWorldMovement(world, delta, input, moveSpeed = 4.5) {
   let forward = 0;
   let strafe = 0;
 
-  if (input.isPressed('arrowup', 'w')) forward += 1;
-  if (input.isPressed('arrowdown', 's')) forward -= 1;
-  if (input.isPressed('arrowleft', 'a')) strafe -= 1;
-  if (input.isPressed('arrowright', 'd')) strafe += 1;
+  if (input.isPressed('arrowup', 'w')) forward += 1;       // forward
+  if (input.isPressed('arrowdown', 's')) forward -= 1;   // backward
+  if (input.isPressed('arrowleft', 'a')) strafe -= 1;    // left
+  if (input.isPressed('arrowright', 'd')) strafe += 1;   // right
 
   if (forward === 0 && strafe === 0) return;
 

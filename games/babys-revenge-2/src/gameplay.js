@@ -492,6 +492,11 @@ export function renderGameplay(state, ctx, width, height) {
   }
 
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(12, height - 52, 248, 36);
+  drawText(ctx, 'Move: WASD or ↑←↓→', 16, height - 42, { align: 'left', baseline: 'top', size: 13, color: '#e2e8f0' });
+  drawText(ctx, 'Look: click + drag', 16, height - 24, { align: 'left', baseline: 'top', size: 12, color: '#94a3b8' });
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
   ctx.fillRect(width - 210, height - 130, 198, 58);
   drawText(ctx, 'Axe — chop trees · Campfire — feed logs', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
   drawText(ctx, 'Select Toy Box · click kids', width - 106, height - 102, { size: 12, color: '#fbbf24' });
@@ -523,7 +528,7 @@ export function renderGameplay(state, ctx, width, height) {
     drawText(ctx, 'Chop trees 🪵 · feed the campfire 🔥', width / 2, height * 0.47, {
       size: 16, color: `rgba(203,213,225,${alpha * 0.85})`,
     });
-    drawText(ctx, 'Grow the fire to expand the world!', width / 2, height * 0.54, {
+    drawText(ctx, 'WASD or arrow keys to move · click + drag to look', width / 2, height * 0.54, {
       size: 14, color: `rgba(250,204,21,${alpha * 0.8})`,
     });
   }

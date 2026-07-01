@@ -30,7 +30,14 @@ When a **new version** is ready, you'll see a **"New Game Ready!"** screen — t
 
 | Input | Action |
 |-------|--------|
-| **W A S D** or **Arrow keys** | Move (W forward, S back, A left, D right) |
+| **W** | Forward |
+| **S** | Backward |
+| **A** | Left |
+| **D** | Right |
+| **↑** | Forward |
+| **↓** | Backward |
+| **←** | Left |
+| **→** | Right |
 | **Left-click + drag** | Look around |
 | **Click** | Chop trees, feed campfire, collect ducks, throw toys at kids |
 | **Inventory slots** | Select toy box or axe |
