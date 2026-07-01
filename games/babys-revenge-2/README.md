@@ -27,7 +27,17 @@ npm run dev -- babys-revenge-2
 
 **Tip:** Use `npm run play` for the full game. Trees and ducks are **real 3D meshes** (WebGL/Three.js) with a sprite-pack texture atlas — walk around them and they have volume from every angle.
 
-## Play with family (same Wi-Fi)
+## Play with family
+
+**Text this link in Messages — it just works:**
+
+**https://bperussina.github.io/MyGames/play.html**
+
+No Wi-Fi setup. Family can tap it on any phone (Wi-Fi or cell data).
+
+Also saved in `games/babys-revenge-2/SHARE-LINK.txt`.
+
+### Same Wi-Fi only (optional)
 
 1. On the computer running the game, open a terminal in this repo folder.
 2. Run:
@@ -36,13 +46,9 @@ npm run dev -- babys-revenge-2
 npm run family -- babys-revenge-2
 ```
 
-3. Open **`FAMILY-LINK.txt`** in the game folder (created automatically), or copy from the terminal.
-4. Text **only the link** (starts with `http://192.168`) to everyone on the **same Wi-Fi**.
-5. They tap the link — it opens **Baby's Revenge 2**, not a code file.
+3. Open **`FAMILY-LINK.txt`** for the optional local link.
 
-**Important:** Do not copy lines from the build log. Only copy the link that starts with `http://`. The link ends with `/play.html`.
-
-**You** can use `http://localhost:5176/play.html` on the host computer. **Family** uses the `192.168...` link from `FAMILY-LINK.txt`.
+**You** can use `http://localhost:5176/play.html` on the host computer when running locally.
 
 When a **new version** is ready, you'll see a **"New Game Ready!"** screen — tap **Play Updated Game** to get the fresh build.
 

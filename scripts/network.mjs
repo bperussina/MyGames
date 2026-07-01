@@ -56,9 +56,19 @@ export function copyToClipboard(text) {
   }
 }
 
-export function writeFamilyLinkFile(url) {
+export function writeFamilyLinkFile(onlineUrl, localUrl = '') {
   const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
-  const body = `${buildShareMessage(url)}\n\nCopy the link above and text it to family.\nDo not copy anything from the build log.\n`;
+  const body = `TEXT THIS LINK TO YOUR FAMILY:
+
+${onlineUrl}
+
+Tap it in Messages — the game opens right away.
+Works on any phone, tablet, or computer (Wi-Fi or cell data).
+
+---
+Optional same-Wi-Fi link (only works at your house with the game running):
+${localUrl || '(run npm run family to generate)'}
+`;
   writeFileSync(filePath, body, 'utf8');
   return filePath;
 }
@@ -66,38 +76,35 @@ export function writeFamilyLinkFile(url) {
 export function printFamilyPlayBanner(port, gameTitle = 'the game') {
   const { localhost, lan, primary } = getPlayUrls(port);
   const shareText = buildShareMessage(primary);
+  const onlineLink = 'https://bperussina.github.io/MyGames/play.html';
 
   console.log(`\n${'═'.repeat(56)}`);
   console.log(`  FAMILY PLAY — ${gameTitle}`);
   console.log(`${'═'.repeat(56)}`);
+
+  console.log('\n  EASIEST — text this link (works on any Wi-Fi or phone data):\n');
+  console.log(`  ${onlineLink}`);
+
   console.log(`\n  On this computer:\n    ${localhost}\n`);
 
   if (lan.length > 0) {
-    console.log('  TEXT THIS TO YOUR FAMILY (copy only the line below):\n');
+    console.log('  Same Wi-Fi only — optional local link:\n');
     console.log(`  ${primary}`);
-    console.log('\n  Or copy the whole message:\n');
-    console.log('  ─────────────────────────────────────');
-    for (const line of shareText.split('\n')) {
-      console.log(`  ${line}`);
-    }
-    console.log('  ─────────────────────────────────────');
   } else {
-    console.log('  Wi-Fi IP not detected yet.');
-    console.log('  Connect to Wi-Fi, then run this command again.');
-    console.log(`  For now, use on this computer only: ${localhost}`);
+    console.log('  (Local Wi-Fi IP not detected — use the online link above.)');
   }
 
-  const linkFile = writeFamilyLinkFile(primary);
-  const copied = copyToClipboard(shareText);
+  const linkFile = writeFamilyLinkFile(onlineLink, primary);
+  const copied = copyToClipboard(
+    `Play Baby's Revenge 2:\n${onlineLink}`,
+  );
 
-  console.log(`\n  Link saved to: ${linkFile}`);
+  console.log(`\n  Links saved to: ${linkFile}`);
   if (copied) {
-    console.log('  Copied to clipboard — paste into Messages and send.');
-  } else {
-    console.log('  Open FAMILY-LINK.txt and copy the link from there.');
+    console.log('  Online link copied to clipboard — paste into Messages and send.');
   }
 
-  console.log('\n  Do NOT copy lines from the build log (no @ symbols).');
-  console.log('  Keep this terminal open while everyone plays.\n');
+  console.log('\n  Keep this terminal open only if using the local Wi-Fi link.');
+  console.log('  The online link works without keeping anything open.\n');
   console.log(`${'═'.repeat(56)}\n`);
 }
