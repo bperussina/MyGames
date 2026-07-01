@@ -1,5 +1,10 @@
 #!/usr/bin/env node
 import os from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const SHARE_PATH = '/play.html';
 
 function privateIpScore(ip) {
   if (ip.startsWith('192.168.')) return 0;
@@ -24,15 +29,43 @@ export function getLanAddresses() {
   return [...new Set(addrs)].sort((a, b) => privateIpScore(a) - privateIpScore(b));
 }
 
-export function getPlayUrls(port, game = '') {
-  const path = game ? '/' : '/';
-  const localhost = `http://localhost:${port}${path}`;
-  const lan = getLanAddresses().map((ip) => `http://${ip}:${port}${path}`);
-  return { localhost, lan, primary: lan[0] ?? localhost };
+export function getPlayUrls(port) {
+  const localhost = `http://localhost:${port}${SHARE_PATH}`;
+  const lan = getLanAddresses().map((ip) => `http://${ip}:${port}${SHARE_PATH}`);
+  return { localhost, lan, primary: lan[0] ?? localhost, sharePath: SHARE_PATH };
+}
+
+export function buildShareMessage(url) {
+  return `Play Baby's Revenge 2 (same Wi-Fi only):\n${url}`;
+}
+
+export function copyToClipboard(text) {
+  try {
+    if (process.platform === 'darwin') {
+      spawnSync('pbcopy', { input: text });
+      return true;
+    }
+    if (process.platform === 'win32') {
+      spawnSync('clip', { input: text, shell: true });
+      return true;
+    }
+    spawnSync('xclip', ['-selection', 'clipboard'], { input: text });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function writeFamilyLinkFile(url) {
+  const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
+  const body = `${buildShareMessage(url)}\n\nCopy the link above and text it to family.\nDo not copy anything from the build log.\n`;
+  writeFileSync(filePath, body, 'utf8');
+  return filePath;
 }
 
 export function printFamilyPlayBanner(port, gameTitle = 'the game') {
   const { localhost, lan, primary } = getPlayUrls(port);
+  const shareText = buildShareMessage(primary);
 
   console.log(`\n${'═'.repeat(56)}`);
   console.log(`  FAMILY PLAY — ${gameTitle}`);
@@ -40,20 +73,31 @@ export function printFamilyPlayBanner(port, gameTitle = 'the game') {
   console.log(`\n  On this computer:\n    ${localhost}\n`);
 
   if (lan.length > 0) {
-    console.log('  Text this link to family on the SAME Wi-Fi:\n');
-    for (const url of lan) {
-      const star = url === primary ? ' ★' : '';
-      console.log(`    ${url}${star}`);
+    console.log('  TEXT THIS TO YOUR FAMILY (copy only the line below):\n');
+    console.log(`  ${primary}`);
+    console.log('\n  Or copy the whole message:\n');
+    console.log('  ─────────────────────────────────────');
+    for (const line of shareText.split('\n')) {
+      console.log(`  ${line}`);
     }
-    console.log(`\n  Main share link:\n    ${primary}`);
+    console.log('  ─────────────────────────────────────');
   } else {
     console.log('  Wi-Fi IP not detected yet.');
     console.log('  Connect to Wi-Fi, then run this command again.');
     console.log(`  For now, use on this computer only: ${localhost}`);
   }
 
-  console.log('\n  • Keep this terminal open while everyone plays');
-  console.log('  • Phones, tablets, and laptops on the same Wi-Fi can tap the link');
-  console.log('  • The game opens straight away — no extra setup\n');
+  const linkFile = writeFamilyLinkFile(primary);
+  const copied = copyToClipboard(shareText);
+
+  console.log(`\n  Link saved to: ${linkFile}`);
+  if (copied) {
+    console.log('  Copied to clipboard — paste into Messages and send.');
+  } else {
+    console.log('  Open FAMILY-LINK.txt and copy the link from there.');
+  }
+
+  console.log('\n  Do NOT copy lines from the build log (no @ symbols).');
+  console.log('  Keep this terminal open while everyone plays.\n');
   console.log(`${'═'.repeat(56)}\n`);
 }

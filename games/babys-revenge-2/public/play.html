@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Baby's Revenge 2 — Tap to Play</title>
+    <meta name="description" content="Play Baby's Revenge 2 on the same Wi-Fi." />
+    <meta property="og:title" content="Baby's Revenge 2" />
+    <meta property="og:description" content="Tap to play! Same Wi-Fi only." />
+    <meta property="og:type" content="website" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #166534, #22c55e);
+        color: #fff;
+        font-family: system-ui, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      h1 { font-size: 2rem; margin-bottom: 12px; }
+      p { font-size: 1.1rem; margin-bottom: 20px; opacity: 0.95; }
+      a {
+        display: inline-block;
+        background: #fde047;
+        color: #14532d;
+        font-weight: 700;
+        font-size: 1.25rem;
+        padding: 16px 28px;
+        border-radius: 12px;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <h1>Baby's Revenge 2</h1>
+      <p>Opening the game…</p>
+      <a href="/">Tap to Play</a>
+    </div>
+    <script>
+      setTimeout(() => { window.location.replace('/'); }, 400);
+    </script>
+  </body>
+</html>

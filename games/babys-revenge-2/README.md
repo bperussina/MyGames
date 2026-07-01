@@ -36,11 +36,13 @@ npm run dev -- babys-revenge-2
 npm run family -- babys-revenge-2
 ```
 
-3. Copy the **share link** it prints (looks like `http://192.168.x.x:5176/`).
-4. Text that link to everyone on the **same Wi-Fi**.
-5. They tap the link — the game opens right away. Keep the terminal open while you play.
+3. Open **`FAMILY-LINK.txt`** in the game folder (created automatically), or copy from the terminal.
+4. Text **only the link** (starts with `http://192.168`) to everyone on the **same Wi-Fi**.
+5. They tap the link — it opens **Baby's Revenge 2**, not a code file.
 
-**You** can use `http://localhost:5176/` on the host computer. **Family** uses the `192.168...` link from the same screen.
+**Important:** Do not copy lines from the build log. Only copy the link that starts with `http://`. The link ends with `/play.html`.
+
+**You** can use `http://localhost:5176/play.html` on the host computer. **Family** uses the `192.168...` link from `FAMILY-LINK.txt`.
 
 When a **new version** is ready, you'll see a **"New Game Ready!"** screen — tap **Play Updated Game** to get the fresh build.
 

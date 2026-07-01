@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Per-game build output
 games/*/dist/
+
+# Generated when hosting for family (contains your Wi-Fi IP)
+FAMILY-LINK.txt

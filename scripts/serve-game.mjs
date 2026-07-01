@@ -20,7 +20,11 @@ export function run(cmd, args, options = {}) {
 export async function buildAndServe(game, { family = false, port = DEFAULT_PORT } = {}) {
   const title = GAME_TITLES[game] ?? game;
 
-  console.log(`\nBuilding @mygames/${game}...`);
+  if (family) {
+    console.log(`\nBuilding ${title} for family play...`);
+  } else {
+    console.log(`\nBuilding ${title}...`);
+  }
   const buildCode = await run('npm', ['run', 'build', '-w', `@mygames/${game}`]);
   if (buildCode !== 0) process.exit(buildCode);
 
