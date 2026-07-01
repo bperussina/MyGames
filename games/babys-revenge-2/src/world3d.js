@@ -825,6 +825,7 @@ export function updateTreeChopping(world, delta) {
 
   tree.chopProgress = Math.min(1, (tree.chopProgress ?? 0) + delta / CHOP_TIME);
   if (tree.chopProgress >= 1) {
+    tree.chopProgress = 1;
     tree.chopped = true;
     world.choppingTree = null;
     return true;

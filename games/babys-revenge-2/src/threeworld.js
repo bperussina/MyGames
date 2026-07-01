@@ -242,11 +242,21 @@ function rebuildStatic(world, materials) {
   }
 }
 
+function removeTreeMesh(id) {
+  const mesh = treeMeshes.get(id);
+  if (!mesh) return;
+  entityGroup.remove(mesh);
+  treeMeshes.delete(id);
+}
+
 function syncTrees(world, materials) {
   const active = new Set();
 
   world.trees.forEach((tree) => {
-    if (tree.chopped) return;
+    if (tree.chopped) {
+      removeTreeMesh(tree.id);
+      return;
+    }
     active.add(tree.id);
 
     if (!treeMeshes.has(tree.id)) {
@@ -256,16 +266,17 @@ function syncTrees(world, materials) {
     }
 
     const mesh = treeMeshes.get(tree.id);
-    mesh.position.set(tree.x, 0, tree.y);
     const progress = tree.chopProgress ?? 0;
-    mesh.rotation.z = Math.sin(progress * Math.PI) * 0.4;
-    mesh.scale.set(1, 1 - progress * 0.2, 1);
-    mesh.visible = true;
+    mesh.position.set(tree.x, 0, tree.y);
+    mesh.rotation.z = Math.sin(progress * Math.PI) * 0.55;
+    const shrink = Math.max(0.01, 1 - progress);
+    mesh.scale.set(shrink, shrink, shrink);
+    mesh.visible = progress < 0.98;
   });
 
   treeMeshes.forEach((mesh, id) => {
     if (!active.has(id)) {
-      mesh.visible = false;
+      removeTreeMesh(id);
     }
   });
 }
