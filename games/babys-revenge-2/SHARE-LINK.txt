@@ -1,14 +1,23 @@
-# Text this link to your family — it works on any phone or computer
-
-**Play Baby's Revenge 2:**
+TEXT THIS LINK TO YOUR FAMILY
+=============================
 
 https://bperussina.github.io/MyGames/play.html
 
-No Wi-Fi setup needed. Just tap the link.
 
----
+ONE-TIME SETUP (only if the link says "not found")
+==================================================
 
-**Same Wi-Fi only (if the link above is updating):**
+1. Open this page in a browser:
+   https://github.com/bperussina/MyGames/settings/pages
 
-1. On your computer run: `npm run family -- babys-revenge-2`
-2. Open `FAMILY-LINK.txt` and copy the `http://192.168...` link
+2. Under "Build and deployment":
+   - Source: Deploy from a branch
+   - Branch: gh-pages
+   - Folder: / (root)
+
+3. Click Save
+
+4. Wait about 2 minutes, then try the play link again.
+
+
+The game is already uploaded. This one-time step turns the link on.
