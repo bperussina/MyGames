@@ -169,7 +169,7 @@ export function handleGameClick(state, clickX, clickY, width, height) {
 
   const target = findClickTarget(state.world, state, width, height, clickX, clickY);
 
-  if (target?.type === 'tree') {
+  if (target?.type === 'tree' && !target.sprite.chopped && !target.sprite.logsAwarded) {
     if (!isAxeSelected(state.inventory)) {
       selectAxe(state.inventory);
     }

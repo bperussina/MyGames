@@ -253,7 +253,7 @@ function syncTrees(world, materials) {
   const active = new Set();
 
   world.trees.forEach((tree) => {
-    if (tree.chopped) {
+    if (tree.chopped || tree.logsAwarded) {
       removeTreeMesh(tree.id);
       return;
     }

@@ -110,7 +110,7 @@ function isOnBarrierRing(tx, ty, bounds) {
 
 function hasTreeAt(world, tx, ty) {
   return world.trees.some(
-    (tree) => !tree.chopped && Math.floor(tree.x) === tx && Math.floor(tree.y) === ty,
+    (tree) => isTreeChoppable(tree) && Math.floor(tree.x) === tx && Math.floor(tree.y) === ty,
   );
 }
 
@@ -271,6 +271,7 @@ function spawnTrees() {
           y: y + 0.5,
           chopped: false,
           chopProgress: 0,
+          logsAwarded: false,
         });
       }
     }
@@ -453,7 +454,7 @@ function castTreeAlongRay(px, py, angle, world) {
   let best = null;
 
   world.trees.forEach((tree) => {
-    if (tree.chopped) return;
+    if (!isTreeChoppable(tree)) return;
     const dx = tree.x - px;
     const dy = tree.y - py;
     const depth = dx * cos + dy * sin;
@@ -629,7 +630,7 @@ export function buildSpriteList(world, gameState, width, height) {
   });
 
   world.trees.forEach((tree) => {
-    if (tree.chopped) return;
+    if (!isTreeChoppable(tree)) return;
     sprites.push({
       sprite: tree,
       dist: worldDistance(world.player.x, world.player.y, tree.x, tree.y),
@@ -676,7 +677,7 @@ export function findTreeAtClick(world, width, height, clickX, clickY) {
   let best = null;
 
   world.trees.forEach((tree) => {
-    if (tree.chopped) return;
+    if (!isTreeChoppable(tree)) return;
     const dist = worldDistance(player.x, player.y, tree.x, tree.y);
     if (dist > CHOP_RANGE) return;
 
@@ -806,8 +807,26 @@ export function tryCollectNearbyDucks(world) {
   return collected;
 }
 
+function isTreeChoppable(tree) {
+  return Boolean(tree && !tree.chopped && !tree.logsAwarded);
+}
+
+function removeTreeFromWorld(world, tree) {
+  if (!tree) return;
+  tree.chopped = true;
+  tree.chopProgress = 1;
+  tree.logsAwarded = true;
+  if (world.choppingTree?.id === tree.id) {
+    world.choppingTree = null;
+  }
+  const idx = world.trees.findIndex((t) => t.id === tree.id);
+  if (idx >= 0) world.trees.splice(idx, 1);
+}
+
 export function startChoppingTree(world, tree) {
-  if (tree.chopped) return false;
+  if (!isTreeChoppable(tree)) return false;
+  if (!world.trees.some((t) => t.id === tree.id)) return false;
+  if (world.choppingTree?.id === tree.id) return true;
   world.choppingTree = tree;
   tree.chopProgress = tree.chopProgress ?? 0;
   return true;
@@ -815,7 +834,7 @@ export function startChoppingTree(world, tree) {
 
 export function updateTreeChopping(world, delta) {
   const tree = world.choppingTree;
-  if (!tree || tree.chopped) {
+  if (!tree || !isTreeChoppable(tree)) {
     world.choppingTree = null;
     return false;
   }
@@ -825,17 +844,19 @@ export function updateTreeChopping(world, delta) {
 
   tree.chopProgress = Math.min(1, (tree.chopProgress ?? 0) + delta / CHOP_TIME);
   if (tree.chopProgress >= 1) {
-    tree.chopProgress = 1;
-    tree.chopped = true;
-    world.choppingTree = null;
+    if (tree.logsAwarded) {
+      world.choppingTree = null;
+      return false;
+    }
+    removeTreeFromWorld(world, tree);
     return true;
   }
   return false;
 }
 
 export function chopTree(world, tree) {
-  if (tree.chopped) return false;
-  tree.chopped = true;
+  if (!isTreeChoppable(tree)) return false;
+  removeTreeFromWorld(world, tree);
   return true;
 }
 
