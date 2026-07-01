@@ -15,7 +15,6 @@ import {
   tryCollectNearbyDucks,
   startChoppingTree,
   updateTreeChopping,
-  chopTree,
   updateCampfire,
   projectSprite,
   DUCK_COLLECT_RANGE,
@@ -40,8 +39,8 @@ import {
   getCampfireProgress,
   getDistanceToBarrier,
   MAX_CAMPFIRE_LEVEL,
-  LOGS_PER_LEVEL,
 } from './campfire.js';
+import { disposeThreeWorld } from './threeworld.js';
 import {
   createShopState,
   renderShop,
@@ -63,6 +62,7 @@ const SOUND_MAKER_MAX = 100;
 const WIN_SCREEN_TIME = 8;
 
 export function createGameState() {
+  disposeThreeWorld();
   return {
     phase: 'DAY',
     night: 1,
@@ -114,9 +114,11 @@ function spawnKids(night) {
 
   for (let i = 0; i < diff.kidCount; i += 1) {
     const door = doors[i % doors.length];
+    const stack = Math.floor(i / doors.length);
     kids.push({
-      x: door.x,
-      y: door.y,
+      x: door.x + ((stack % 2) * 0.35 - 0.17),
+      y: door.y + (Math.floor(stack / 2) * 0.35 - 0.17),
+      kidId: `kid-n${night}-i${i}`,
       doorId: door.id,
       homeX: door.x,
       homeY: door.y,
@@ -202,7 +204,7 @@ export function handleGameClick(state, clickX, clickY, width, height) {
       y: state.world.player.y,
       tx: kid.x,
       ty: kid.y,
-      kidId: kid.doorId,
+      kidId: kid.kidId,
       t: 0,
       type: Math.floor(random(0, 4)),
       damage: getToyDamage(state.shop),
@@ -365,7 +367,7 @@ export function updateGameplay(state, delta, input, width, height, admin) {
     toy.y = state.world.player.y + (toy.ty - state.world.player.y) * toy.t;
 
     if (toy.t >= 1) {
-      const kid = state.kids.find((k) => k.doorId === toy.kidId && !k.defeated);
+      const kid = state.kids.find((k) => k.kidId === toy.kidId && !k.defeated);
       if (kid) {
         kid.hits += toy.damage ?? getToyDamage(state.shop);
         kid.hitFlash = 0.4;

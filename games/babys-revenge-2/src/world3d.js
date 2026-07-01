@@ -245,9 +245,10 @@ export function getDoorPositions() {
     }
   }
   if (doors.length === 0) {
-    doors.push({ x: 20.5, y: 11.5, id: 'd0' });
-    doors.push({ x: 16.5, y: 16.5, id: 'd1' });
-    doors.push({ x: 6.5, y: 11.5, id: 'd2' });
+    doors.push({ x: 8.5, y: 11.5, id: 'd8-11' });
+    doors.push({ x: 16.5, y: 11.5, id: 'd16-11' });
+    doors.push({ x: 12.5, y: 14.5, id: 'd12-14' });
+    doors.push({ x: 12.5, y: 9.5, id: 'd12-9' });
   }
   return doors;
 }
@@ -666,14 +667,16 @@ export function buildSpriteList(world, gameState, width, height) {
   return sprites;
 }
 
-function clickToWorldAngle(world, width, clickX) {
+function clickToWorldAngle(world, width, height, clickX) {
+  const aspect = width / height;
+  const hFov = 2 * Math.atan(Math.tan(FOV / 2) * aspect);
   const normX = (clickX - width / 2) / (width / 2);
-  return world.player.angle + normX * (FOV / 2);
+  return world.player.angle + normX * (hFov / 2);
 }
 
 export function findTreeAtClick(world, width, height, clickX, clickY) {
   const { player } = world;
-  const aimAngle = clickToWorldAngle(world, width, clickX);
+  const aimAngle = clickToWorldAngle(world, width, height, clickX);
   let best = null;
 
   world.trees.forEach((tree) => {
@@ -700,7 +703,7 @@ export function findTreeAtClick(world, width, height, clickX, clickY) {
 
 export function findDuckAtClick(world, width, height, clickX, clickY) {
   const { player } = world;
-  const aimAngle = clickToWorldAngle(world, width, clickX);
+  const aimAngle = clickToWorldAngle(world, width, height, clickX);
   let best = null;
 
   world.wildDucks.forEach((duck) => {

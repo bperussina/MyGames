@@ -51,6 +51,14 @@ export function buildGameMap() {
     }
   });
 
+  // Night spawn doors — inside the gray barrier, on walkable grass
+  const doors = [
+    [8, 11], [16, 11], [12, 14], [12, 9],
+  ];
+  doors.forEach(([x, y]) => {
+    if (grid[y][x] === '.') grid[y][x] = 'D';
+  });
+
   for (let y = 2; y <= 4; y += 1) {
     [2, 3, 20, 21].forEach((x) => {
       grid[y][x] = 'T';

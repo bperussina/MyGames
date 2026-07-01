@@ -30,6 +30,7 @@ const treeMeshes = new Map();
 const duckMeshes = new Map();
 let campfireMesh = null;
 let campfireRangeRing = null;
+let lastCampfireRingRadius = 0;
 const kidMeshes = new Map();
 let kidMaterial = null;
 
@@ -344,8 +345,11 @@ function syncCampfire(world, materials) {
   }
 
   const inner = Math.max(0.08, r * 0.86);
-  campfireRangeRing.geometry.dispose();
-  campfireRangeRing.geometry = new THREE.RingGeometry(inner, r, 72);
+  if (Math.abs(r - lastCampfireRingRadius) > 0.02) {
+    campfireRangeRing.geometry.dispose();
+    campfireRangeRing.geometry = new THREE.RingGeometry(inner, r, 72);
+    lastCampfireRingRadius = r;
+  }
   campfireRangeRing.position.set(world.campfire.x, 0.07, world.campfire.y);
   const flash = world.campfire.expandFlash ?? 0;
   campfireRangeRing.material.opacity = flash > 0 ? 0.72 : 0.42;
@@ -359,9 +363,10 @@ function syncKids(gameState) {
 
   gameState.kids.forEach((kid) => {
     if (kid.defeated) return;
-    active.add(kid.doorId);
+    const meshId = kid.kidId ?? kid.doorId;
+    active.add(meshId);
 
-    if (!kidMeshes.has(kid.doorId)) {
+    if (!kidMeshes.has(meshId)) {
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.35), kidMaterial);
       body.position.y = 0.55;
       const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), kidMaterial);
@@ -369,11 +374,11 @@ function syncKids(gameState) {
       const group = new THREE.Group();
       group.add(body);
       group.add(head);
-      kidMeshes.set(kid.doorId, group);
+      kidMeshes.set(meshId, group);
       entityGroup.add(group);
     }
 
-    const mesh = kidMeshes.get(kid.doorId);
+    const mesh = kidMeshes.get(meshId);
     mesh.position.set(kid.x, 0, kid.y);
     mesh.visible = true;
   });
@@ -444,6 +449,7 @@ export function disposeThreeWorld() {
     kidMeshes.clear();
     campfireMesh = null;
     campfireRangeRing = null;
+    lastCampfireRingRadius = 0;
     lastBarrierKey = '';
   }
 }
