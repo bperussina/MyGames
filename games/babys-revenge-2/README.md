@@ -22,7 +22,7 @@ npm run play -- babys-revenge-2
 npm run dev -- babys-revenge-2
 ```
 
-**Tip:** Use `npm run play` for the full game. It builds a static version that won't kick you out when the connection hiccups. Your progress auto-saves every 12 seconds. If you get disconnected, reopen the game and tap **CONTINUE** on the menu.
+**Tip:** Use `npm run play` for the full game. Trees and ducks are **real 3D meshes** (WebGL/Three.js) with a sprite-pack texture atlas — walk around them and they have volume from every angle.
 
 When a **new version** is ready, you'll see a **"New Game Ready!"** screen — tap **Play Updated Game** to get the fresh build.
 
@@ -30,7 +30,7 @@ When a **new version** is ready, you'll see a **"New Game Ready!"** screen — t
 
 | Input | Action |
 |-------|--------|
-| **Arrow keys** | Move |
+| **W A S D** or **Arrow keys** | Move (W forward, S back, A left, D right) |
 | **Left-click + drag** | Look around |
 | **Click** | Chop trees, feed campfire, collect ducks, throw toys at kids |
 | **Inventory slots** | Select toy box or axe |
