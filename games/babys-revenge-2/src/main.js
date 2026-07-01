@@ -1,6 +1,25 @@
 import { createCanvas, clearCanvas, Input, loop } from '@mygames/shared';
 import { drawText } from '@mygames/shared';
-import { updateMenu, renderMenu, isPlayClicked } from './menu.js';
+import {
+  updateMenu,
+  renderMenu,
+  isPlayClicked,
+  isContinueClicked,
+  isUpdateClicked,
+  renderUpdateScreen,
+  renderOfflineBanner,
+  renderLoadError,
+} from './menu.js';
+import { GAME_VERSION } from './version.js';
+import {
+  hasNewGameUpdate,
+  clearUpdateFlag,
+  clearSessionGame,
+  saveSessionGame,
+  loadSessionGame,
+  hasSessionSave,
+  markVersionPlayed,
+} from './persist.js';
 
 const { canvas, ctx } = createCanvas();
 const input = new Input(window);
@@ -10,8 +29,14 @@ canvas.addEventListener('click', () => canvas.focus());
 
 let mode = 'MENU';
 let menuHover = false;
+let updateHover = false;
 let pendingPlayClick = null;
+let pendingMenuAction = null;
 let loading = false;
+let loadError = null;
+let offline = !navigator.onLine;
+let showUpdateScreen = hasNewGameUpdate();
+let resumeAfterLoad = false;
 
 let cutscene = null;
 let game = null;
@@ -21,6 +46,8 @@ let cutsceneMod = null;
 let adminMod = null;
 let audioMod = null;
 let inventoryMod = null;
+
+let autosaveTimer = 0;
 
 const mouseLook = {
   active: false,
@@ -32,6 +59,7 @@ const mouseLook = {
 };
 
 const DRAG_THRESHOLD = 6;
+const AUTOSAVE_INTERVAL = 12;
 
 function canvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
@@ -56,6 +84,10 @@ async function ensureCutscenes() {
   try {
     const [cs] = await Promise.all([import('./cutscenes.js'), ensureAudio()]);
     cutsceneMod = cs;
+    loadError = null;
+  } catch (err) {
+    loadError = err?.message || 'Failed to load cutscenes';
+    throw err;
   } finally {
     loading = false;
   }
@@ -73,6 +105,7 @@ async function ensureGameplay() {
   adminMod = am;
   inventoryMod = inv;
   admin = adminMod.createAdminState();
+  loadError = null;
 }
 
 async function startCutscenes() {
@@ -80,27 +113,90 @@ async function startCutscenes() {
   cutscene = cutsceneMod.createCutsceneState();
   mode = 'CUTSCENE';
   pendingPlayClick = null;
+  pendingMenuAction = null;
+  markVersionPlayed();
 }
 
-async function enterGame() {
+async function enterGame(fromContinue = false) {
   loading = true;
-  await ensureGameplay();
-  game = gameplay.createGameState();
-  mode = 'GAME';
-  loading = false;
+  loadError = null;
+  try {
+    await ensureGameplay();
+    if (fromContinue) {
+      const saved = loadSessionGame();
+      game = saved ?? gameplay.createGameState();
+    } else {
+      clearSessionGame();
+      game = gameplay.createGameState();
+    }
+    mode = 'GAME';
+    resumeAfterLoad = false;
+    markVersionPlayed();
+  } catch (err) {
+    loadError = err?.message || 'Failed to load game';
+    mode = 'ERROR';
+  } finally {
+    loading = false;
+  }
+}
+
+function acceptGameUpdate() {
+  clearSessionGame();
+  clearUpdateFlag();
+  showUpdateScreen = false;
+  mode = 'MENU';
+  pendingPlayClick = null;
+  pendingMenuAction = null;
 }
 
 canvas.style.cursor = 'default';
 
+window.addEventListener('offline', () => {
+  offline = true;
+  if (mode === 'GAME' && game) saveSessionGame(game);
+});
+
+window.addEventListener('online', () => {
+  offline = false;
+});
+
+window.addEventListener('beforeunload', () => {
+  if (mode === 'GAME' && game) saveSessionGame(game);
+});
+
+window.addEventListener('error', (event) => {
+  if (mode === 'GAME' && game) saveSessionGame(game);
+  console.error(event.error ?? event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  if (mode === 'GAME' && game) saveSessionGame(game);
+  console.error(event.reason);
+});
+
 canvas.addEventListener('mousedown', (event) => {
   if (event.button !== 0) return;
+
+  if (showUpdateScreen) {
+    const pt = canvasPoint(event);
+    if (isUpdateClicked(pt.x, pt.y, canvas.width, canvas.height)) {
+      acceptGameUpdate();
+      ensureAudio();
+    }
+    return;
+  }
 
   if (mode === 'MENU') {
     const pt = canvasPoint(event);
     if (isPlayClicked(pt.x, pt.y, canvas.width, canvas.height)) {
-      pendingPlayClick = { x: pt.x, y: pt.y };
+      pendingMenuAction = 'play';
       ensureAudio();
       startCutscenes();
+    } else if (hasSessionSave() && isContinueClicked(pt.x, pt.y, canvas.width, canvas.height)) {
+      pendingMenuAction = 'continue';
+      resumeAfterLoad = true;
+      ensureAudio();
+      enterGame(true);
     }
     return;
   }
@@ -138,6 +234,7 @@ canvas.addEventListener('mouseup', (event) => {
           game = gameplay.handleGameClick(game, pt.x, pt.y, canvas.width, canvas.height);
         }
       }
+      saveSessionGame(game);
     }
   }
 
@@ -152,9 +249,17 @@ canvas.addEventListener('mouseleave', () => {
 });
 
 canvas.addEventListener('mousemove', (event) => {
+  if (showUpdateScreen) {
+    const pt = canvasPoint(event);
+    updateHover = isUpdateClicked(pt.x, pt.y, canvas.width, canvas.height);
+    canvas.style.cursor = updateHover ? 'pointer' : 'default';
+    return;
+  }
+
   if (mode === 'MENU') {
     const pt = canvasPoint(event);
-    menuHover = isPlayClicked(pt.x, pt.y, canvas.width, canvas.height);
+    menuHover = isPlayClicked(pt.x, pt.y, canvas.width, canvas.height)
+      || (hasSessionSave() && isContinueClicked(pt.x, pt.y, canvas.width, canvas.height));
     canvas.style.cursor = menuHover ? 'pointer' : 'default';
     return;
   }
@@ -181,12 +286,33 @@ function applyMouseLook() {
 }
 
 function update(delta) {
-  if (mode === 'MENU') {
-    if (!loading && updateMenu(input, canvas.width, canvas.height, pendingPlayClick)) {
-      ensureAudio();
-      startCutscenes();
+  if (mode === 'ERROR') {
+    if (input.isPressed('r')) {
+      loadError = null;
+      mode = 'MENU';
+      ensureCutscenes().then(() => ensureGameplay()).catch(() => {});
     }
-    if (!loading) pendingPlayClick = null;
+    return;
+  }
+
+  if (showUpdateScreen) return;
+
+  if (mode === 'MENU') {
+    if (!loading) {
+      const action = updateMenu(input, canvas.width, canvas.height, pendingPlayClick, {
+        canContinue: hasSessionSave(),
+      });
+      if (action === 'play') {
+        ensureAudio();
+        startCutscenes();
+      } else if (action === 'continue') {
+        resumeAfterLoad = true;
+        ensureAudio();
+        enterGame(true);
+      }
+    }
+    pendingPlayClick = null;
+    pendingMenuAction = null;
     return;
   }
 
@@ -199,7 +325,11 @@ function update(delta) {
 
     cutscene = cutsceneMod.updateCutscene(cutscene, delta, input, canvas.width, canvas.height);
     if (cutscene.done) {
-      enterGame();
+      if (resumeAfterLoad) {
+        enterGame(true);
+      } else {
+        enterGame(false);
+      }
     }
     return;
   }
@@ -214,11 +344,30 @@ function update(delta) {
 
   applyMouseLook();
   game = gameplay.updateGameplay(game, delta, input, canvas.width, canvas.height, admin);
+
+  autosaveTimer += delta;
+  if (autosaveTimer >= AUTOSAVE_INTERVAL) {
+    autosaveTimer = 0;
+    saveSessionGame(game);
+  }
 }
 
 function render() {
+  if (showUpdateScreen) {
+    renderUpdateScreen(ctx, canvas.width, canvas.height, updateHover);
+    return;
+  }
+
+  if (mode === 'ERROR') {
+    clearCanvas(ctx, '#0f172a');
+    renderLoadError(ctx, canvas.width, canvas.height, loadError);
+    return;
+  }
+
   if (mode === 'MENU') {
-    renderMenu(ctx, canvas.width, canvas.height, menuHover);
+    renderMenu(ctx, canvas.width, canvas.height, menuHover, {
+      canContinue: hasSessionSave(),
+    });
     if (loading) {
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -243,6 +392,14 @@ function render() {
 
   gameplay.renderGameplay(game, ctx, canvas.width, canvas.height);
   adminMod.renderAdmin(admin, ctx, canvas.width, canvas.height, game);
+
+  if (offline) {
+    renderOfflineBanner(ctx, canvas.width, canvas.height);
+  }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.fillRect(canvas.width - 88, 4, 84, 18);
+  drawText(ctx, `v${GAME_VERSION}`, canvas.width - 46, 13, { size: 10, color: '#94a3b8' });
 }
 
 function tick(delta) {
@@ -252,5 +409,4 @@ function tick(delta) {
 
 loop(tick);
 
-// Preload cutscenes on the menu, then gameplay so it's ready after dialogue.
-ensureCutscenes().then(() => ensureGameplay());
+ensureCutscenes().then(() => ensureGameplay()).catch(() => {});
