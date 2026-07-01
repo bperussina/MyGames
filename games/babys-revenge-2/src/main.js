@@ -376,9 +376,8 @@ function render() {
     return;
   }
 
-  clearCanvas(ctx, '#22c55e');
-
   if (mode === 'CUTSCENE' && cutsceneMod && cutscene) {
+    clearCanvas(ctx, '#22c55e');
     cutsceneMod.renderCutscene(cutscene, ctx, canvas.width, canvas.height);
     if (loading) {
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -390,6 +389,7 @@ function render() {
 
   if (!gameplay || !game) return;
 
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   gameplay.renderGameplay(game, ctx, canvas.width, canvas.height);
   adminMod.renderAdmin(admin, ctx, canvas.width, canvas.height, game);
 

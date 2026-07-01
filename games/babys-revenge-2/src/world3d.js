@@ -9,13 +9,10 @@ import {
   isCampfireInRange,
 } from './campfire.js';
 import {
-  drawTree3D,
-  drawDuck3D,
-  drawCampfire3D,
-  drawKid3D,
   getTreeScreenSize,
   getDuckScreenSize,
 } from './sprites3d.js';
+import { renderThreeWorld } from './threeworld.js';
 
 const TREE_RADIUS = 0.5;
 
@@ -47,6 +44,20 @@ const MAP = [
 
 const MAP_H = MAP.length;
 const MAP_W = MAP[0].length;
+
+export { MAP_W, MAP_H };
+
+export function worldTileAt(tx, ty) {
+  return tileAt(tx, ty);
+}
+
+export function worldIsWall(tx, ty, world) {
+  return isWall(tx, ty, world);
+}
+
+export function worldIsBarrier(tx, ty, world) {
+  return isOnBarrierRing(tx, ty, world.barrierBounds);
+}
 
 function buildHeightMap() {
   const heights = [];
@@ -587,44 +598,11 @@ function drawLakePatches(ctx, width, height, world, isNight) {
 }
 
 export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
-  const isNight = gameState.phase === 'NIGHT';
-  const { player } = world;
+  renderThreeWorld(world, gameState, width, height, ctx.canvas);
 
-  drawSkyAndGround(ctx, width, height, isNight, player.height);
-  drawMountains(ctx, width, height, world, isNight);
-  drawLakePatches(ctx, width, height, world, isNight);
+  ctx.clearRect(0, 0, width, height);
 
-  const rayCount = Math.floor(width / 3);
-  const stripW = width / rayCount;
-  const heightOff = (0 - player.height) * 12;
-  const groundY = height / 2 + heightOff + 6;
-
-  for (let i = 0; i < rayCount; i += 1) {
-    const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
-    const hit = castRay(player.x, player.y, rayAngle, player.height, world);
-    const cosCorrect = Math.cos(rayAngle - player.angle);
-    const wallCorrected = hit.depth * cosCorrect;
-    const elevScale = 1 + Math.min(hit.elev, 4) * 0.12;
-    const wallH = Math.min(height * 0.95, (height / wallCorrected) * WALL_HEIGHT * elevScale);
-    const wallTop = (height - wallH) / 2 - Math.min(hit.elev, 4) * 10;
-    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev, world);
-    drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, wallCorrected);
-  }
-
-  [...sprites].sort((a, b) => b.dist - a.dist).forEach(({ sprite, proj, type }) => {
-    if (!proj) return;
-    const sx = proj.screenX;
-    const gy = proj.groundY ?? height / 2 + 6;
-    const sw = proj.spriteW;
-    const sh = proj.spriteH;
-    const viewAngle = proj.angle;
-    if (type === 'kid') drawKid3D(ctx, sx, gy, sw, sh, sprite, viewAngle, isNight);
-    else if (type === 'duck') drawDuck3D(ctx, sx, gy, sw, sh, viewAngle, isNight, sprite.live);
-    else if (type === 'tree') drawTree3D(ctx, sx, gy, sw, sh, viewAngle, isNight);
-    else if (type === 'campfire') drawCampfire3D(ctx, sx, gy, sw, sh, sprite, viewAngle, isNight);
-  });
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
   ctx.lineWidth = 2;
   const ch = 8;
   ctx.beginPath();
