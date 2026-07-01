@@ -257,6 +257,9 @@ function syncTrees(world, materials) {
 
     const mesh = treeMeshes.get(tree.id);
     mesh.position.set(tree.x, 0, tree.y);
+    const progress = tree.chopProgress ?? 0;
+    mesh.rotation.z = Math.sin(progress * Math.PI) * 0.4;
+    mesh.scale.set(1, 1 - progress * 0.2, 1);
     mesh.visible = true;
   });
 

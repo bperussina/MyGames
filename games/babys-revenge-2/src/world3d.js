@@ -19,6 +19,12 @@ import { renderThreeWorld } from './threeworld.js';
 
 const TREE_RADIUS = 0.5;
 const CHOP_RANGE = 7;
+const CHOP_TIME = 2.2;
+const DUCK_RADIUS = 0.5;
+const DUCK_CLICK_RANGE = 9;
+export const DUCK_COLLECT_RANGE = 1.5;
+
+export { CHOP_RANGE, CHOP_TIME };
 
 export { MAP_W, MAP_H };
 
@@ -264,6 +270,7 @@ function spawnTrees() {
           x: x + 0.5,
           y: y + 0.5,
           chopped: false,
+          chopProgress: 0,
         });
       }
     }
@@ -310,6 +317,7 @@ export function createWorld3D() {
     campfire: createCampfire(campfirePos.x, campfirePos.y),
     barrierLevel: 0,
     barrierBounds: { ...BARRIER_BOUNDS[0] },
+    choppingTree: null,
   };
 }
 
@@ -678,23 +686,8 @@ export function findTreeAtClick(world, width, height, clickX, clickY) {
     while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
     while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
 
-    const hitAngle = Math.atan2(TREE_RADIUS * 3.2, Math.max(dist, 0.35));
+    const hitAngle = Math.atan2(TREE_RADIUS * 3.5, Math.max(dist, 0.35));
     if (Math.abs(angleDiff) > hitAngle) return;
-
-    const proj = projectSprite(world, tree, width, height, 'tree');
-    if (proj) {
-      const sx = proj.screenX;
-      const gy = proj.groundY ?? height / 2 + 6;
-      const sw = proj.spriteW * 1.15;
-      const sh = proj.spriteH * 0.85;
-      const top = gy - sh;
-      if (
-        clickX < sx - sw / 2 || clickX > sx + sw / 2 ||
-        clickY < top || clickY > gy + sh * 0.05
-      ) {
-        return;
-      }
-    }
 
     if (!best || dist < best.dist) {
       best = { type: 'tree', sprite: tree, dist };
@@ -704,9 +697,39 @@ export function findTreeAtClick(world, width, height, clickX, clickY) {
   return best;
 }
 
+export function findDuckAtClick(world, width, height, clickX, clickY) {
+  const { player } = world;
+  const aimAngle = clickToWorldAngle(world, width, clickX);
+  let best = null;
+
+  world.wildDucks.forEach((duck) => {
+    if (duck.collected) return;
+    const dist = worldDistance(player.x, player.y, duck.x, duck.y);
+    if (dist > DUCK_CLICK_RANGE) return;
+
+    const dx = duck.x - player.x;
+    const dy = duck.y - player.y;
+    let angleDiff = Math.atan2(dy, dx) - aimAngle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+    const hitAngle = Math.atan2(DUCK_RADIUS * 5.5, Math.max(dist, 0.25));
+    if (Math.abs(angleDiff) > hitAngle) return;
+
+    if (!best || dist < best.dist) {
+      best = { type: 'duck', sprite: duck, dist };
+    }
+  });
+
+  return best;
+}
+
 export function findClickTarget(world, gameState, width, height, clickX, clickY) {
   const treeHit = findTreeAtClick(world, width, height, clickX, clickY);
   if (treeHit) return treeHit;
+
+  const duckHit = findDuckAtClick(world, width, height, clickX, clickY);
+  if (duckHit) return duckHit;
 
   const allSprites = buildSpriteList(world, gameState, width, height)
     .filter((s) => s.proj)
@@ -747,24 +770,6 @@ export function findClickTarget(world, gameState, width, height, clickX, clickY)
     }
   }
 
-  if (gameState.phase === 'DAY' || gameState.phase === 'NIGHT') {
-    for (const duck of world.wildDucks) {
-      if (duck.collected) continue;
-      const proj = projectSprite(world, duck, width, height, 'duck');
-      if (!proj) continue;
-      const sx = proj.screenX;
-      const gy = proj.groundY ?? height / 2 + 6;
-      const sw = proj.spriteW;
-      const sh = proj.spriteH;
-      if (
-        clickX >= sx - sw / 2 && clickX <= sx + sw / 2 &&
-        clickY >= gy - sh * 0.35 && clickY <= gy + sh * 0.08
-      ) {
-        return { type: 'duck', sprite: duck, dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y) };
-      }
-    }
-  }
-
   return null;
 }
 
@@ -787,6 +792,44 @@ export function updateWildDucks(world, delta) {
     duck.x = Math.max(duck.minX, Math.min(duck.maxX, duck.x));
     duck.y = Math.max(duck.minY, Math.min(duck.maxY, duck.y));
   });
+}
+
+export function tryCollectNearbyDucks(world) {
+  const collected = [];
+  world.wildDucks.forEach((duck) => {
+    if (duck.collected) return;
+    const dist = worldDistance(world.player.x, world.player.y, duck.x, duck.y);
+    if (dist <= DUCK_COLLECT_RANGE && collectDuck(duck)) {
+      collected.push(duck);
+    }
+  });
+  return collected;
+}
+
+export function startChoppingTree(world, tree) {
+  if (tree.chopped) return false;
+  world.choppingTree = tree;
+  tree.chopProgress = tree.chopProgress ?? 0;
+  return true;
+}
+
+export function updateTreeChopping(world, delta) {
+  const tree = world.choppingTree;
+  if (!tree || tree.chopped) {
+    world.choppingTree = null;
+    return false;
+  }
+
+  const dist = worldDistance(world.player.x, world.player.y, tree.x, tree.y);
+  if (dist > CHOP_RANGE) return false;
+
+  tree.chopProgress = Math.min(1, (tree.chopProgress ?? 0) + delta / CHOP_TIME);
+  if (tree.chopProgress >= 1) {
+    tree.chopped = true;
+    world.choppingTree = null;
+    return true;
+  }
+  return false;
 }
 
 export function chopTree(world, tree) {

@@ -12,9 +12,13 @@ import {
   updateWildDucks,
   findClickTarget,
   collectDuck,
+  tryCollectNearbyDucks,
+  startChoppingTree,
+  updateTreeChopping,
   chopTree,
   updateCampfire,
   projectSprite,
+  DUCK_COLLECT_RANGE,
 } from './world3d.js';
 import {
   createInventory,
@@ -165,10 +169,11 @@ export function handleGameClick(state, clickX, clickY, width, height) {
 
   const target = findClickTarget(state.world, state, width, height, clickX, clickY);
 
-  if (target?.type === 'tree' && isAxeSelected(state.inventory)) {
-    if (chopTree(state.world, target.sprite)) {
-      addLogs(state.inventory, LOGS_PER_TREE);
+  if (target?.type === 'tree') {
+    if (!isAxeSelected(state.inventory)) {
+      selectAxe(state.inventory);
     }
+    startChoppingTree(state.world, target.sprite);
     return state;
   }
 
@@ -237,6 +242,14 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   updateWildDucks(state.world, delta);
   updateCampfire(state.world, delta);
 
+  tryCollectNearbyDucks(state.world).forEach(() => addLiveDuck(state));
+
+  if (state.phase === 'DAY') {
+    if (updateTreeChopping(state.world, delta)) {
+      addLogs(state.inventory, LOGS_PER_TREE);
+    }
+  }
+
   if (input.isPressed('b')) {
     state.shop.open = !state.shop.open;
   }
@@ -251,9 +264,10 @@ export function updateGameplay(state, delta, input, width, height, admin) {
   state.world.wildDucks.forEach((duck) => {
     if (duck.collected) return;
     const d = worldDistance(state.world.player.x, state.world.player.y, duck.x, duck.y);
-    if (d < 0.8) {
+    if (d < DUCK_COLLECT_RANGE + 0.6 && d > DUCK_COLLECT_RANGE) {
       duck.waddle += delta * 2;
-      duck.x += Math.sin(duck.waddle) * delta * 0.4;
+      duck.x += Math.sin(duck.waddle) * delta * 0.35;
+      duck.y += Math.cos(duck.waddle * 0.8) * delta * 0.25;
     }
   });
 
@@ -499,9 +513,9 @@ export function renderGameplay(state, ctx, width, height) {
 
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
   ctx.fillRect(width - 210, height - 130, 198, 58);
-  drawText(ctx, 'Axe — chop trees · Campfire — feed logs', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
-  drawText(ctx, 'Select Toy Box · click kids', width - 106, height - 102, { size: 12, color: '#fbbf24' });
-  drawText(ctx, 'Lakes — collect ducks 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
+  drawText(ctx, 'Axe — click trees to chop · Campfire — feed logs', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'Select Toy Box · click kids at night', width - 106, height - 102, { size: 12, color: '#fbbf24' });
+  drawText(ctx, 'Ducks — click or walk into them 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
   drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
 
   const cf = getCampfireProgress(state.world.campfire);
@@ -530,21 +544,53 @@ export function renderGameplay(state, ctx, width, height) {
     drawText(ctx, 'Explore the open green meadow!', width / 2, height * 0.4, {
       size: 20, color: `rgba(255,255,255,${alpha * 0.9})`,
     });
-    drawText(ctx, 'Chop trees 🪵 · feed the campfire 🔥', width / 2, height * 0.47, {
+    drawText(ctx, 'Chop trees 🪵 · collect ducks 🦆 · feed the campfire 🔥', width / 2, height * 0.47, {
       size: 16, color: `rgba(203,213,225,${alpha * 0.85})`,
     });
-    drawText(ctx, 'WASD or arrow keys to move · click + drag to look', width / 2, height * 0.54, {
+    drawText(ctx, '🌙 At night the big kids come — use toys to scare them off!', width / 2, height * 0.54, {
       size: 14, color: `rgba(250,204,21,${alpha * 0.8})`,
+    });
+    drawText(ctx, 'WASD or arrow keys to move · click + drag to look', width / 2, height * 0.61, {
+      size: 14, color: `rgba(148,163,184,${alpha * 0.75})`,
     });
   }
 
-  if (state.phase === 'NIGHT' && state.phaseElapsed < 4) {
-    const alpha = Math.min(1, (4 - state.phaseElapsed) / 2);
-    ctx.fillStyle = `rgba(30,0,60,${0.5 * alpha})`;
-    ctx.fillRect(0, height * 0.25, width, 80);
-    drawText(ctx, '🌙 Select Toy Box · click big kids!', width / 2, height * 0.3, {
-      size: 30, color: `rgba(248,113,113,${alpha})`,
+  if (state.phase === 'DAY' && state.phaseTimer < 45 && state.phaseTimer > 0) {
+    const urgency = state.phaseTimer < 15 ? 1 : 0.75;
+    drawText(ctx, `🌙 Big kids arrive in ${formatTime(state.phaseTimer)}`, width / 2, 28, {
+      size: state.phaseTimer < 15 ? 22 : 18,
+      color: state.phaseTimer < 15 ? '#f87171' : '#fbbf24',
     });
+  }
+
+  if (state.phase === 'NIGHT' && state.phaseElapsed < 5) {
+    const alpha = Math.min(1, (5 - state.phaseElapsed) / 2);
+    ctx.fillStyle = `rgba(30,0,60,${0.55 * alpha})`;
+    ctx.fillRect(0, height * 0.22, width, 100);
+    drawText(ctx, '🌙 NIGHT — The big kids are here!', width / 2, height * 0.27, {
+      size: 32, color: `rgba(248,113,113,${alpha})`,
+    });
+    drawText(ctx, 'Select Toy Box · click the big kids to throw toys!', width / 2, height * 0.34, {
+      size: 18, color: `rgba(251,191,36,${alpha * 0.95})`,
+    });
+    drawText(ctx, 'Hold X for sound maker · defeat them to survive!', width / 2, height * 0.4, {
+      size: 15, color: `rgba(203,213,225,${alpha * 0.85})`,
+    });
+  }
+
+  const chopping = state.world.choppingTree;
+  if (chopping && !chopping.chopped && state.phase === 'DAY') {
+    const p = chopping.chopProgress ?? 0;
+    const barW = 120;
+    const barX = width / 2 - barW / 2;
+    const barY = height / 2 + 36;
+    ctx.fillStyle = 'rgba(15,23,42,0.7)';
+    ctx.fillRect(barX - 4, barY - 4, barW + 8, 20);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(barX, barY, barW, 12);
+    ctx.fillStyle = '#84cc16';
+    ctx.fillRect(barX, barY, barW * p, 12);
+    drawText(ctx, 'Chopping tree…', width / 2, barY - 10, { size: 13, color: '#bef264' });
   }
 
   if (state.won) {

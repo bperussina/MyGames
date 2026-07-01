@@ -178,7 +178,7 @@ export function renderInventory(ctx, width, height, inventory, liveDucks) {
 
   let hint = '';
   if (isToyBoxSelected(inventory)) hint = 'Click a big kid to throw!';
-  else if (isAxeSelected(inventory)) hint = 'Click trees to chop!';
+  else if (isAxeSelected(inventory)) hint = 'Click a tree to start chopping!';
   if (hint) {
     drawText(ctx, hint, width / 2, layout.y + layout.slotSize + 24, { size: 11, color: '#fbbf24' });
   }
