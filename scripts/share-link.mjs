@@ -1,25 +1,62 @@
 #!/usr/bin/env node
-/**
- * Print the public play link and one-time GitHub Pages setup steps.
- */
-const ONLINE = 'https://bperussina.github.io/MyGames/play.html';
-const SETTINGS = 'https://github.com/bperussina/MyGames/settings/pages';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { copyToClipboard, getLanAddresses } from './network.mjs';
+import {
+  PRIMARY_SHARE_LINK,
+  GH_PAGES_PLAY,
+  PAGES_SETTINGS,
+  buildShareMessage,
+  GAME_NAME,
+} from './play-urls.mjs';
+
+const shareText = buildShareMessage(PRIMARY_SHARE_LINK);
+const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
+
+writeFileSync(
+  filePath,
+  `TEXT THIS TO YOUR FAMILY — Baby's Revenge 2
+============================================
+
+${shareText}
+
+Tap the link in Messages. It should say "Baby's Revenge 2".
+
+Also works on iPad, phone, and laptop.
+
+---
+Optional GitHub link (after Pages is turned on once):
+${GH_PAGES_PLAY}
+Turn on at: ${PAGES_SETTINGS}
+Branch: gh-pages  Folder: / (root)
+`,
+  'utf8',
+);
+
+const copied = copyToClipboard(shareText);
 
 console.log(`
 ════════════════════════════════════════════════════════
-  YOUR FAMILY PLAY LINK — copy and text this:
+  TEXT THIS TO YOUR FAMILY — ${GAME_NAME}
 ════════════════════════════════════════════════════════
 
-  ${ONLINE}
+${PRIMARY_SHARE_LINK}
 
 ════════════════════════════════════════════════════════
 
-If the link says "not found" (one-time fix):
+Copy the link above ONLY (starts with https://).
+It should show "Baby's Revenge 2" when they tap it.
 
-  1. Open: ${SETTINGS}
-  2. Source: Deploy from a branch
-  3. Branch: gh-pages   Folder: / (root)
-  4. Click Save, wait 2 minutes, try the link again.
+Saved to: ${filePath}
+${copied ? 'Copied to clipboard — paste into Messages now.' : 'Open FAMILY-LINK.txt and copy the link.'}
 
-The game files are already uploaded to GitHub.
+If the GitHub link (${GH_PAGES_PLAY}) says "not found",
+turn on Pages once at:
+${PAGES_SETTINGS}
 `);
+
+const lan = getLanAddresses();
+if (lan[0]) {
+  console.log(`Same-Wi-Fi link (optional): http://${lan[0]}:5176/play.html`);
+  console.log('(Run npm run family first — keep terminal open)\n');
+}

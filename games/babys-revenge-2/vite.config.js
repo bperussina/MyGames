@@ -3,7 +3,8 @@ import { defineConfig } from 'vite';
 const ghPages = process.env.GH_PAGES === '1';
 
 export default defineConfig({
-  base: ghPages ? '/MyGames/' : '/',
+  // Relative paths work on GitHub Pages and CDN mirrors.
+  base: ghPages ? './' : '/',
   root: '.',
   server: {
     port: 5176,

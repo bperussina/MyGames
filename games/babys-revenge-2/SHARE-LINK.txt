@@ -1,23 +1,9 @@
-TEXT THIS LINK TO YOUR FAMILY
-=============================
+TEXT THIS TO YOUR FAMILY — Baby's Revenge 2
+============================================
 
-https://bperussina.github.io/MyGames/play.html
+Play Baby's Revenge 2:
+https://cdn.jsdelivr.net/gh/bperussina/MyGames@gh-pages/play.html
 
+Tap the link in Messages. It should say "Baby's Revenge 2".
 
-ONE-TIME SETUP (only if the link says "not found")
-==================================================
-
-1. Open this page in a browser:
-   https://github.com/bperussina/MyGames/settings/pages
-
-2. Under "Build and deployment":
-   - Source: Deploy from a branch
-   - Branch: gh-pages
-   - Folder: / (root)
-
-3. Click Save
-
-4. Wait about 2 minutes, then try the play link again.
-
-
-The game is already uploaded. This one-time step turns the link on.
+Works on iPad, phone, and laptop.

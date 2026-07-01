@@ -29,13 +29,13 @@ npm run dev -- babys-revenge-2
 
 ## Play with family
 
-**Text this link in Messages — it just works:**
+**Text this link in Messages — it says Baby's Revenge 2:**
 
-**https://bperussina.github.io/MyGames/play.html**
+**https://cdn.jsdelivr.net/gh/bperussina/MyGames@gh-pages/play.html**
 
-No Wi-Fi setup. Family can tap it on any phone (Wi-Fi or cell data).
+Works on iPad, phone, and laptop. No Wi-Fi setup needed.
 
-Also saved in `games/babys-revenge-2/SHARE-LINK.txt`.
+Also in `games/babys-revenge-2/SHARE-LINK.txt` — run `npm run share-link` to copy it.
 
 ### Same Wi-Fi only (optional)
 
