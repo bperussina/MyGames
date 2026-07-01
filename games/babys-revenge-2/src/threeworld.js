@@ -30,6 +30,7 @@ const treeMeshes = new Map();
 const duckMeshes = new Map();
 let campfireMesh = null;
 const kidMeshes = new Map();
+let kidMaterial = null;
 
 function mapToWorld(x, y, elev = 0) {
   return new THREE.Vector3(x, elev, y);
@@ -315,16 +316,16 @@ function syncCampfire(world, materials) {
 
 function syncKids(gameState) {
   const active = new Set();
-  const mat = new THREE.MeshLambertMaterial({ color: 0x6366f1 });
+  if (!kidMaterial) kidMaterial = new THREE.MeshLambertMaterial({ color: 0x6366f1 });
 
   gameState.kids.forEach((kid) => {
     if (kid.defeated) return;
     active.add(kid.doorId);
 
     if (!kidMeshes.has(kid.doorId)) {
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.35), mat);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.1, 0.35), kidMaterial);
       body.position.y = 0.55;
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), mat);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8), kidMaterial);
       head.position.y = 1.25;
       const group = new THREE.Group();
       group.add(body);
