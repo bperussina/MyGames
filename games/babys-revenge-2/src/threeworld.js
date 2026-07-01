@@ -29,6 +29,7 @@ let lastBarrierKey = '';
 const treeMeshes = new Map();
 const duckMeshes = new Map();
 let campfireMesh = null;
+let campfireRangeRing = null;
 const kidMeshes = new Map();
 let kidMaterial = null;
 
@@ -174,7 +175,7 @@ function initRenderer(width, height, overlayCanvas) {
 }
 
 function rebuildStatic(world, materials) {
-  const key = `${world.barrierBounds.minX}-${world.barrierBounds.maxX}-${world.barrierBounds.minY}-${world.barrierBounds.maxY}`;
+  const key = `${world.barrierLevel}-${world.barrierBounds.minX}-${world.barrierBounds.maxX}-${world.barrierBounds.minY}-${world.barrierBounds.maxY}`;
   if (key === lastBarrierKey && staticGroup.children.length > 0) return;
   lastBarrierKey = key;
 
@@ -280,8 +281,8 @@ function syncDucks(world, materials) {
     }
 
     const mesh = duckMeshes.get(duck.id);
-    const onLake = isLake(Math.floor(duck.x), Math.floor(duck.y));
-    mesh.position.set(duck.x, onLake ? -0.02 : 0, duck.y);
+    const onWater = !duck.onLand && isLake(Math.floor(duck.x), Math.floor(duck.y));
+    mesh.position.set(duck.x, onWater ? -0.02 : 0, duck.y);
     mesh.rotation.y = -duck.waddle * 0.3;
     mesh.visible = true;
   });
@@ -312,6 +313,30 @@ function syncCampfire(world, materials) {
   const r = getCampfireRadius(world.campfire);
   campfireMesh.scale.setScalar(0.7 + r * 0.9);
   campfireMesh.position.set(world.campfire.x, 0, world.campfire.y);
+
+  if (!campfireRangeRing) {
+    campfireRangeRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.5, 1, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0xf97316,
+        transparent: true,
+        opacity: 0.42,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    );
+    campfireRangeRing.rotation.x = -Math.PI / 2;
+    entityGroup.add(campfireRangeRing);
+  }
+
+  const inner = Math.max(0.08, r * 0.86);
+  campfireRangeRing.geometry.dispose();
+  campfireRangeRing.geometry = new THREE.RingGeometry(inner, r, 72);
+  campfireRangeRing.position.set(world.campfire.x, 0.07, world.campfire.y);
+  const flash = world.campfire.expandFlash ?? 0;
+  campfireRangeRing.material.opacity = flash > 0 ? 0.72 : 0.42;
+  campfireRangeRing.material.color.setHex(flash > 0 ? 0xfbbf24 : 0xf97316);
+  campfireRangeRing.scale.setScalar(flash > 0 ? 1.08 : 1);
 }
 
 function syncKids(gameState) {
@@ -404,6 +429,7 @@ export function disposeThreeWorld() {
     duckMeshes.clear();
     kidMeshes.clear();
     campfireMesh = null;
+    campfireRangeRing = null;
     lastBarrierKey = '';
   }
 }

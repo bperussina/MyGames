@@ -7,7 +7,10 @@ import {
   BARRIER_BOUNDS,
   getCampfireRadius,
   isCampfireInRange,
+  isBarrierCell,
+  tryExpandCampfire,
 } from './campfire.js';
+import { MAP, MAP_W, MAP_H } from './mapdata.js';
 import {
   getTreeScreenSize,
   getDuckScreenSize,
@@ -15,35 +18,7 @@ import {
 import { renderThreeWorld } from './threeworld.js';
 
 const TREE_RADIUS = 0.5;
-
-const MAP = [
-  'MMMMMMMMMMMMMMMMMMMMMMMM',
-  'M......................M',
-  'M..R.......R.....R.....M',
-  'M......TTT....R........M',
-  'M.....TTTTT............M',
-  'M..R..TTTTT...R........M',
-  'M......TTT..........TT.M',
-  'M.R...............TTT..M',
-  'M........RF.@R....TTTT.M',
-  'M..R.............TTT...M',
-  'M......R....R..........M',
-  'M....R....LLLLLL...R...M',
-  'M.......LLLLLLLL.R......M',
-  'M....R....LLLLLL.......M',
-  'M..R...................M',
-  'M...............LLL....M',
-  'M.R............LLLL....M',
-  'M...............LLL....M',
-  'M......................M',
-  'M..........TTTT....D...M',
-  'M..R......TTTTTT..R....M',
-  'M..........TTTT....D...M',
-  'MMMMMMMMMMMMMMMMMMMMMMMM',
-];
-
-const MAP_H = MAP.length;
-const MAP_W = MAP[0].length;
+const CHOP_RANGE = 7;
 
 export { MAP_W, MAP_H };
 
@@ -56,7 +31,7 @@ export function worldIsWall(tx, ty, world) {
 }
 
 export function worldIsBarrier(tx, ty, world) {
-  return isOnBarrierRing(tx, ty, world.barrierBounds);
+  return isBarrierCell(tx, ty, world);
 }
 
 function buildHeightMap() {
@@ -136,23 +111,21 @@ function hasTreeAt(world, tx, ty) {
 function isWall(tx, ty, world) {
   if (tileAt(tx, ty) === 'M') return true;
   if (hasTreeAt(world, tx, ty)) return true;
-  const bounds = world.barrierBounds;
-  if (isOnBarrierRing(tx, ty, bounds)) return true;
-  if (!isInsidePlayable(tx, ty, bounds)) return true;
+  if (isBarrierCell(tx, ty, world)) return true;
+  if (!isInsidePlayable(tx, ty, world.barrierBounds)) return true;
   return false;
 }
 
 /** Walls for raycasting — trees are drawn as volumetric columns instead. */
 function isRayWall(tx, ty, world) {
   if (tileAt(tx, ty) === 'M') return true;
-  const bounds = world.barrierBounds;
-  if (isOnBarrierRing(tx, ty, bounds)) return true;
-  if (!isInsidePlayable(tx, ty, bounds)) return true;
+  if (isBarrierCell(tx, ty, world)) return true;
+  if (!isInsidePlayable(tx, ty, world.barrierBounds)) return true;
   return false;
 }
 
 function isBarrierTile(tx, ty, world) {
-  return isOnBarrierRing(tx, ty, world.barrierBounds);
+  return isBarrierCell(tx, ty, world);
 }
 
 function isMountain(tx, ty) {
@@ -212,22 +185,46 @@ function getLakeRegions() {
 function spawnDucksInLakes() {
   const ducks = [];
   getLakeRegions().forEach((lake, lakeIndex) => {
-    const count = 1 + (lakeIndex % 2);
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0; i < 2; i += 1) {
       ducks.push({
-        id: `duck-${lake.id}-${i}`,
+        id: `duck-${lake.id}-w-${i}`,
         lakeId: lake.id,
-        x: lake.centerX + (i - 0.5) * 0.8,
-        y: lake.centerY + (i % 2) * 0.5,
-        minX: lake.minX + 0.3,
-        maxX: lake.maxX + 0.7,
-        minY: lake.minY + 0.3,
-        maxY: lake.maxY + 0.7,
+        onLand: false,
+        x: lake.centerX + (i - 0.5) * 0.7,
+        y: lake.centerY + (i % 2) * 0.4,
+        minX: lake.minX + 0.25,
+        maxX: lake.maxX + 0.75,
+        minY: lake.minY + 0.25,
+        maxY: lake.maxY + 0.75,
         waddle: Math.random() * Math.PI * 2,
         collected: false,
         respawnTimer: 0,
       });
     }
+
+    const shoreSpots = [
+      { x: lake.minX - 0.5, y: lake.centerY },
+      { x: lake.maxX + 1.5, y: lake.centerY + 0.5 },
+    ];
+    shoreSpots.forEach((spot, i) => {
+      const tx = Math.floor(spot.x);
+      const ty = Math.floor(spot.y);
+      if (isLake(tx, ty) || tileAt(tx, ty) === 'M') return;
+      ducks.push({
+        id: `duck-${lake.id}-s-${i}`,
+        lakeId: lake.id,
+        onLand: true,
+        x: spot.x,
+        y: spot.y,
+        minX: spot.x - 0.4,
+        maxX: spot.x + 0.4,
+        minY: spot.y - 0.4,
+        maxY: spot.y + 0.4,
+        waddle: Math.random() * Math.PI * 2,
+        collected: false,
+        respawnTimer: 0,
+      });
+    });
   });
   return ducks;
 }
@@ -660,13 +657,63 @@ export function buildSpriteList(world, gameState, width, height) {
   return sprites;
 }
 
+function clickToWorldAngle(world, width, clickX) {
+  const normX = (clickX - width / 2) / (width / 2);
+  return world.player.angle + normX * (FOV / 2);
+}
+
+export function findTreeAtClick(world, width, height, clickX, clickY) {
+  const { player } = world;
+  const aimAngle = clickToWorldAngle(world, width, clickX);
+  let best = null;
+
+  world.trees.forEach((tree) => {
+    if (tree.chopped) return;
+    const dist = worldDistance(player.x, player.y, tree.x, tree.y);
+    if (dist > CHOP_RANGE) return;
+
+    const dx = tree.x - player.x;
+    const dy = tree.y - player.y;
+    let angleDiff = Math.atan2(dy, dx) - aimAngle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+    const hitAngle = Math.atan2(TREE_RADIUS * 3.2, Math.max(dist, 0.35));
+    if (Math.abs(angleDiff) > hitAngle) return;
+
+    const proj = projectSprite(world, tree, width, height, 'tree');
+    if (proj) {
+      const sx = proj.screenX;
+      const gy = proj.groundY ?? height / 2 + 6;
+      const sw = proj.spriteW * 1.15;
+      const sh = proj.spriteH * 0.85;
+      const top = gy - sh;
+      if (
+        clickX < sx - sw / 2 || clickX > sx + sw / 2 ||
+        clickY < top || clickY > gy + sh * 0.05
+      ) {
+        return;
+      }
+    }
+
+    if (!best || dist < best.dist) {
+      best = { type: 'tree', sprite: tree, dist };
+    }
+  });
+
+  return best;
+}
+
 export function findClickTarget(world, gameState, width, height, clickX, clickY) {
+  const treeHit = findTreeAtClick(world, width, height, clickX, clickY);
+  if (treeHit) return treeHit;
+
   const allSprites = buildSpriteList(world, gameState, width, height)
     .filter((s) => s.proj)
     .sort((a, b) => a.dist - b.dist);
 
   for (const entry of allSprites) {
-    if (entry.type === 'campfire' || entry.type === 'tree') {
+    if (entry.type === 'campfire') {
       const { proj, sprite, type } = entry;
       const sx = proj.screenX;
       const gy = proj.groundY ?? height / 2 + 6;
@@ -752,6 +799,7 @@ export function updateCampfire(world, delta) {
   if (world.campfire.expandFlash > 0) {
     world.campfire.expandFlash -= delta;
   }
+  tryExpandCampfire(world.campfire, world);
 }
 
 export function collectDuck(duck) {

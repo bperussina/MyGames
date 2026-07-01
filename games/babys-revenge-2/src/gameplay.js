@@ -34,6 +34,7 @@ import {
   feedCampfire,
   isCampfireInRange,
   getCampfireProgress,
+  getDistanceToBarrier,
   MAX_CAMPFIRE_LEVEL,
   LOGS_PER_LEVEL,
 } from './campfire.js';
@@ -504,13 +505,17 @@ export function renderGameplay(state, ctx, width, height) {
   drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
 
   const cf = getCampfireProgress(state.world.campfire);
+  const wallDist = getDistanceToBarrier(state.world.campfire, state.world.barrierBounds);
+  const touching = cf.radius >= wallDist - 0.15;
   ctx.fillStyle = 'rgba(15,23,42,0.55)';
   ctx.fillRect(width - 200, 56, 188, 48);
   drawText(ctx, `🔥 Campfire Lv${cf.level}/${MAX_CAMPFIRE_LEVEL}`, width - 106, 64, {
     size: 14, color: '#fb923c',
   });
-  drawText(ctx, `${cf.logsInLevel}/${LOGS_PER_LEVEL} logs · barrier ${cf.level + 1}`, width - 106, 84, {
-    size: 12, color: '#fdba74',
+  drawText(ctx, touching && cf.level < MAX_CAMPFIRE_LEVEL
+    ? 'Range touching barrier — expanding!'
+    : `Range ${cf.radius.toFixed(1)} / ${wallDist.toFixed(1)} to barrier`, width - 106, 84, {
+    size: 12, color: touching ? '#fde047' : '#fdba74',
   });
 
   if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {
