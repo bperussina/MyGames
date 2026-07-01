@@ -9,14 +9,12 @@ import {
   isCampfireInRange,
 } from './campfire.js';
 import {
-  drawTreeColumn,
   drawTree3D,
   drawDuck3D,
   drawCampfire3D,
   drawKid3D,
   getTreeScreenSize,
   getDuckScreenSize,
-  TREE_HEIGHT_SCALE,
 } from './sprites3d.js';
 
 const TREE_RADIUS = 0.5;
@@ -33,9 +31,9 @@ const MAP = [
   'M........RF.@R....TTTT.M',
   'M..R.............TTT...M',
   'M......R....R..........M',
-  'M....R.....LLLL....R...M',
-  'M.........LLLLL..R.....M',
-  'M....R.....LLLL........M',
+  'M....R....LLLLLL...R...M',
+  'M.......LLLLLLLL.R......M',
+  'M....R....LLLLLL.......M',
   'M..R...................M',
   'M...............LLL....M',
   'M.R............LLLL....M',
@@ -554,17 +552,19 @@ function drawLakePatches(ctx, width, height, world, isNight) {
     const proj = projectSprite(world, { x: lake.centerX, y: lake.centerY }, width, height);
     if (!proj) return;
 
-    const lakeW = (lake.maxX - lake.minX + 1.2) * (proj.spriteH / 3.5);
-    const lakeH = (lake.maxY - lake.minY + 1) * (proj.spriteH / 5);
-    const sy = height / 2 + proj.spriteH * 0.15;
+    const lakeW = (lake.maxX - lake.minX + 2.4) * (proj.spriteH / 1.9);
+    const lakeH = (lake.maxY - lake.minY + 1.8) * (proj.spriteH / 2.6);
+    const sy = height / 2 + proj.spriteH * 0.12;
 
     const water = ctx.createLinearGradient(0, sy, 0, sy + lakeH);
     if (isNight) {
-      water.addColorStop(0, 'rgba(12, 74, 110, 0.85)');
-      water.addColorStop(1, 'rgba(8, 47, 73, 0.9)');
+      water.addColorStop(0, 'rgba(12, 74, 110, 0.9)');
+      water.addColorStop(0.5, 'rgba(8, 58, 90, 0.92)');
+      water.addColorStop(1, 'rgba(8, 47, 73, 0.95)');
     } else {
-      water.addColorStop(0, 'rgba(56, 189, 248, 0.75)');
-      water.addColorStop(1, 'rgba(14, 165, 233, 0.85)');
+      water.addColorStop(0, 'rgba(56, 189, 248, 0.82)');
+      water.addColorStop(0.5, 'rgba(34, 175, 240, 0.88)');
+      water.addColorStop(1, 'rgba(14, 165, 233, 0.92)');
     }
 
     ctx.fillStyle = water;
@@ -572,9 +572,17 @@ function drawLakePatches(ctx, width, height, world, isNight) {
     ctx.ellipse(proj.screenX, sy + lakeH / 2, lakeW / 2, lakeH / 2, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.strokeStyle = isNight ? 'rgba(125, 211, 252, 0.3)' : 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = isNight ? 'rgba(125, 211, 252, 0.35)' : 'rgba(255,255,255,0.4)';
+    ctx.lineWidth = 3;
     ctx.stroke();
+
+    ctx.strokeStyle = isNight ? 'rgba(125,211,252,0.15)' : 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i += 1) {
+      ctx.beginPath();
+      ctx.ellipse(proj.screenX, sy + lakeH / 2, lakeW / 2 - i * 8, lakeH / 2 - i * 4, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   });
 }
 
@@ -594,23 +602,13 @@ export function renderWorld3D(ctx, width, height, world, gameState, sprites) {
   for (let i = 0; i < rayCount; i += 1) {
     const rayAngle = player.angle - FOV / 2 + (FOV * i) / rayCount;
     const hit = castRay(player.x, player.y, rayAngle, player.height, world);
-    const treeHit = castTreeAlongRay(player.x, player.y, rayAngle, world);
     const cosCorrect = Math.cos(rayAngle - player.angle);
     const wallCorrected = hit.depth * cosCorrect;
-    const treeCorrected = treeHit ? treeHit.depth * cosCorrect : Infinity;
-
-    if (treeHit && treeHit.depth < hit.depth) {
-      const treeH = Math.min(height * 0.98, (height / treeCorrected) * TREE_HEIGHT_SCALE);
-      const light = Math.cos(treeHit.viewAngle);
-      const side = light < -0.2 ? 0 : light > 0.2 ? 2 : 1;
-      drawTreeColumn(ctx, i * stripW, groundY, stripW, treeH, side, treeCorrected, isNight);
-    } else {
-      const elevScale = 1 + Math.min(hit.elev, 4) * 0.12;
-      const wallH = Math.min(height * 0.95, (height / wallCorrected) * WALL_HEIGHT * elevScale);
-      const wallTop = (height - wallH) / 2 - Math.min(hit.elev, 4) * 10;
-      const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev, world);
-      drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, wallCorrected);
-    }
+    const elevScale = 1 + Math.min(hit.elev, 4) * 0.12;
+    const wallH = Math.min(height * 0.95, (height / wallCorrected) * WALL_HEIGHT * elevScale);
+    const wallTop = (height - wallH) / 2 - Math.min(hit.elev, 4) * 10;
+    const color = wallColor(hit.mapX, hit.mapY, hit.side, isNight, hit.elev, world);
+    drawWallStripes(ctx, i * stripW, wallTop, stripW, wallH, color, wallCorrected);
   }
 
   [...sprites].sort((a, b) => b.dist - a.dist).forEach(({ sprite, proj, type }) => {
@@ -659,11 +657,15 @@ export function buildSpriteList(world, gameState, width, height) {
 
   world.wildDucks.forEach((duck) => {
     if (duck.collected) return;
+    const proj = projectSprite(world, duck, width, height, 'duck');
+    if (proj && isLake(Math.floor(duck.x), Math.floor(duck.y))) {
+      proj.groundY += height * 0.018;
+    }
     sprites.push({
       sprite: { ...duck, live: true },
       dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y),
       type: 'duck',
-      proj: projectSprite(world, duck, width, height, 'duck'),
+      proj,
     });
   });
 
@@ -731,7 +733,7 @@ export function findClickTarget(world, gameState, width, height, clickX, clickY)
       const sh = proj.spriteH;
       if (
         clickX >= sx - sw / 2 && clickX <= sx + sw / 2 &&
-        clickY >= gy - sh * 0.45 && clickY <= gy + sh * 0.12
+        clickY >= gy - sh * 0.35 && clickY <= gy + sh * 0.08
       ) {
         return { type: 'duck', sprite: duck, dist: worldDistance(world.player.x, world.player.y, duck.x, duck.y) };
       }

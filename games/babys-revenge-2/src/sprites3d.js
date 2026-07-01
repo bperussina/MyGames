@@ -1,18 +1,18 @@
 /**
- * Volumetric pseudo-3D sprite drawing for the raycast world.
+ * Volumetric pseudo-3D sprites — survival-game style trees and grounded ducks.
  */
 
-const TREE_HEIGHT_SCALE = 5.5;
-const TREE_TRUNK_RATIO = 0.3;
+const TREE_HEIGHT_SCALE = 6.0;
+const TREE_TRUNK_RATIO = 0.36;
 
 export function getTreeScreenSize(dist, height) {
-  const spriteH = Math.min(height * 1.05, (height / dist) * TREE_HEIGHT_SCALE);
-  return { spriteH, spriteW: spriteH * 0.82 };
+  const spriteH = Math.min(height * 1.1, (height / dist) * TREE_HEIGHT_SCALE);
+  return { spriteH, spriteW: spriteH * 0.72 };
 }
 
 export function getDuckScreenSize(dist, height) {
-  const spriteH = Math.min(height * 0.22, (height / dist) * 0.42);
-  return { spriteH, spriteW: spriteH * 1.15 };
+  const spriteH = Math.min(height * 0.12, (height / dist) * 0.26);
+  return { spriteH, spriteW: spriteH * 1.35 };
 }
 
 function shadeColor(rgb, factor) {
@@ -25,187 +25,167 @@ function shadeColor(rgb, factor) {
   return `rgb(${Math.floor(r * factor)}, ${Math.floor(g * factor)}, ${Math.floor(b * factor)})`;
 }
 
+/** Raycast strip fallback — tapered trunk + cone foliage slice. */
 export function drawTreeColumn(ctx, x, groundY, w, totalH, side, depth, isNight) {
-  const trunkH = totalH * TREE_TRUNK_RATIO;
-  const canopyH = totalH - trunkH;
-  const top = groundY - totalH;
-
-  const trunkLight = isNight ? '#5c3d2e' : '#92400e';
-  const trunkMid = isNight ? '#44281a' : '#78350f';
-  const trunkDark = isNight ? '#2d1810' : '#451a03';
-  const trunkColor = side === 0 ? trunkDark : side === 1 ? trunkMid : trunkLight;
-
-  ctx.fillStyle = trunkColor;
-  ctx.fillRect(x, groundY - trunkH, w + 1, trunkH);
-  ctx.fillStyle = 'rgba(0,0,0,0.2)';
-  ctx.fillRect(x, groundY - trunkH, w * 0.35, trunkH);
-
-  const layers = 7;
-  for (let i = 0; i < layers; i += 1) {
-    const t = i / (layers - 1);
-    const layerH = canopyH / layers + 2;
-    const layerY = top + canopyH * t * 0.92;
-    const layerW = w * (1.15 - t * 0.55);
-    const lx = x + (w - layerW) / 2;
-    const greenBase = isNight ? '#14532d' : '#16a34a';
-    const greenLight = isNight ? '#166534' : '#22c55e';
-    const greenDark = isNight ? '#052e16' : '#15803d';
-    const layerColor = side === 0 ? greenDark : i % 2 === 0 ? greenLight : greenBase;
-
-    ctx.fillStyle = layerColor;
-    ctx.beginPath();
-    ctx.ellipse(lx + layerW / 2, layerY + layerH / 2, layerW / 2, layerH * 0.85, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  const shade = Math.max(0.25, 1 - depth / 28);
-  ctx.fillStyle = `rgba(0,0,0,${0.25 * (1 - shade)})`;
-  ctx.fillRect(x, top, w + 1, totalH);
+  drawTree3D(ctx, x + w / 2, groundY, w * 4, totalH, side === 0 ? Math.PI : side === 2 ? 0 : Math.PI / 2, isNight);
 }
 
-/** Full volumetric tree sprite — thick trunk + layered round canopy. */
+/**
+ * Apocalypse-survival style pine: rooted trunk, stacked cone foliage with depth offset.
+ */
 export function drawTree3D(ctx, sx, groundY, sw, sh, viewAngle, isNight) {
   const light = Math.cos(viewAngle);
-  const side = light < -0.2 ? 0 : light > 0.2 ? 2 : 1;
-  const trunkW = sw * 0.18;
-  const trunkH = sh * TREE_TRUNK_RATIO;
-  const canopyH = sh - trunkH;
-  const top = groundY - sh;
+  const side = Math.sin(viewAngle);
+  const gy = groundY;
 
-  const trunkLight = isNight ? '#5c3d2e' : '#92400e';
-  const trunkMid = isNight ? '#44281a' : '#78350f';
-  const trunkDark = isNight ? '#2d1810' : '#451a03';
-  const trunkColor = side === 0 ? trunkDark : side === 1 ? trunkMid : trunkLight;
-
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.ellipse(sx, groundY + sh * 0.02, sw * 0.22, sh * 0.04, 0, 0, Math.PI * 2);
+  ctx.ellipse(sx, gy + 3, sw * 0.18, sh * 0.025, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const trunkX = sx - trunkW / 2 + (side === 0 ? trunkW * 0.15 : side === 2 ? -trunkW * 0.1 : 0);
-  ctx.fillStyle = trunkColor;
-  ctx.fillRect(trunkX, groundY - trunkH, trunkW, trunkH);
-  ctx.fillStyle = side === 0 ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.12)';
-  ctx.fillRect(trunkX, groundY - trunkH, trunkW * 0.35, trunkH);
+  ctx.fillStyle = isNight ? '#44403c' : '#78716c';
+  ctx.beginPath();
+  ctx.ellipse(sx, gy + 1, sw * 0.14, sh * 0.018, 0, 0, Math.PI * 2);
+  ctx.fill();
 
-  const layers = 9;
-  for (let i = 0; i < layers; i += 1) {
-    const t = i / (layers - 1);
-    const layerY = top + canopyH * t * 0.88;
-    const layerW = sw * (1.05 - t * 0.62);
-    const layerH = canopyH / layers + 4;
-    const lx = sx - layerW / 2 + light * layerW * 0.04;
-    const greenBase = isNight ? '#14532d' : '#16a34a';
-    const greenLight = isNight ? '#22c55e' : '#4ade80';
-    const greenDark = isNight ? '#052e16' : '#15803d';
-    const layerColor = side === 0 ? greenDark : i % 2 === 0 ? greenLight : greenBase;
+  const trunkH = sh * TREE_TRUNK_RATIO;
+  const trunkBot = gy;
+  const trunkTop = gy - trunkH;
+  const trunkWBot = sw * 0.16;
+  const trunkWTop = sw * 0.09;
+  const lean = side * sw * 0.04;
 
-    ctx.fillStyle = layerColor;
+  const barkDark = isNight ? '#2c1810' : '#3e2723';
+  const barkMid = isNight ? '#4a2f1a' : '#5d4037';
+  const barkLit = isNight ? '#5c3d2e' : '#6d4c41';
+
+  ctx.fillStyle = light < -0.15 ? barkDark : light > 0.15 ? barkLit : barkMid;
+  ctx.beginPath();
+  ctx.moveTo(sx - trunkWBot + lean, trunkBot);
+  ctx.lineTo(sx + trunkWBot + lean, trunkBot);
+  ctx.lineTo(sx + trunkWTop + lean, trunkTop);
+  ctx.lineTo(sx - trunkWTop + lean, trunkTop);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = light > 0 ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.25)';
+  ctx.fillRect(sx - trunkWTop * 0.4 + lean, trunkTop, trunkWTop * 0.35, trunkH);
+
+  const coneCount = 7;
+  const foliageH = sh - trunkH;
+  const foliageTop = trunkTop - sh * 0.02;
+
+  for (let i = 0; i < coneCount; i += 1) {
+    const t = i / (coneCount - 1);
+    const coneTipY = foliageTop - foliageH * t * 0.92;
+    const coneBaseY = coneTipY + foliageH / coneCount + sh * 0.035;
+    const coneW = sw * (1.0 - t * 0.58);
+    const depthOff = side * coneW * 0.14 * (1 - t * 0.5);
+    const cx = sx + depthOff;
+
+    const dark = isNight ? '#14291c' : '#1b4332';
+    const mid = isNight ? '#1f4d35' : '#2d6a4f';
+    const lit = isNight ? '#2d6a4f' : '#40916c';
+    const coneColor = side < -0.25 ? dark : side > 0.25 ? lit : mid;
+
+    ctx.fillStyle = coneColor;
     ctx.beginPath();
-    ctx.ellipse(lx + layerW / 2, layerY + layerH / 2, layerW / 2, layerH * 0.9, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx, coneTipY);
+    ctx.lineTo(cx - coneW / 2, coneBaseY);
+    ctx.lineTo(cx + coneW / 2, coneBaseY);
+    ctx.closePath();
     ctx.fill();
 
-    if (side === 2 && i > 2) {
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    if (i < coneCount - 1) {
+      ctx.fillStyle = isNight ? '#0f1f15' : '#163325';
       ctx.beginPath();
-      ctx.ellipse(lx + layerW * 0.3, layerY + layerH * 0.35, layerW * 0.12, layerH * 0.2, 0, 0, Math.PI * 2);
+      ctx.moveTo(cx, coneBaseY - sh * 0.01);
+      ctx.lineTo(cx - coneW * 0.42, coneBaseY + sh * 0.012);
+      ctx.lineTo(cx + coneW * 0.42, coneBaseY + sh * 0.012);
+      ctx.closePath();
       ctx.fill();
     }
   }
+
+  ctx.fillStyle = isNight ? '#1f4d35' : '#2d6a4f';
+  ctx.beginPath();
+  ctx.moveTo(sx + side * sw * 0.05, foliageTop - foliageH * 0.95);
+  ctx.lineTo(sx - sw * 0.04, foliageTop - foliageH * 0.82);
+  ctx.lineTo(sx + sw * 0.04, foliageTop - foliageH * 0.82);
+  ctx.closePath();
+  ctx.fill();
 }
 
-/** Proper 3D duck — body rotates with view angle, not a flat face-on picture. */
+/**
+ * Grounded lake duck — low profile, planted in water, no inflated balloon body.
+ */
 export function drawDuck3D(ctx, sx, groundY, sw, sh, viewAngle, isNight, live = false) {
-  const bounce = Math.sin(Date.now() / 320) * (sh * 0.015);
-  const gy = groundY + bounce;
   const side = Math.sin(viewAngle);
   const absSide = Math.abs(side);
   const facing = side >= 0 ? 1 : -1;
   const light = Math.cos(viewAngle);
+  const waterY = groundY;
 
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.beginPath();
-  ctx.ellipse(sx, gy + sh * 0.06, sw * (0.28 + absSide * 0.12), sh * 0.04, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  const bodyLen = sw * (0.22 + absSide * 0.32);
-  const bodyH = sh * 0.2;
-  const bodyY = gy - sh * 0.1;
-  const bodyCx = sx + facing * bodyLen * 0.06;
-
-  const slices = 7;
-  for (let i = 0; i < slices; i += 1) {
-    const t = (i / (slices - 1)) - 0.5;
-    const sliceX = bodyCx + t * bodyLen * 2 * facing;
-    const sliceRx = bodyH * (0.5 + (1 - Math.abs(t) * 1.6) * 0.5);
-    const sliceRy = bodyH * (0.85 - Math.abs(t) * 0.2);
-    const shade = 0.78 + light * 0.14 - Math.abs(t) * 0.12;
-    ctx.fillStyle = shadeColor('#facc15', shade);
+  ctx.strokeStyle = isNight ? 'rgba(125,211,252,0.2)' : 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  for (let r = 0; r < 3; r += 1) {
     ctx.beginPath();
-    ctx.ellipse(sliceX, bodyY, sliceRx, sliceRy, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(sx, waterY + sh * 0.04, sw * (0.2 + r * 0.08), sh * 0.025, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
-  const tailX = bodyCx - facing * bodyLen * 0.95;
-  const tailY = bodyY - bodyH * 0.15;
-  ctx.fillStyle = shadeColor('#eab308', 0.75 + light * 0.1);
+  const bodyLen = sw * (0.28 + absSide * 0.22);
+  const bodyH = sh * 0.09;
+  const bodyCx = sx + facing * bodyLen * 0.04;
+  const bodyCy = waterY - bodyH * 0.55;
+
+  ctx.fillStyle = isNight ? 'rgba(8,47,73,0.55)' : 'rgba(14,116,144,0.4)';
   ctx.beginPath();
-  ctx.moveTo(tailX, tailY);
-  ctx.lineTo(tailX - facing * sw * 0.1, tailY - sh * 0.14);
-  ctx.lineTo(tailX - facing * sw * 0.04, tailY + bodyH * 0.3);
+  ctx.ellipse(bodyCx, waterY + bodyH * 0.2, bodyLen * 0.52, bodyH * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const bodyColor = shadeColor('#c9a006', 0.82 + light * 0.12);
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(bodyCx, bodyCy, bodyLen * 0.5, bodyH, 0, Math.PI, 0);
   ctx.closePath();
   ctx.fill();
 
-  const neckX = bodyCx + facing * bodyLen * 0.72;
-  const neckY = bodyY - sh * 0.14;
-  const neckW = sw * 0.07;
-  const neckH = sh * 0.16;
-  ctx.fillStyle = shadeColor('#facc15', 0.82 + light * 0.1);
-  ctx.fillRect(neckX - neckW / 2, neckY - neckH, neckW, neckH);
+  ctx.fillStyle = shadeColor('#a67c00', 0.75 + light * 0.08);
+  ctx.beginPath();
+  ctx.ellipse(bodyCx - facing * bodyLen * 0.15, bodyCy + bodyH * 0.15, bodyLen * 0.35, bodyH * 0.45, 0, 0, Math.PI);
+  ctx.fill();
 
-  const headX = neckX + facing * sw * 0.06;
-  const headY = neckY - neckH - sh * 0.08;
-  const headR = sw * 0.13;
-  const headGrad = ctx.createRadialGradient(
-    headX - headR * 0.35 * facing,
-    headY - headR * 0.35,
-    headR * 0.1,
-    headX,
-    headY,
-    headR,
-  );
-  headGrad.addColorStop(0, shadeColor('#fde047', 1.05));
-  headGrad.addColorStop(0.6, shadeColor('#facc15', 0.9 + light * 0.08));
-  headGrad.addColorStop(1, shadeColor('#ca8a04', 0.75));
-  ctx.fillStyle = headGrad;
+  const neckX = bodyCx + facing * bodyLen * 0.42;
+  const neckBase = bodyCy - bodyH * 0.3;
+  ctx.fillStyle = shadeColor('#c9a006', 0.8 + light * 0.1);
+  ctx.fillRect(neckX - sw * 0.025, neckBase - sh * 0.1, sw * 0.05, sh * 0.1);
+
+  const headX = neckX + facing * sw * 0.03;
+  const headY = neckBase - sh * 0.13;
+  const headR = sw * 0.07;
+  ctx.fillStyle = shadeColor('#d4a80a', 0.88 + light * 0.08);
   ctx.beginPath();
   ctx.arc(headX, headY, headR, 0, Math.PI * 2);
   ctx.fill();
 
-  const billX = headX + facing * headR * 0.85;
-  const billY = headY + headR * 0.1;
-  ctx.fillStyle = shadeColor('#f97316', 0.92);
+  ctx.fillStyle = '#e85d04';
   ctx.beginPath();
-  ctx.ellipse(billX, billY, headR * 0.42, headR * 0.2, facing * 0.3, 0, Math.PI * 2);
+  ctx.moveTo(headX + facing * headR, headY + headR * 0.1);
+  ctx.lineTo(headX + facing * (headR + sw * 0.07), headY + headR * 0.2);
+  ctx.lineTo(headX + facing * headR, headY + headR * 0.35);
+  ctx.closePath();
   ctx.fill();
 
-  ctx.fillStyle = '#1e293b';
+  ctx.fillStyle = '#1c1917';
   ctx.beginPath();
-  ctx.arc(headX + facing * headR * 0.3, headY - headR * 0.25, headR * 0.1, 0, Math.PI * 2);
+  ctx.arc(headX + facing * headR * 0.35, headY - headR * 0.2, headR * 0.18, 0, Math.PI * 2);
   ctx.fill();
-
-  const footY = gy - sh * 0.02;
-  ctx.fillStyle = '#f97316';
-  for (const fx of [-sw * 0.08, sw * 0.08]) {
-    ctx.beginPath();
-    ctx.ellipse(bodyCx + fx, footY, sw * 0.05, sh * 0.03, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
 
   if (live) {
-    ctx.fillStyle = 'rgba(239,68,68,0.85)';
+    ctx.fillStyle = 'rgba(220,38,38,0.7)';
     ctx.beginPath();
-    ctx.arc(headX - facing * headR * 0.5, headY - headR * 0.55, sh * 0.025, 0, Math.PI * 2);
+    ctx.arc(headX - facing * headR * 0.6, headY - headR * 0.5, sh * 0.018, 0, Math.PI * 2);
     ctx.fill();
   }
 }
