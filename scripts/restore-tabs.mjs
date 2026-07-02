@@ -1,36 +1,87 @@
 #!/usr/bin/env node
-/**
- * Start every game server + open the games hub so you get working tabs back.
- * Does NOT close or kill existing servers or browser tabs.
- */
-import { startAllGames, HUB_PORT } from './start-all-games.mjs';
+import http from 'node:http';
+import { spawn, spawnSync } from 'node:child_process';
+import { listPlayableGames } from './game-registry.mjs';
+import { run } from './serve-game.mjs';
+import { DOCS_PORT, createDocsServer, getDocsUrl } from './serve-docs.mjs';
 import { openInBrowser } from './open-browser.mjs';
-import { getGameConfig } from './game-registry.mjs';
 
-await startAllGames();
+const TMUX = ['tmux', '-f', '/exec-daemon/tmux.portal.conf'];
 
-const hubUrl = `http://localhost:${HUB_PORT}/`;
-const br2 = getGameConfig('babys-revenge-2');
-const car = getGameConfig('car-crashing-with-dashing');
+function probe(port) {
+  return new Promise((resolve) => {
+    const req = http.get(`http://127.0.0.1:${port}/`, (res) => {
+      res.resume();
+      resolve(res.statusCode >= 200 && res.statusCode < 500);
+    });
+    req.on('error', () => resolve(false));
+    req.setTimeout(2000, () => { req.destroy(); resolve(false); });
+  });
+}
 
-openInBrowser(hubUrl);
+async function waitFor(port, attempts = 30) {
+  for (let i = 0; i < attempts; i += 1) {
+    if (await probe(port)) return true;
+    await new Promise((r) => { setTimeout(r, 300); });
+  }
+  return false;
+}
 
-console.log(`
+function tmux(...args) {
+  return spawnSync(TMUX[0], [...TMUX.slice(1), ...args], { encoding: 'utf8' });
+}
+
+async function buildAllPlayable() {
+  console.log('\n  Building all games for reload-friendly play...\n');
+  for (const gameId of listPlayableGames()) {
+    const code = await run('node', ['scripts/build.mjs', gameId, '--publish'], {
+      env: { ...process.env, GH_PAGES: '1' },
+    });
+    if (code !== 0) process.exit(code);
+  }
+}
+
+async function ensureDocsServer() {
+  if (await probe(DOCS_PORT)) return;
+
+  const session = 'docs-server';
+  if (tmux('has-session', '-t', `=${session}`).status !== 0) {
+    tmux('new-session', '-d', '-s', session, '-c', process.cwd(), '--', process.env.SHELL || 'bash', '-l');
+  }
+  tmux('send-keys', '-t', `${session}:0.0`, 'C-c', 'node scripts/serve-docs.mjs', 'C-m');
+
+  if (!(await waitFor(DOCS_PORT))) {
+    console.error(`Could not start docs server on port ${DOCS_PORT}.`);
+    process.exit(1);
+  }
+}
+
+export async function restoreGames() {
+  await buildAllPlayable();
+  await ensureDocsServer();
+  return getDocsUrl('/');
+}
+
+if (process.argv[1]?.endsWith('restore-tabs.mjs')) {
+  const hubUrl = await restoreGames();
+  openInBrowser(hubUrl);
+
+  console.log(`
 ════════════════════════════════════════════════════════
-  TABS RESTORED — these links should all work now
+  READY — bookmark this, reload anytime
 ════════════════════════════════════════════════════════
 
-  Games hub (bookmark this):
   ${hubUrl}
 
   Baby's Revenge 2:
-  http://localhost:${br2?.port}${br2?.playPath}
+  ${getDocsUrl('/babys-revenge-2/play.html')}
 
   car crashing with dashing:
-  http://localhost:${car?.port}/index.html
+  ${getDocsUrl('/car-crashing-with-dashing/index.html')}
 
-  These games run on YOUR computer — no internet server needed.
-  Keep this project running (npm run restore) while you play.
+  ERR_CONNECTION_REFUSED means this one server stopped.
+  Run: npm run restore
 
 ════════════════════════════════════════════════════════
 `);
+}

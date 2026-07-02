@@ -38,6 +38,10 @@ for (const name of games) {
     const child = spawn('npm', ['run', 'build', '-w', `@mygames/${name}`], {
       stdio: 'inherit',
       shell: true,
+      env: {
+        ...process.env,
+        GH_PAGES: publish && getGameConfig(name) ? '1' : (process.env.GH_PAGES ?? '0'),
+      },
     });
     child.on('exit', (code) => resolve(code ?? 0));
   });

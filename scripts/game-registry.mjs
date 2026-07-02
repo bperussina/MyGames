@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { listGames } from './games.mjs';
+import { DOCS_PORT, getDocsUrl } from './serve-docs.mjs';
 
 const GH_PAGES_ROOT = 'https://bperussina.github.io/MyGames';
 const PAGES_SETTINGS = 'https://github.com/bperussina/MyGames/settings/pages';
@@ -16,6 +17,8 @@ const GAME_REGISTRY = {
   },
 };
 
+export { DOCS_PORT, getDocsUrl };
+
 export { PAGES_SETTINGS, GH_PAGES_ROOT };
 
 export function getGameConfig(gameId) {
@@ -27,6 +30,8 @@ export function getGameConfig(gameId) {
     title: entry.title,
     port: entry.port,
     playPath: '/play.html',
+    docsPlay: `${getDocsUrl(`/${gameId}/play.html`)}`,
+    docsIndex: `${getDocsUrl(`/${gameId}/index.html`)}`,
     ghPagesPlay: `${GH_PAGES_ROOT}/${gameId}/play.html`,
     familyLinkFile: `FAMILY-LINK-${gameId}.txt`,
   };
