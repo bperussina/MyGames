@@ -23,7 +23,7 @@ export function createScene3d(parent = document.body) {
   const hemi = new THREE.HemisphereLight('#dff6ff', '#3d7a36', 0.85);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight('#fff8e7', 1.1);
+  const sun = new THREE.DirectionalLight('#fff8e7', 1.35);
   sun.position.set(20, 35, 12);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -31,11 +31,16 @@ export function createScene3d(parent = document.body) {
   sun.shadow.camera.right = 50;
   sun.shadow.camera.top = 50;
   sun.shadow.camera.bottom = -50;
+  sun.shadow.bias = -0.0002;
   scene.add(sun);
+
+  const fill = new THREE.DirectionalLight('#b8d4ff', 0.35);
+  fill.position.set(-15, 12, -10);
+  scene.add(fill);
 
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(WORLD_HALF * 2, WORLD_HALF * 2),
-    new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.92 }),
+    new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.88, metalness: 0.02 }),
   );
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
