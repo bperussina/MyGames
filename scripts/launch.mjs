@@ -17,10 +17,11 @@ import {
   resetLog, logStep, logOk, logFail, LOG_FILE,
 } from './logger.mjs';
 import { openInBrowser } from './open-browser.mjs';
-import { startDocsServerBackground } from './local-process.mjs';
+import { startDocsServer, getServerStatus } from './local-process.mjs';
 
 const statusOnly = process.argv.includes('--status');
 const skipBuild = process.argv.includes('--skip-build');
+const restartFirst = process.argv.includes('--restart');
 
 function gitBranch() {
   try {
@@ -63,20 +64,20 @@ async function buildAll() {
 }
 
 async function ensureDocsServer() {
-  const probe = await probePort(DOCS_PORT, '/');
-  if (probe.ok) {
-    logOk('docs server already up on this machine', { port: DOCS_PORT });
+  if (restartFirst) {
+    const { restartDocsServer } = await import('./local-process.mjs');
+    const result = await restartDocsServer();
+    return Boolean(result);
+  }
+
+  const status = await getServerStatus();
+  if (status.running) {
+    logOk('docs server already up on this machine', { port: DOCS_PORT, pid: status.pid });
     return true;
   }
 
-  startDocsServerBackground();
-  const up = await waitForPort(DOCS_PORT, '/');
-  if (!up) {
-    logFail('docs server did not start locally', { port: DOCS_PORT });
-    return false;
-  }
-  logOk('docs server running locally', { port: DOCS_PORT });
-  return true;
+  const result = await startDocsServer();
+  return Boolean(result);
 }
 
 async function verifyGameUrls() {
@@ -110,8 +111,10 @@ ${urls.br2}
 car crashing with dashing:
 ${urls.car}
 
-Start: npm start
-Stop:  npm stop
+Start:    npm start
+Restart:  npm restart
+Stop:     npm stop
+Status:   npm run status
 `;
   writeFileSync(path, body);
   logOk('wrote PLAY-HERE.txt', { path });
@@ -130,8 +133,15 @@ async function launch() {
   await auditPorts();
 
   if (statusOnly) {
-    logStep('status', 'port audit only');
-    process.exit(0);
+    const { getServerStatus } = await import('./local-process.mjs');
+    const status = await getServerStatus();
+    logStep('status', status.running ? 'RUNNING' : 'STOPPED', status);
+    console.log(`
+  Server: ${status.running ? 'RUNNING' : 'STOPPED'}
+  Port:   ${status.port}  PID: ${status.pid ?? 'none'}
+  Hub:    ${status.hub}
+`);
+    process.exit(status.running ? 0 : 1);
   }
 
   if (skipBuild && docsLookBuilt()) {
@@ -174,7 +184,7 @@ async function launch() {
   Car:  ${urls.car}
 
   Log:  ${LOG_FILE}
-  Stop: npm stop
+  Stop: npm stop | Restart: npm restart
 
   Everything is local. Reload works while server runs.
 

@@ -18,8 +18,10 @@ Opens **http://localhost:4173/** with all games. No cloud, no tunnels.
 | Command | What it does |
 |---------|--------------|
 | `npm start` | Build games + start local server |
+| `npm restart` | Stop and start server (fast) |
+| `npm run restart:build` | Rebuild games + restart server |
 | `npm stop` | Stop the local server |
-| `npm run status` | Check if ports are up |
+| `npm run status` | Show if server is running |
 | `npm run play:br2` | Baby's Revenge 2 only (port 5176) |
 | `npm run play:car` | car crashing with dashing only (port 5177) |
 
