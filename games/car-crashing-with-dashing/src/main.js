@@ -2,7 +2,6 @@ import {
   createCanvas,
   clearCanvas,
   drawText,
-  drawCircle,
   Input,
   loop,
 } from '@mygames/shared';
@@ -17,6 +16,7 @@ import {
   isControllerMapVisible,
   loadBindings,
 } from './controllerMap.js';
+import { createPlayer, updatePlayer, drawPlayer } from './player.js';
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
@@ -36,7 +36,7 @@ let clickLatch = false;
 let comingSoonTimer = 0;
 let showedControllerMap = false;
 
-const player = { x: 0, y: 0 };
+const player = createPlayer(0, 0);
 let prevPadButtons = {};
 let toastTimer = 0;
 let toastText = '';
@@ -212,6 +212,7 @@ function updateWorldMovement(delta, width, height) {
   }
 
   const speed = 220;
+  updatePlayer(player, mx, my, delta);
   player.x = Math.max(24, Math.min(width - 24, player.x + mx * speed * delta));
   player.y = Math.max(24, Math.min(height - 24, player.y + my * speed * delta));
 
@@ -320,8 +321,7 @@ function render(delta) {
     }
 
     drawGreenWorld(width, height);
-    drawCircle(ctx, player.x, player.y, 18, '#1e3a8a');
-    drawCircle(ctx, player.x, player.y, 12, '#3b82f6');
+    drawPlayer(ctx, player);
 
     if (mode === 'comingSoon') {
       drawText(ctx, 'driving coming soon', width / 2, height * 0.12, {
