@@ -494,7 +494,7 @@ function render(delta) {
     });
     ctx.globalAlpha = 1;
 
-    if (roadReveal > 0.5) {
+    if (roadReveal > 0.5 && !isLobbyVisible()) {
       updateTitleInput(playBtn, multiBtn);
       drawTitleButton(
         playBtn,

@@ -143,12 +143,20 @@ export function createMultiplayerRoom() {
   }
 
   function send(msg) {
-    const raw = JSON.stringify(msg);
     if (role === 'host') {
       broadcast(msg);
     } else {
       const conn = connections.values().next().value;
-      if (conn?.open) conn.send(raw);
+      if (conn?.open) conn.send(JSON.stringify(msg));
+    }
+  }
+
+  function sendToHost(msg) {
+    if (role === 'host') {
+      onMessage?.(msg, myId);
+    } else {
+      const conn = connections.values().next().value;
+      if (conn?.open) conn.send(JSON.stringify(msg));
     }
   }
 
@@ -170,6 +178,7 @@ export function createMultiplayerRoom() {
     host,
     join,
     send,
+    sendToHost,
     relay,
     close,
     get role() {
