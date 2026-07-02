@@ -9,6 +9,7 @@ import {
   getGamepad,
   readMovement,
   readDriving,
+  readKeyboardMove,
   readKeyboardDriving,
   readPressedActions,
 } from './gamepad.js';
@@ -167,17 +168,6 @@ function exitCar() {
   showToast('Exited vehicle');
 }
 
-function readKeyboardMove() {
-  let mx = 0;
-  let mz = 0;
-  if (input.isPressed('w', 'arrowup')) mz += 1;
-  if (input.isPressed('s', 'arrowdown')) mz -= 1;
-  if (input.isPressed('a', 'arrowleft')) mx -= 1;
-  if (input.isPressed('d', 'arrowright')) mx += 1;
-  return { mx, mz };
-}
-
-/** WASD on keyboard = same as Xbox drive buttons (X / B / L / R). */
 function readKeyboardDrive() {
   return readKeyboardDriving(input);
 }
@@ -267,7 +257,7 @@ function enterGameplay() {
 function updateWorldMovement(delta) {
   const pad = getGamepad();
   let { mx, mz } = readMovement(pad);
-  const keys = readKeyboardMove();
+  const keys = readKeyboardMove(input);
   mx += keys.mx;
   mz += keys.mz;
 
@@ -387,9 +377,9 @@ function render(delta) {
     }
 
     if (driving) {
-      setHud('WASD = Xbox drive (W gas · S brake · A/D turn) · E exit · M = map');
+      setHud('WASD to drive · Xbox: hold X gas, B brake, LB/LT/RB turn · E exit · M = map');
     } else {
-      setHud('WASD / arrows move · Garage (left) · M = controller map');
+      setHud('WASD to move · Xbox: stick/D-pad · M = controller map · Garage (left)');
     }
     if (mapHintEl) mapHintEl.hidden = false;
 

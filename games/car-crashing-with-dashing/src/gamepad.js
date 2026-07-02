@@ -24,7 +24,18 @@ export function readMovement(pad) {
   return { mx, mz };
 }
 
-/** WASD mirrors Xbox driving: W=X gas, S=B brake, A=L turn, D=R turn. */
+/** Keyboard only — WASD to walk (computer controls, separate from Xbox). */
+export function readKeyboardMove(input) {
+  let mx = 0;
+  let mz = 0;
+  if (input.isPressed('w')) mz += 1;
+  if (input.isPressed('s')) mz -= 1;
+  if (input.isPressed('a')) mx -= 1;
+  if (input.isPressed('d')) mx += 1;
+  return { mx, mz };
+}
+
+/** Keyboard only — WASD to drive (computer controls, separate from Xbox). */
 export function readKeyboardDriving(input) {
   let throttle = 0;
   let brake = 0;
