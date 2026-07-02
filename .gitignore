@@ -142,12 +142,15 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# Per-game build output
+# Per-game build output (published copies live in docs/)
 games/*/dist/
+
+# Local runtime (your machine only)
+.local/
+launch.log
+PLAY-HERE.txt
+FAMILY-LINK*.txt
+docs/tunnel.json
 
 # Generated when hosting for family (contains your Wi-Fi IP)
 FAMILY-LINK.txt
-launch.log
-PLAY-HERE.txt
-FAMILY-LINK-*.txt
-docs/tunnel.json

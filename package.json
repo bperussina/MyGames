@@ -21,6 +21,7 @@
     "start-all": "node scripts/start-all-games.mjs",
     "restore": "node scripts/launch.mjs",
     "serve": "node scripts/serve-docs.mjs",
+    "stop": "node scripts/stop.mjs",
     "family:br2": "npm run family -- babys-revenge-2",
     "family:car": "npm run family -- car-crashing-with-dashing",
     "share-link": "node scripts/share-link.mjs",

@@ -4,19 +4,31 @@ A monorepo for browser games — one repo, many games, shared helpers.
 
 Each game lives in its own folder under `games/`. Shared code (canvas setup, input, drawing, math) lives in `packages/shared/` so you do not have to copy the same code into every game.
 
-## Quick start
+## Quick start (local — everything on your machine)
 
 ```bash
+git clone https://github.com/bperussina/MyGames.git
+cd MyGames
 npm install
-npm run dev -- bounce-ball
+npm start
 ```
 
-Your browser opens with the example game. Edit `games/bounce-ball/src/main.js` and save — the page updates automatically.
+Opens **http://localhost:4173/** with all games. No cloud, no tunnels.
 
-Try Snake too:
+| Command | What it does |
+|---------|--------------|
+| `npm start` | Build games + start local server |
+| `npm stop` | Stop the local server |
+| `npm run status` | Check if ports are up |
+| `npm run play:br2` | Baby's Revenge 2 only (port 5176) |
+| `npm run play:car` | car crashing with dashing only (port 5177) |
+
+Logs: `launch.log`
+
+## Dev mode (hot reload)
 
 ```bash
-npm run dev -- snake
+npm run dev -- bounce-ball
 ```
 
 ## Commands

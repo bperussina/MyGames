@@ -1,29 +1,26 @@
 #!/usr/bin/env node
 /**
- * ONE command to launch all games locally.
+ * ONE command to launch all games locally on YOUR machine.
+ *   npm install
  *   npm start
- *   npm run launch
  *
- * Logs everything to launch.log
+ * No cloud, no tmux, no tunnels. Logs → launch.log
  */
-import { execSync, spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { listPlayableGames, getGameConfig } from './game-registry.mjs';
+import { listPlayableGames } from './game-registry.mjs';
 import { run } from './serve-game.mjs';
 import { DOCS_PORT, getDocsUrl } from './serve-docs.mjs';
 import { waitForPort, probePort, probeUrl } from './probe.mjs';
 import {
-  resetLog, logStep, logOk, logFail, logWarn, LOG_FILE,
+  resetLog, logStep, logOk, logFail, LOG_FILE,
 } from './logger.mjs';
 import { openInBrowser } from './open-browser.mjs';
+import { startDocsServerBackground } from './local-process.mjs';
 
-const TMUX = ['tmux', '-f', '/exec-daemon/tmux.portal.conf'];
 const statusOnly = process.argv.includes('--status');
-
-function tmux(...args) {
-  return spawnSync(TMUX[0], [...TMUX.slice(1), ...args], { encoding: 'utf8' });
-}
+const skipBuild = process.argv.includes('--skip-build');
 
 function gitBranch() {
   try {
@@ -33,13 +30,15 @@ function gitBranch() {
   }
 }
 
+function docsLookBuilt() {
+  return existsSync(join(process.cwd(), 'docs', 'babys-revenge-2', 'index.html'))
+    && existsSync(join(process.cwd(), 'docs', 'car-crashing-with-dashing', 'index.html'));
+}
+
 async function auditPorts() {
-  logStep('audit', 'checking ports');
+  logStep('audit', 'checking local ports');
   const checks = [
     { port: DOCS_PORT, path: '/', name: 'docs-hub' },
-    { port: 5176, path: '/play.html', name: 'babys-revenge-2' },
-    { port: 5177, path: '/index.html', name: 'car-game' },
-    { port: 5188, path: '/', name: 'old-games-hub' },
   ];
   const results = {};
   for (const c of checks) {
@@ -49,7 +48,7 @@ async function auditPorts() {
 }
 
 async function buildAll() {
-  logStep('build', 'building all playable games to docs/');
+  logStep('build', 'building games locally into docs/');
   for (const gameId of listPlayableGames()) {
     logStep('build', `building ${gameId}`);
     const code = await run('node', ['scripts/build.mjs', gameId, '--publish'], {
@@ -66,37 +65,26 @@ async function buildAll() {
 async function ensureDocsServer() {
   const probe = await probePort(DOCS_PORT, '/');
   if (probe.ok) {
-    logOk('docs server already running', { port: DOCS_PORT });
+    logOk('docs server already up on this machine', { port: DOCS_PORT });
     return true;
   }
 
-  logStep('server', `starting docs server on port ${DOCS_PORT}`);
-  const session = 'docs-server';
-  if (tmux('has-session', '-t', `=${session}`).status !== 0) {
-    tmux('new-session', '-d', '-s', session, '-c', process.cwd(), '--', process.env.SHELL || 'bash', '-l');
-    logOk('tmux session created', { session });
-  } else {
-    logWarn('tmux session exists, sending restart', { session });
-  }
-  tmux('send-keys', '-t', `${session}:0.0`, 'C-c', 'node scripts/serve-docs.mjs', 'C-m');
-
+  startDocsServerBackground();
   const up = await waitForPort(DOCS_PORT, '/');
   if (!up) {
-    logFail('docs server did not start', { port: DOCS_PORT });
+    logFail('docs server did not start locally', { port: DOCS_PORT });
     return false;
   }
-  logOk('docs server running', { port: DOCS_PORT });
+  logOk('docs server running locally', { port: DOCS_PORT });
   return true;
 }
 
 async function verifyGameUrls() {
-  logStep('verify', 'checking game URLs');
+  logStep('verify', 'checking local game URLs');
   const urls = [
     { name: 'hub', url: getDocsUrl('/') },
     { name: 'br2', url: getDocsUrl('/babys-revenge-2/play.html') },
     { name: 'car', url: getDocsUrl('/car-crashing-with-dashing/index.html') },
-    { name: 'br2-assets', url: getDocsUrl('/babys-revenge-2/index.html') },
-    { name: 'car-assets', url: getDocsUrl('/car-crashing-with-dashing/index.html') },
   ];
   const results = {};
   for (const u of urls) {
@@ -107,11 +95,13 @@ async function verifyGameUrls() {
 
 function writePlayHere(urls) {
   const path = join(process.cwd(), 'PLAY-HERE.txt');
-  const body = `LAUNCH OK — ${new Date().toISOString()}
+  const body = `LOCAL GAMES — ${new Date().toISOString()}
 Branch: ${gitBranch()}
 Log: ${LOG_FILE}
 
-OPEN THIS (bookmark it):
+All code runs on YOUR computer. Nothing uses the cloud.
+
+OPEN THIS:
 ${urls.hub}
 
 Baby's Revenge 2:
@@ -120,7 +110,8 @@ ${urls.br2}
 car crashing with dashing:
 ${urls.car}
 
-If a tab fails: npm start
+Start: npm start
+Stop:  npm stop
 `;
   writeFileSync(path, body);
   logOk('wrote PLAY-HERE.txt', { path });
@@ -129,25 +120,29 @@ If a tab fails: npm start
 
 async function launch() {
   resetLog();
-  logStep('launch', 'starting', {
+  logStep('launch', 'local launch', {
     cwd: process.cwd(),
     branch: gitBranch(),
     node: process.version,
-    args: process.argv.slice(2),
+    local: true,
   });
 
   await auditPorts();
 
   if (statusOnly) {
-    logStep('status', 'audit only — not starting servers');
+    logStep('status', 'port audit only');
     process.exit(0);
   }
 
-  await buildAll();
+  if (skipBuild && docsLookBuilt()) {
+    logOk('skip build', { reason: 'docs/ already has built games' });
+  } else {
+    await buildAll();
+  }
 
   const serverOk = await ensureDocsServer();
   if (!serverOk) {
-    logFail('launch aborted — server failed');
+    logFail('launch failed — see launch.log');
     console.error(`\n  Launch failed. See ${LOG_FILE}\n`);
     process.exit(1);
   }
@@ -161,9 +156,9 @@ async function launch() {
   const verified = await verifyGameUrls();
   const allOk = verified.hub?.ok && verified.br2?.ok && verified.car?.ok;
   if (!allOk) {
-    logFail('some URLs failed verification', verified);
+    logFail('URL check failed', verified);
   } else {
-    logOk('all URLs verified');
+    logOk('all local URLs OK');
   }
 
   const playFile = writePlayHere(urls);
@@ -171,7 +166,7 @@ async function launch() {
 
   console.log(`
 ════════════════════════════════════════════════════════
-  LAUNCHED — local games ready
+  LOCAL GAMES READY (all on your machine)
 ════════════════════════════════════════════════════════
 
   Hub:  ${urls.hub}
@@ -179,10 +174,9 @@ async function launch() {
   Car:  ${urls.car}
 
   Log:  ${LOG_FILE}
-  File: ${playFile}
+  Stop: npm stop
 
-  Reload any tab — it works while this server runs.
-  Run again anytime: npm start
+  Everything is local. Reload works while server runs.
 
 ════════════════════════════════════════════════════════
 `);
