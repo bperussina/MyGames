@@ -11,6 +11,7 @@
     "play": "node scripts/play.mjs",
     "family": "node scripts/family-play.mjs",
     "share-link": "node scripts/share-link.mjs",
+    "turn-on-link": "node scripts/turn-on-link.mjs",
     "build": "node scripts/build.mjs",
     "build:all": "node scripts/build.mjs --all",
     "new-game": "node scripts/new-game.mjs",

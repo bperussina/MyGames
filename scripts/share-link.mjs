@@ -1,62 +1,39 @@
 #!/usr/bin/env node
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { copyToClipboard, getLanAddresses } from './network.mjs';
-import {
-  PRIMARY_SHARE_LINK,
-  GH_PAGES_PLAY,
-  PAGES_SETTINGS,
-  buildShareMessage,
-  GAME_NAME,
-} from './play-urls.mjs';
+import { copyToClipboard } from './network.mjs';
+import { PRIMARY_SHARE_LINK, PAGES_SETTINGS } from './play-urls.mjs';
 
-const shareText = buildShareMessage(PRIMARY_SHARE_LINK);
 const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
+const msg = `Play Baby's Revenge 2:
+${PRIMARY_SHARE_LINK}
 
-writeFileSync(
-  filePath,
-  `TEXT THIS TO YOUR FAMILY — Baby's Revenge 2
-============================================
+If "not found" on iPad, run once on your computer:
+npm run turn-on-link
 
-${shareText}
+Then open: ${PAGES_SETTINGS}
+Branch: main   Folder: /docs   → Save`;
 
-Tap the link in Messages. It should say "Baby's Revenge 2".
-
-Also works on iPad, phone, and laptop.
-
----
-Optional GitHub link (after Pages is turned on once):
-${GH_PAGES_PLAY}
-Turn on at: ${PAGES_SETTINGS}
-Branch: gh-pages  Folder: / (root)
-`,
-  'utf8',
-);
-
-const copied = copyToClipboard(shareText);
+writeFileSync(filePath, `${msg}\n`);
+copyToClipboard(msg);
 
 console.log(`
 ════════════════════════════════════════════════════════
-  TEXT THIS TO YOUR FAMILY — ${GAME_NAME}
+  BABY'S REVENGE 2 — YOUR LINK
 ════════════════════════════════════════════════════════
 
 ${PRIMARY_SHARE_LINK}
 
+If iPad says "not found", turn the link on once:
+
+  npm run turn-on-link
+
+Or open: ${PAGES_SETTINGS}
+  Branch: main   Folder: /docs   → Save
+
+For iPad RIGHT NOW (while computer is on):
+  npm run family -- babys-revenge-2
+  (text the trycloudflare.com link it prints)
+
 ════════════════════════════════════════════════════════
-
-Copy the link above ONLY (starts with https://).
-It should show "Baby's Revenge 2" when they tap it.
-
-Saved to: ${filePath}
-${copied ? 'Copied to clipboard — paste into Messages now.' : 'Open FAMILY-LINK.txt and copy the link.'}
-
-If the GitHub link (${GH_PAGES_PLAY}) says "not found",
-turn on Pages once at:
-${PAGES_SETTINGS}
 `);
-
-const lan = getLanAddresses();
-if (lan[0]) {
-  console.log(`Same-Wi-Fi link (optional): http://${lan[0]}:5176/play.html`);
-  console.log('(Run npm run family first — keep terminal open)\n');
-}

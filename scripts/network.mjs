@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
   PRIMARY_SHARE_LINK,
-  GH_PAGES_PLAY,
   PAGES_SETTINGS,
   buildShareMessage,
   GAME_NAME,
@@ -23,22 +22,18 @@ function privateIpScore(ip) {
 export function getLanAddresses() {
   const nets = os.networkInterfaces();
   const addrs = [];
-
   for (const iface of Object.values(nets)) {
     for (const net of iface ?? []) {
-      if (net.family === 'IPv4' && !net.internal) {
-        addrs.push(net.address);
-      }
+      if (net.family === 'IPv4' && !net.internal) addrs.push(net.address);
     }
   }
-
   return [...new Set(addrs)].sort((a, b) => privateIpScore(a) - privateIpScore(b));
 }
 
 export function getPlayUrls(port) {
   const localhost = `http://localhost:${port}${SHARE_PATH}`;
   const lan = getLanAddresses().map((ip) => `http://${ip}:${port}${SHARE_PATH}`);
-  return { localhost, lan, primary: lan[0] ?? localhost, sharePath: SHARE_PATH };
+  return { localhost, lan, primary: lan[0] ?? localhost };
 }
 
 export function copyToClipboard(text) {
@@ -58,49 +53,52 @@ export function copyToClipboard(text) {
   }
 }
 
-export function writeFamilyLinkFile(onlineUrl, localUrl = '') {
+export function writeFamilyLinkFile(permanentUrl, tunnelUrl, localUrl = '') {
   const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
-  const body = `TEXT THIS TO YOUR FAMILY — Baby's Revenge 2
+  const body = `BABY'S REVENGE 2 — LINKS TO TEXT YOUR FAMILY
 ============================================
 
-Play Baby's Revenge 2:
-${onlineUrl}
+BEST RIGHT NOW (works on iPad — keep computer on):
+${tunnelUrl || '(run: npm run family -- babys-revenge-2)'}
 
-Tap the link in Messages. It should say "Baby's Revenge 2".
+PERMANENT LINK (after one-time setup — npm run turn-on-link):
+${permanentUrl}
 
----
-Optional same-Wi-Fi link (only at your house with game running):
-${localUrl || '(run npm run family to generate)'}
+Same Wi-Fi only (optional):
+${localUrl || '(from npm run family)'}
 `;
   writeFileSync(filePath, body, 'utf8');
   return filePath;
 }
 
-export function printFamilyPlayBanner(port, gameTitle = GAME_NAME) {
+export function printFamilyPlayBanner(port, gameTitle = GAME_NAME, tunnelUrl = null) {
   const { localhost, lan, primary } = getPlayUrls(port);
-  const shareText = buildShareMessage(PRIMARY_SHARE_LINK);
 
   console.log(`\n${'═'.repeat(56)}`);
-  console.log(`  FAMILY PLAY — ${gameTitle}`);
+  console.log(`  ${gameTitle.toUpperCase()} — FAMILY PLAY`);
   console.log(`${'═'.repeat(56)}`);
 
-  console.log('\n  TEXT THIS LINK (works on iPad, phone, laptop):\n');
-  console.log(`  ${PRIMARY_SHARE_LINK}`);
-
-  console.log(`\n  On this computer:\n    ${localhost}\n`);
-
-  if (lan.length > 0) {
-    console.log('  Same Wi-Fi only (optional):\n');
-    console.log(`  ${primary}`);
+  if (tunnelUrl) {
+    console.log('\n  TEXT THIS NOW (works on iPad — real game, not code):\n');
+    console.log(`  ${tunnelUrl}`);
+    console.log('\n  Keep this window open while everyone plays.');
+  } else {
+    console.log('\n  For iPad link, run: npm run family -- babys-revenge-2');
+    console.log('  For permanent link, run once: npm run turn-on-link');
   }
 
-  const linkFile = writeFamilyLinkFile(PRIMARY_SHARE_LINK, primary);
+  console.log(`\n  Permanent link (after one-time setup):\n  ${PRIMARY_SHARE_LINK}`);
+  console.log(`  Turn on once: ${PAGES_SETTINGS}`);
+  console.log('    → Branch: main   Folder: /docs   → Save');
+
+  console.log(`\n  On this computer: ${localhost}`);
+  if (lan.length > 0) console.log(`  Same Wi-Fi: ${primary}`);
+
+  const shareText = buildShareMessage(tunnelUrl || PRIMARY_SHARE_LINK);
+  const linkFile = writeFamilyLinkFile(PRIMARY_SHARE_LINK, tunnelUrl, primary);
   const copied = copyToClipboard(shareText);
 
-  console.log(`\n  Link saved to: ${linkFile}`);
-  if (copied) console.log('  Copied to clipboard — paste into Messages.');
-
-  console.log(`\n  GitHub link (needs one-time setup): ${GH_PAGES_PLAY}`);
-  console.log(`  Setup: ${PAGES_SETTINGS}\n`);
+  console.log(`\n  Saved to: ${linkFile}`);
+  if (copied && tunnelUrl) console.log('  iPad link copied to clipboard!');
   console.log(`${'═'.repeat(56)}\n`);
 }
