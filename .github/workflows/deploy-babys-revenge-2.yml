@@ -1,0 +1,46 @@
+name: Deploy Baby's Revenge 2
+
+on:
+  push:
+    branches:
+      - main
+      - cursor/game-monorepo-setup-e0a9
+    paths:
+      - 'games/babys-revenge-2/**'
+      - 'packages/shared/**'
+      - '.github/workflows/deploy-babys-revenge-2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-babys-revenge-2
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build game for GitHub Pages
+        run: GH_PAGES=1 npm run build -- babys-revenge-2
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: games/babys-revenge-2/dist
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com

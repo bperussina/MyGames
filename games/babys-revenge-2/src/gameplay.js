@@ -1,0 +1,623 @@
+import { random } from '@mygames/shared';
+import { drawText } from '@mygames/shared';
+import { playSoundMaker, playHitKid, playPlayerHit } from './audio.js';
+import {
+  createWorld3D,
+  resetPlayer,
+  updateWorldMovement,
+  renderWorld3D,
+  buildSpriteList,
+  getDoorPositions,
+  worldDistance,
+  updateWildDucks,
+  findClickTarget,
+  collectDuck,
+  tryCollectNearbyDucks,
+  startChoppingTree,
+  updateTreeChopping,
+  updateCampfire,
+  projectSprite,
+  DUCK_COLLECT_RANGE,
+} from './world3d.js';
+import {
+  createInventory,
+  canThrowToy,
+  useToy,
+  refillFromToyBox,
+  getClickedInventorySlot,
+  selectToyBox,
+  selectAxe,
+  isAxeSelected,
+  addLogs,
+  takeLogs,
+  LOGS_PER_TREE,
+  renderInventory,
+} from './inventory.js';
+import {
+  feedCampfire,
+  isCampfireInRange,
+  getCampfireProgress,
+  getDistanceToBarrier,
+  MAX_CAMPFIRE_LEVEL,
+} from './campfire.js';
+import { disposeThreeWorld } from './threeworld.js';
+import {
+  createShopState,
+  renderShop,
+  renderShopButton,
+  isShopButtonClicked,
+  handleShopClick,
+  getToyDamage,
+  getThrowSpeed,
+  getHitsToDefeat,
+  getMaxHealth,
+  BASE_MAX_HEALTH,
+} from './shop.js';
+
+const DAY_DURATION = 180;
+const NIGHT_DURATION = 180;
+const MAX_NIGHTS = 20;
+const DAY_BANNER_TIME = 5;
+const SOUND_MAKER_MAX = 100;
+const WIN_SCREEN_TIME = 8;
+
+export function createGameState() {
+  disposeThreeWorld();
+  return {
+    phase: 'DAY',
+    night: 1,
+    phaseTimer: DAY_DURATION,
+    phaseElapsed: 0,
+    health: BASE_MAX_HEALTH,
+    soundCooldown: 0,
+    kids: [],
+    thrownToys: [],
+    incomingToys: [],
+    soundPower: 0,
+    won: false,
+    lost: false,
+    soundMakerCharges: SOUND_MAKER_MAX,
+    winTimer: 0,
+    world: createWorld3D(),
+    inventory: createInventory(),
+    shop: createShopState(),
+    liveDucks: 0,
+    hitSoundCooldown: 0,
+    meleeHitTimer: 0,
+    pendingClick: null,
+  };
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function difficulty(night) {
+  return {
+    kidCount: Math.min(2 + Math.floor(night / 2), 6),
+    kidSpeed: 1.8 + night * 0.22,
+    throwInterval: Math.max(0.45, 1.6 - night * 0.055),
+    annoyToRetreat: 70 + night * 4,
+    soundDrain: 1.4 + night * 0.08,
+    annoyPerSound: 5 + night * 0.15,
+    meleeRange: 1.1,
+    throwRange: 10,
+  };
+}
+
+function spawnKids(night) {
+  const doors = getDoorPositions();
+  const diff = difficulty(night);
+  const kids = [];
+
+  for (let i = 0; i < diff.kidCount; i += 1) {
+    const door = doors[i % doors.length];
+    const stack = Math.floor(i / doors.length);
+    kids.push({
+      x: door.x + ((stack % 2) * 0.35 - 0.17),
+      y: door.y + (Math.floor(stack / 2) * 0.35 - 0.17),
+      kidId: `kid-n${night}-i${i}`,
+      doorId: door.id,
+      homeX: door.x,
+      homeY: door.y,
+      mood: 'angry',
+      retreating: false,
+      defeated: false,
+      hits: 0,
+      hitFlash: 0,
+      annoyance: 0,
+      throwCooldown: random(0, 1.5),
+    });
+  }
+  return kids;
+}
+
+function startNight(state) {
+  state.phase = 'NIGHT';
+  state.phaseTimer = NIGHT_DURATION;
+  state.phaseElapsed = 0;
+  state.kids = spawnKids(state.night);
+  state.thrownToys = [];
+  state.incomingToys = [];
+}
+
+function startDay(state) {
+  state.phase = 'DAY';
+  state.phaseTimer = DAY_DURATION;
+  state.phaseElapsed = 0;
+  state.kids = [];
+  state.thrownToys = [];
+  state.incomingToys = [];
+  state.health = getMaxHealth(state.shop);
+  state.soundMakerCharges = SOUND_MAKER_MAX;
+  resetPlayer(state.world);
+}
+
+function addLiveDuck(state) {
+  state.liveDucks += 1;
+}
+
+export function handleGameClick(state, clickX, clickY, width, height) {
+  if (state.shop.open) {
+    return handleShopClick(state, clickX, clickY, width, height);
+  }
+
+  if (isShopButtonClicked(clickX, clickY, width, height)) {
+    state.shop.open = true;
+    return state;
+  }
+
+  const target = findClickTarget(state.world, state, width, height, clickX, clickY);
+
+  if (target?.type === 'tree' && !target.sprite.chopped && !target.sprite.logsAwarded) {
+    if (!isAxeSelected(state.inventory)) {
+      selectAxe(state.inventory);
+    }
+    startChoppingTree(state.world, target.sprite);
+    return state;
+  }
+
+  if (target?.type === 'campfire') {
+    if (isCampfireInRange(state.world.player.x, state.world.player.y, state.world.campfire)) {
+      const logs = takeLogs(state.inventory, state.inventory.logs);
+      if (logs > 0) {
+        feedCampfire(state.world.campfire, state.world, logs);
+      }
+    }
+    return state;
+  }
+
+  if (target?.type === 'duck') {
+    if (collectDuck(target.sprite)) {
+      addLiveDuck(state);
+    }
+    return state;
+  }
+
+  if (target?.type === 'kid' && !target.sprite.defeated && canThrowToy(state.inventory)) {
+    useToy(state.inventory);
+    const kid = target.sprite;
+    state.thrownToys.push({
+      x: state.world.player.x,
+      y: state.world.player.y,
+      tx: kid.x,
+      ty: kid.y,
+      kidId: kid.kidId,
+      t: 0,
+      type: Math.floor(random(0, 4)),
+      damage: getToyDamage(state.shop),
+    });
+  }
+
+  return state;
+}
+
+export function handleInventoryClick(state, clickX, clickY, width, height) {
+  const slotIndex = getClickedInventorySlot(clickX, clickY, width, height);
+  if (slotIndex === null) return state;
+
+  const slot = state.inventory.slots[slotIndex];
+  if (slot?.type === 'toybox') {
+    selectToyBox(state.inventory);
+  } else if (slot?.type === 'axe') {
+    selectAxe(state.inventory);
+  }
+  return state;
+}
+
+export function updateGameplay(state, delta, input, width, height, admin) {
+  if (state.won || state.lost) {
+    if (state.won) state.winTimer = (state.winTimer ?? 0) + delta;
+    if (input.isPressed('r', ' ')) {
+      return createGameState();
+    }
+    return state;
+  }
+
+  const godMode = admin?.godMode;
+  const speedMul = admin?.speedMultiplier ?? 1;
+  const diff = difficulty(state.night);
+
+  state.phaseElapsed += delta;
+  updateWildDucks(state.world, delta);
+  updateCampfire(state.world, delta);
+
+  tryCollectNearbyDucks(state.world).forEach(() => addLiveDuck(state));
+
+  if (state.phase === 'DAY') {
+    if (updateTreeChopping(state.world, delta)) {
+      addLogs(state.inventory, LOGS_PER_TREE);
+    }
+  }
+
+  if (input.isPressed('b')) {
+    state.shop.open = !state.shop.open;
+  }
+
+  updateWorldMovement(
+    state.world,
+    delta,
+    input,
+    state.phase === 'DAY' ? 5 : 4.2
+  );
+
+  state.world.wildDucks.forEach((duck) => {
+    if (duck.collected) return;
+    const d = worldDistance(state.world.player.x, state.world.player.y, duck.x, duck.y);
+    if (d < DUCK_COLLECT_RANGE + 0.6 && d > DUCK_COLLECT_RANGE) {
+      duck.waddle += delta * 2;
+      duck.x += Math.sin(duck.waddle) * delta * 0.35;
+      duck.y += Math.cos(duck.waddle * 0.8) * delta * 0.25;
+    }
+  });
+
+  if (state.phase === 'DAY') {
+    state.phaseTimer -= delta * speedMul;
+
+    if (input.isPressed('e', 'enter')) {
+      refillFromToyBox(state.inventory);
+    }
+
+    if (state.phaseTimer <= 0) {
+      startNight(state);
+    }
+    return state;
+  }
+
+  state.phaseTimer -= delta * speedMul;
+  state.soundCooldown = Math.max(0, state.soundCooldown - delta);
+
+  const pressingX = input.isDown('x');
+  if (pressingX && state.soundCooldown <= 0 && state.soundMakerCharges > 0) {
+    state.soundCooldown = 0.07;
+    state.soundPower = Math.min(1, state.soundPower + 0.06);
+    state.soundMakerCharges -= diff.soundDrain;
+    playSoundMaker(state.soundPower);
+
+    state.kids.forEach((kid) => {
+      if (kid.defeated) return;
+      const dist = worldDistance(state.world.player.x, state.world.player.y, kid.x, kid.y);
+      if (dist < 10) {
+        kid.annoyance += diff.annoyPerSound;
+        if (kid.annoyance >= diff.annoyToRetreat) {
+          kid.retreating = true;
+          kid.mood = 'scared';
+        }
+      }
+    });
+  } else if (!pressingX) {
+    state.soundPower = Math.max(0, state.soundPower - delta * 0.6);
+  }
+
+  state.kids.forEach((kid) => {
+    if (kid.defeated) return;
+    kid.hitFlash = Math.max(0, kid.hitFlash - delta);
+
+    if (kid.retreating) {
+      const dx = kid.homeX - kid.x;
+      const dy = kid.homeY - kid.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 0.2) {
+        kid.x += (dx / dist) * diff.kidSpeed * 0.9 * delta;
+        kid.y += (dy / dist) * diff.kidSpeed * 0.9 * delta;
+      }
+      return;
+    }
+
+    const dx = state.world.player.x - kid.x;
+    const dy = state.world.player.y - kid.y;
+    const dist = Math.hypot(dx, dy);
+
+    if (dist > 0.2) {
+      kid.x += (dx / dist) * diff.kidSpeed * delta;
+      kid.y += (dy / dist) * diff.kidSpeed * delta;
+    }
+
+    if (!godMode && dist < diff.meleeRange) {
+      state.health -= delta * 0.8;
+      state.meleeHitTimer -= delta;
+      if (state.meleeHitTimer <= 0) {
+        playPlayerHit();
+        state.meleeHitTimer = 0.5;
+      }
+      if (state.health <= 0) state.lost = true;
+    }
+
+    kid.throwCooldown -= delta;
+    if (kid.throwCooldown <= 0 && dist < diff.throwRange && dist > 1.5) {
+      kid.throwCooldown = diff.throwInterval + random(0, 0.5);
+      state.incomingToys.push({
+        startX: width / 2 + (dx / dist) * 200,
+        startY: height / 2 - 80,
+        x: width / 2 + (dx / dist) * 200,
+        y: height / 2 - 80,
+        tx: width / 2,
+        ty: height / 2,
+        t: 0,
+        type: Math.floor(random(0, 4)),
+      });
+    }
+  });
+
+  state.thrownToys = state.thrownToys.filter((toy) => {
+    toy.t += delta * 3.5 * getThrowSpeed(state.shop);
+    toy.x = state.world.player.x + (toy.tx - state.world.player.x) * toy.t;
+    toy.y = state.world.player.y + (toy.ty - state.world.player.y) * toy.t;
+
+    if (toy.t >= 1) {
+      const kid = state.kids.find((k) => k.kidId === toy.kidId && !k.defeated);
+      if (kid) {
+        kid.hits += toy.damage ?? getToyDamage(state.shop);
+        kid.hitFlash = 0.4;
+        playHitKid();
+        if (kid.hits >= getHitsToDefeat(state.shop)) {
+          kid.defeated = true;
+          kid.retreating = true;
+          kid.mood = 'scared';
+          addLiveDuck(state);
+        }
+      }
+      return false;
+    }
+    return true;
+  });
+
+  state.incomingToys = state.incomingToys.filter((toy) => {
+    toy.t += delta * (1.8 + state.night * 0.04);
+    toy.x = toy.startX + (toy.tx - toy.startX) * toy.t;
+    toy.y = toy.startY + (toy.ty - toy.startY) * toy.t;
+    if (toy.t >= 1 && !godMode) {
+      state.health -= 1;
+      playPlayerHit();
+      if (state.health <= 0) state.lost = true;
+      return false;
+    }
+    return toy.t < 1;
+  });
+
+  const activeKids = state.kids.filter((k) => !k.defeated && !k.retreating);
+  if (state.kids.length > 0 && activeKids.length === 0 && state.phaseTimer > 5) {
+    state.phaseTimer = Math.min(state.phaseTimer, 3);
+  }
+
+  if (state.phaseTimer <= 0) {
+    if (state.night >= MAX_NIGHTS) {
+      state.won = true;
+      state.winTimer = 0;
+    } else {
+      state.night += 1;
+      startDay(state);
+    }
+  }
+
+  return state;
+}
+
+function drawWorldToys(ctx, world, toys, width, height) {
+  toys.forEach((toy) => {
+    const proj = projectSprite(world, { x: toy.x, y: toy.y }, width, height);
+    if (!proj) return;
+    const colors = ['#ef4444', '#22c55e', '#3b82f6', '#a855f7'];
+    const r = Math.max(6, proj.spriteH * 0.08);
+    ctx.fillStyle = colors[toy.type % colors.length];
+    ctx.beginPath();
+    ctx.arc(proj.screenX, proj.groundY - proj.spriteH * 0.2, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawSoundChargeMeter(ctx, width, charges) {
+  const barW = 120;
+  const barH = 10;
+  const x = width / 2 - barW / 2;
+  const y = height - 168;
+  const pct = Math.max(0, charges / SOUND_MAKER_MAX);
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(x - 4, y - 18, barW + 8, 32);
+  drawText(ctx, 'Sound maker (hold X)', width / 2, y - 10, { size: 11, color: '#fde68a' });
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(x, y, barW, barH);
+  ctx.fillStyle = pct > 0.25 ? '#facc15' : '#ef4444';
+  ctx.fillRect(x, y, barW * pct, barH);
+}
+
+function drawScreenToys(ctx, toys) {
+  toys.forEach((toy) => {
+    const colors = ['#ef4444', '#22c55e', '#3b82f6', '#a855f7'];
+    ctx.fillStyle = colors[toy.type % colors.length];
+    ctx.beginPath();
+    ctx.arc(toy.x, toy.y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function drawSoundOverlay(ctx, width, height, power) {
+  if (power <= 0) return;
+  for (let i = 1; i <= 4; i += 1) {
+    const r = 40 * i + power * 60;
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(250,204,21,${0.35 - i * 0.07})`;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  }
+}
+
+export function renderGameplay(state, ctx, width, height) {
+  if (state.shop.open) {
+    const sprites = buildSpriteList(state.world, state, width, height);
+    renderWorld3D(ctx, width, height, state.world, state, sprites);
+    renderInventory(ctx, width, height, state.inventory, state.liveDucks);
+    renderShop(ctx, width, height, state.shop, state.inventory, state.liveDucks);
+    return;
+  }
+
+  const sprites = buildSpriteList(state.world, state, width, height);
+  renderWorld3D(ctx, width, height, state.world, state, sprites);
+
+  drawWorldToys(ctx, state.world, state.thrownToys, width, height);
+  drawScreenToys(ctx, state.incomingToys);
+  if (state.phase === 'NIGHT') drawSoundChargeMeter(ctx, width, state.soundMakerCharges);
+  drawSoundOverlay(ctx, width, height, state.soundPower);
+  renderInventory(ctx, width, height, state.inventory, state.liveDucks);
+  renderShopButton(ctx, width, height, state.liveDucks);
+
+  const phaseLabel = state.phase === 'DAY' ? '☀️ DAY' : '🌙 NIGHT';
+  const phaseColor = state.phase === 'DAY' ? '#fbbf24' : '#a78bfa';
+  const maxHealth = getMaxHealth(state.shop);
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(0, 56, 220, 72);
+  drawText(ctx, `${phaseLabel} ${state.night}/${MAX_NIGHTS}`, 12, 68, {
+    align: 'left', baseline: 'top', size: 24, color: phaseColor,
+  });
+  drawText(ctx, formatTime(Math.max(0, state.phaseTimer)), 12, 96, {
+    align: 'left', baseline: 'top', size: 20, color: '#f8fafc',
+  });
+
+  for (let i = 0; i < maxHealth; i += 1) {
+    drawText(ctx, i < Math.ceil(state.health) ? '❤️' : '🖤', width - 28 - i * 32, 12, { size: 22 });
+  }
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(12, height - 52, 248, 36);
+  drawText(ctx, 'Move: WASD or ↑←↓→', 16, height - 42, { align: 'left', baseline: 'top', size: 13, color: '#e2e8f0' });
+  drawText(ctx, 'Look: click + drag', 16, height - 24, { align: 'left', baseline: 'top', size: 12, color: '#94a3b8' });
+
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(width - 210, height - 130, 198, 58);
+  drawText(ctx, 'Axe — click trees to chop · Campfire — feed logs', width - 106, height - 118, { size: 12, color: '#cbd5e1' });
+  drawText(ctx, 'Select Toy Box · click kids at night', width - 106, height - 102, { size: 12, color: '#fbbf24' });
+  drawText(ctx, 'Ducks — click or walk into them 🦆', width - 106, height - 86, { size: 12, color: '#38bdf8' });
+  drawText(ctx, '🛒 SHOP — spend alive ducks', width - 106, height - 70, { size: 12, color: '#c4b5fd' });
+
+  const cf = getCampfireProgress(state.world.campfire);
+  const wallDist = getDistanceToBarrier(state.world.campfire, state.world.barrierBounds);
+  const touching = cf.radius >= wallDist - 0.15;
+  ctx.fillStyle = 'rgba(15,23,42,0.55)';
+  ctx.fillRect(width - 200, 56, 188, 48);
+  drawText(ctx, `🔥 Campfire Lv${cf.level}/${MAX_CAMPFIRE_LEVEL}`, width - 106, 64, {
+    size: 14, color: '#fb923c',
+  });
+  drawText(ctx, touching && cf.level < MAX_CAMPFIRE_LEVEL
+    ? 'Range touching barrier — expanding!'
+    : `Range ${cf.radius.toFixed(1)} / ${wallDist.toFixed(1)} to barrier`, width - 106, 84, {
+    size: 12, color: touching ? '#fde047' : '#fdba74',
+  });
+
+  if (state.phase === 'DAY' && state.phaseElapsed < DAY_BANNER_TIME) {
+    const alpha = state.phaseElapsed > DAY_BANNER_TIME - 1
+      ? DAY_BANNER_TIME - state.phaseElapsed
+      : Math.min(1, state.phaseElapsed / 0.5);
+    ctx.fillStyle = `rgba(0,0,0,${0.45 * alpha})`;
+    ctx.fillRect(0, 0, width, height);
+    drawText(ctx, '☀️ Daytime — rest up, baby! ☀️', width / 2, height * 0.32, {
+      size: 36, color: `rgba(251,191,36,${alpha})`,
+    });
+    drawText(ctx, 'Explore the open green meadow!', width / 2, height * 0.4, {
+      size: 20, color: `rgba(255,255,255,${alpha * 0.9})`,
+    });
+    drawText(ctx, 'Chop trees 🪵 · collect ducks 🦆 · feed the campfire 🔥', width / 2, height * 0.47, {
+      size: 16, color: `rgba(203,213,225,${alpha * 0.85})`,
+    });
+    drawText(ctx, '🌙 At night the big kids come — use toys to scare them off!', width / 2, height * 0.54, {
+      size: 14, color: `rgba(250,204,21,${alpha * 0.8})`,
+    });
+    drawText(ctx, 'WASD or arrow keys to move · click + drag to look', width / 2, height * 0.61, {
+      size: 14, color: `rgba(148,163,184,${alpha * 0.75})`,
+    });
+  }
+
+  if (state.phase === 'DAY' && state.phaseTimer < 45 && state.phaseTimer > 0) {
+    const urgency = state.phaseTimer < 15 ? 1 : 0.75;
+    drawText(ctx, `🌙 Big kids arrive in ${formatTime(state.phaseTimer)}`, width / 2, 28, {
+      size: state.phaseTimer < 15 ? 22 : 18,
+      color: state.phaseTimer < 15 ? '#f87171' : '#fbbf24',
+    });
+  }
+
+  if (state.phase === 'NIGHT' && state.phaseElapsed < 5) {
+    const alpha = Math.min(1, (5 - state.phaseElapsed) / 2);
+    ctx.fillStyle = `rgba(30,0,60,${0.55 * alpha})`;
+    ctx.fillRect(0, height * 0.22, width, 100);
+    drawText(ctx, '🌙 NIGHT — The big kids are here!', width / 2, height * 0.27, {
+      size: 32, color: `rgba(248,113,113,${alpha})`,
+    });
+    drawText(ctx, 'Select Toy Box · click the big kids to throw toys!', width / 2, height * 0.34, {
+      size: 18, color: `rgba(251,191,36,${alpha * 0.95})`,
+    });
+    drawText(ctx, 'Hold X for sound maker · defeat them to survive!', width / 2, height * 0.4, {
+      size: 15, color: `rgba(203,213,225,${alpha * 0.85})`,
+    });
+  }
+
+  const chopping = state.world.choppingTree;
+  if (chopping && !chopping.chopped && state.phase === 'DAY') {
+    const p = chopping.chopProgress ?? 0;
+    const barW = 120;
+    const barX = width / 2 - barW / 2;
+    const barY = height / 2 + 36;
+    ctx.fillStyle = 'rgba(15,23,42,0.7)';
+    ctx.fillRect(barX - 4, barY - 4, barW + 8, 20);
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(barX, barY, barW, 12);
+    ctx.fillStyle = '#84cc16';
+    ctx.fillRect(barX, barY, barW * p, 12);
+    drawText(ctx, 'Chopping tree…', width / 2, barY - 10, { size: 13, color: '#bef264' });
+  }
+
+  if (state.won) {
+    const t = state.winTimer ?? 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(0, 0, width, height);
+
+    const bounce = Math.sin(t * 3) * 6;
+    drawText(ctx, '🎉 YOU WIN! 🎉', width / 2, height * 0.28 + bounce, { size: 52, color: '#facc15' });
+    drawText(ctx, 'Baby survived all 20 nights!', width / 2, height * 0.38, { size: 24, color: '#fff' });
+    drawText(ctx, `${state.liveDucks} live ducks saved 🦆`, width / 2, height * 0.46, { size: 22, color: '#38bdf8' });
+    drawText(ctx, `Campfire level ${getCampfireProgress(state.world.campfire).level} · World fully explored`, width / 2, height * 0.54, {
+      size: 18, color: '#fb923c',
+    });
+    drawText(ctx, 'The big kids learned their lesson… for now.', width / 2, height * 0.62, { size: 18, color: '#c4b5fd' });
+    drawText(ctx, 'Press R to play again', width / 2, height * 0.78, { size: 18, color: '#94a3b8' });
+  }
+
+  if (state.lost) {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, width, height);
+    drawText(ctx, 'GAME OVER', width / 2, height / 2 - 30, { size: 48, color: '#ef4444' });
+    drawText(ctx, `Live ducks saved: ${state.liveDucks} 🦆`, width / 2, height / 2 + 15, { size: 22, color: '#fff' });
+    drawText(ctx, 'Press R to try again', width / 2, height / 2 + 55, { size: 18, color: '#94a3b8' });
+  }
+}
+
+export { MAX_NIGHTS, DAY_DURATION, NIGHT_DURATION };

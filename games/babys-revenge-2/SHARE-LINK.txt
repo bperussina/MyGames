@@ -1,0 +1,26 @@
+TEXT THIS TO YOUR FAMILY — Baby's Revenge 2
+============================================
+
+<<<<<<< Updated upstream
+Play Baby's Revenge 2:
+https://cdn.jsdelivr.net/gh/bperussina/MyGames@gh-pages/play.html
+
+Tap the link in Messages. It should say "Baby's Revenge 2".
+
+Works on iPad, phone, and laptop.
+=======
+PERMANENT LINK (turn on once — see below):
+https://bperussina.github.io/MyGames/play.html
+
+FOR iPad RIGHT NOW:
+Run on your computer:  npm run family -- babys-revenge-2
+Then text the link it prints (starts with https://....trycloudflare.com)
+
+ONE-TIME SETUP for permanent link:
+1. Open https://github.com/bperussina/MyGames/settings/pages
+2. Source: Deploy from a branch
+3. Branch: main   Folder: /docs
+4. Click Save, wait 2 minutes
+
+Or run: npm run turn-on-link
+>>>>>>> Stashed changes

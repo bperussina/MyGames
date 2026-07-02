@@ -1,0 +1,17 @@
+{
+  "name": "@mygames/babys-revenge-2",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mygames/shared": "*",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

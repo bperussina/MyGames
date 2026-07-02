@@ -1,0 +1,28 @@
+plugins = []
+headers = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[build]
+publish = "/workspace/games/babys-revenge-2/games/babys-revenge-2/dist"
+publishOrigin = "ui"
+commandOrigin = "ui"
+base = "/workspace/games/babys-revenge-2"
+command = "npm --workspace @mygames/babys-revenge-2 run build"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]

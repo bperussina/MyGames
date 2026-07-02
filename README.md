@@ -13,6 +13,12 @@ npm run dev -- bounce-ball
 
 Your browser opens with the example game. Edit `games/bounce-ball/src/main.js` and save — the page updates automatically.
 
+Try Snake too:
+
+```bash
+npm run dev -- snake
+```
+
 ## Commands
 
 | Command | What it does |
@@ -31,6 +37,8 @@ mygames/
 ├── games/                  # One folder per game
 │   ├── _template/          # Copy this to start a new game (not playable)
 │   └── bounce-ball/        # Example game
+│   └── snake/              # Classic Snake
+│   └── snake-tris/         # Snake + CPU Tetris same screen
 ├── packages/
 │   └── shared/             # Reusable helpers for all games
 ├── docs/                   # Docs for the repo and each game
@@ -38,6 +46,10 @@ mygames/
 ```
 
 ## Create a new game
+
+Ask the agent: **"I want to make a new game"** — it will ask a few fun questions, write a spec (Spec Kit style), and build after you approve.
+
+Or scaffold manually:
 
 ```bash
 npm run new-game -- space-race
@@ -86,5 +98,6 @@ Available helpers:
 ## Docs
 
 - [How the monorepo works](docs/monorepo.md)
-- [Adding a game](docs/adding-a-game.md)
+- [Adding a game](docs/adding-a-game.md) (spec-first workflow + manual steps)
+- [Game spec template](docs/templates/game-spec-template.md)
 - [bounce-ball](docs/games/bounce-ball.md)
