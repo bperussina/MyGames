@@ -9,7 +9,13 @@ const noopDrive = () => ({ throttle: 0, brake: 0, steer: 0 });
 
 export function createTouchControls() {
   if (!isTouchDevice()) {
-    return { readMove: noop, readDrive: noopDrive, setDriving: () => {}, setVisible: () => {} };
+    return {
+      readMove: noop,
+      readDrive: noopDrive,
+      setDriving: () => {},
+      setVisible: () => {},
+      onExit: () => {},
+    };
   }
 
   const root = document.createElement('div');

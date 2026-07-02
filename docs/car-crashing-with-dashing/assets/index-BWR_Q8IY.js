@@ -38,7 +38,7 @@ var xd=i=>{throw TypeError(i)};var ji=(i,e,t)=>e.has(i)?xd("Cannot add the same 
       <span class="controls-mini-label">Xbox</span>
       <div class="pad-chips">${s.join("")}</div>
     </div>
-  `}function sr(i,e,t={}){if(!i)return;if(!e){i.hidden=!0;return}const n=t.driving?"1":"0";(i.hidden||i.dataset.driving!==n)&&(bs(i,t),i.dataset.driving=n),i.hidden=!1}function Bd(){return matchMedia("(pointer: coarse)").matches||"ontouchstart"in window}const zd=()=>({mx:0,mz:0}),Gd=()=>({throttle:0,brake:0,steer:0});function Hd(){if(!Bd())return{readMove:zd,readDrive:Gd,setDriving:()=>{},setVisible:()=>{}};const i=document.createElement("div");i.id="touch-pad",i.innerHTML=`
+  `}function sr(i,e,t={}){if(!i)return;if(!e){i.hidden=!0;return}const n=t.driving?"1":"0";(i.hidden||i.dataset.driving!==n)&&(bs(i,t),i.dataset.driving=n),i.hidden=!1}function Bd(){return matchMedia("(pointer: coarse)").matches||"ontouchstart"in window}const zd=()=>({mx:0,mz:0}),Gd=()=>({throttle:0,brake:0,steer:0});function Hd(){if(!Bd())return{readMove:zd,readDrive:Gd,setDriving:()=>{},setVisible:()=>{},onExit:()=>{}};const i=document.createElement("div");i.id="touch-pad",i.innerHTML=`
     <button type="button" class="touch-btn touch-up" data-mz="1" aria-label="Forward">▲</button>
     <button type="button" class="touch-btn touch-left" data-mx="-1" aria-label="Left">◀</button>
     <button type="button" class="touch-btn touch-right" data-mx="1" aria-label="Right">▶</button>
