@@ -145,11 +145,11 @@
 
       #controls-hud {
         position: fixed;
-        bottom: 16px;
-        right: 16px;
+        top: 12px;
+        left: 12px;
+        right: 12px;
         z-index: 40;
-        width: min(92vw, 280px);
-        padding: 12px 14px;
+        padding: 10px 14px;
         background: rgba(15, 23, 42, 0.88);
         color: #e2e8f0;
         border: 1px solid rgba(34, 197, 94, 0.45);
@@ -164,6 +164,13 @@
         display: none !important;
       }
 
+      #controls-body {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 28px;
+        align-items: flex-start;
+      }
+
       .controls-title {
         margin: 0 0 8px;
         font-size: 0.7rem;
@@ -174,10 +181,7 @@
       }
 
       .controls-section {
-        margin-bottom: 8px;
-      }
-
-      .controls-section:last-child {
+        flex: 1 1 180px;
         margin-bottom: 0;
       }
 
@@ -226,6 +230,7 @@
 
       .control-action {
         color: #dcfce7;
+        flex: 1;
       }
 
       #hud {
@@ -628,67 +633,13 @@
         font-weight: 700;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-wVtaNGVK.js"></script>
+    <script type="module" crossorigin src="./assets/index-BdwVCzTr.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>
     <div id="controls-hud" hidden>
       <p class="controls-title">Controls</p>
-      <div id="controls-walk">
-        <div class="controls-section">
-          <p class="controls-heading">Keyboard</p>
-          <ul class="controls-list">
-            <li><span class="control-key">W</span><span class="control-action">Forward</span></li>
-            <li><span class="control-key">S</span><span class="control-action">Back</span></li>
-            <li><span class="control-key">A</span><span class="control-action">Left</span></li>
-            <li><span class="control-key">D</span><span class="control-action">Right</span></li>
-          </ul>
-        </div>
-        <div class="controls-section">
-          <p class="controls-heading">Xbox</p>
-          <ul class="controls-list">
-            <li><span class="control-key wide">Stick</span><span class="control-action">Move</span></li>
-            <li><span class="control-key wide">D-pad</span><span class="control-action">Move</span></li>
-          </ul>
-        </div>
-        <div class="controls-section">
-          <p class="controls-heading">Other</p>
-          <ul class="controls-list">
-            <li><span class="control-key wide">Garage</span><span class="control-action">Open cars (left)</span></li>
-            <li><span class="control-key">M</span><span class="control-action">Controller map</span></li>
-            <li><span class="control-key wide">Menu</span><span class="control-action">Controller map</span></li>
-          </ul>
-        </div>
-      </div>
-      <div id="controls-drive" hidden>
-        <div class="controls-section">
-          <p class="controls-heading">Keyboard</p>
-          <ul class="controls-list">
-            <li><span class="control-key">W</span><span class="control-action">Gas</span></li>
-            <li><span class="control-key">S</span><span class="control-action">Brake</span></li>
-            <li><span class="control-key">A</span><span class="control-action">Turn left</span></li>
-            <li><span class="control-key">D</span><span class="control-action">Turn right</span></li>
-            <li><span class="control-key">E</span><span class="control-action">Exit car</span></li>
-          </ul>
-        </div>
-        <div class="controls-section">
-          <p class="controls-heading">Xbox</p>
-          <ul class="controls-list">
-            <li><span class="control-key">X</span><span class="control-action">Gas (hold)</span></li>
-            <li><span class="control-key">B</span><span class="control-action">Brake</span></li>
-            <li><span class="control-key">LB</span><span class="control-action">Turn left</span></li>
-            <li><span class="control-key">LT</span><span class="control-action">Turn left</span></li>
-            <li><span class="control-key">RB</span><span class="control-action">Turn right</span></li>
-          </ul>
-        </div>
-        <div class="controls-section">
-          <p class="controls-heading">Other</p>
-          <ul class="controls-list">
-            <li><span class="control-key">M</span><span class="control-action">Controller map</span></li>
-            <li><span class="control-key wide">Menu</span><span class="control-action">Controller map</span></li>
-          </ul>
-        </div>
-      </div>
+      <div id="controls-body"></div>
     </div>
     <div id="hud" hidden></div>
     <div id="map-hint" hidden></div>

@@ -19,6 +19,7 @@ import {
   isControllerMapVisible,
   loadBindings,
 } from './controllerMap.js';
+import { refreshControlsHud, setControlsHudVisible } from './controlsHud.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
 import { createGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
@@ -80,11 +81,9 @@ let toastTimer = 0;
 
 const toastEl = document.getElementById('action-toast');
 const controlsHudEl = document.getElementById('controls-hud');
-const controlsWalkEl = document.getElementById('controls-walk');
-const controlsDriveEl = document.getElementById('controls-drive');
 const roomBannerEl = document.getElementById('room-banner');
 
-createControllerMap();
+createControllerMap(() => refreshControlsHud(controlsHudEl));
 createGarage(spawnCarFromGarage);
 
 createLobby(({ room, isHost: host }) => {
@@ -369,7 +368,7 @@ function enterGameplay() {
   titleCanvas.style.display = 'none';
   world.show();
   setGarageBoxVisible(true);
-  updateControlsHud('walk');
+  setControlsHudVisible(controlsHudEl, true);
 }
 
 function updateWorldMovement(delta) {
@@ -428,22 +427,11 @@ function updateWorldMovement(delta) {
   if (!input.isPressed('m')) mapKeyLatch = false;
 }
 
-function updateControlsHud(mode) {
-  if (!controlsHudEl) return;
-  if (!mode) {
-    controlsHudEl.hidden = true;
-    return;
-  }
-  controlsHudEl.hidden = false;
-  if (controlsWalkEl) controlsWalkEl.hidden = mode !== 'walk';
-  if (controlsDriveEl) controlsDriveEl.hidden = mode !== 'drive';
-}
-
 function render(delta) {
   const { width, height } = titleCanvas;
 
   if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible()) {
-    updateControlsHud(null);
+    setControlsHudVisible(controlsHudEl, false);
     if (isControllerMapVisible()) return;
   }
 
@@ -474,7 +462,7 @@ function render(delta) {
     titleCanvas.style.display = 'block';
     world.hide();
     setGarageBoxVisible(false);
-    updateControlsHud(null);
+    setControlsHudVisible(controlsHudEl, false);
     if (roomBannerEl) roomBannerEl.hidden = true;
 
     titleAlpha = Math.min(1, titleAlpha + delta * 1.2);
@@ -541,11 +529,11 @@ function render(delta) {
     if (mode === 'comingSoon') {
       comingSoonTimer -= delta;
       if (comingSoonTimer <= 0) mode = 'world';
-      updateControlsHud('walk');
+      setControlsHudVisible(controlsHudEl, true);
       setGarageBoxVisible(false);
     } else {
       setGarageBoxVisible(true);
-      updateControlsHud(driving ? 'drive' : 'walk');
+      setControlsHudVisible(controlsHudEl, true);
     }
 
     world.render();
