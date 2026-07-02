@@ -79,8 +79,9 @@ let prevPadButtons = {};
 let toastTimer = 0;
 
 const toastEl = document.getElementById('action-toast');
-const mapHintEl = document.getElementById('map-hint');
-const hudEl = document.getElementById('hud');
+const controlsHudEl = document.getElementById('controls-hud');
+const controlsWalkEl = document.getElementById('controls-walk');
+const controlsDriveEl = document.getElementById('controls-drive');
 const roomBannerEl = document.getElementById('room-banner');
 
 createControllerMap();
@@ -196,7 +197,6 @@ function handlePadActions(pad) {
   if (pad.buttons[9]?.pressed && !menuLatch) {
     menuLatch = true;
     showControllerMap();
-    if (mapHintEl) mapHintEl.hidden = true;
   }
   if (!pad?.buttons[9]?.pressed) menuLatch = false;
 }
@@ -368,8 +368,8 @@ function showToast(text) {
 function enterGameplay() {
   titleCanvas.style.display = 'none';
   world.show();
-  if (hudEl) hudEl.hidden = false;
   setGarageBoxVisible(true);
+  updateControlsHud('walk');
 }
 
 function updateWorldMovement(delta) {
@@ -424,22 +424,26 @@ function updateWorldMovement(delta) {
   if (input.isPressed('m') && !mapKeyLatch) {
     mapKeyLatch = true;
     showControllerMap();
-    if (mapHintEl) mapHintEl.hidden = true;
   }
   if (!input.isPressed('m')) mapKeyLatch = false;
 }
 
-function setHud(text) {
-  if (!hudEl) return;
-  hudEl.textContent = text;
-  hudEl.hidden = false;
+function updateControlsHud(mode) {
+  if (!controlsHudEl) return;
+  if (!mode) {
+    controlsHudEl.hidden = true;
+    return;
+  }
+  controlsHudEl.hidden = false;
+  if (controlsWalkEl) controlsWalkEl.hidden = mode !== 'walk';
+  if (controlsDriveEl) controlsDriveEl.hidden = mode !== 'drive';
 }
 
 function render(delta) {
   const { width, height } = titleCanvas;
 
   if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible()) {
-    if (mapHintEl) mapHintEl.hidden = true;
+    updateControlsHud(null);
     if (isControllerMapVisible()) return;
   }
 
@@ -470,8 +474,7 @@ function render(delta) {
     titleCanvas.style.display = 'block';
     world.hide();
     setGarageBoxVisible(false);
-    if (hudEl) hudEl.hidden = true;
-    if (mapHintEl) mapHintEl.hidden = true;
+    updateControlsHud(null);
     if (roomBannerEl) roomBannerEl.hidden = true;
 
     titleAlpha = Math.min(1, titleAlpha + delta * 1.2);
@@ -538,16 +541,11 @@ function render(delta) {
     if (mode === 'comingSoon') {
       comingSoonTimer -= delta;
       if (comingSoonTimer <= 0) mode = 'world';
-      setHud('driving coming soon');
+      updateControlsHud('walk');
       setGarageBoxVisible(false);
     } else {
       setGarageBoxVisible(true);
-      if (driving) {
-        setHud('WASD to drive · Xbox: hold X gas, B brake, LB/LT/RB turn · E exit · M = map');
-      } else {
-        setHud('WASD to move · Xbox: stick/D-pad · M = controller map · Garage (left)');
-      }
-      if (mapHintEl) mapHintEl.hidden = false;
+      updateControlsHud(driving ? 'drive' : 'walk');
     }
 
     world.render();
