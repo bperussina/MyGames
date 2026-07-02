@@ -2,7 +2,6 @@ import {
   createCanvas,
   clearCanvas,
   drawText,
-  drawCircle,
   Input,
   loop,
 } from '@mygames/shared';
@@ -17,13 +16,24 @@ import {
   isControllerMapVisible,
   loadBindings,
 } from './controllerMap.js';
+import { createScene3d } from './scene3d.js';
+import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
+const MOVE_SPEED = 7;
 const teleportParam = new URLSearchParams(window.location.search).has('teleport');
 
-const { canvas, ctx } = createCanvas();
-const input = new Input(canvas);
+const { canvas: titleCanvas, ctx } = createCanvas();
+titleCanvas.id = 'title-canvas';
+titleCanvas.style.position = 'fixed';
+titleCanvas.style.inset = '0';
+titleCanvas.style.zIndex = '2';
+
+const input = new Input(titleCanvas);
+const world = createScene3d();
+const player = createPlayer(0, 0);
+addPlayerToScene(world.scene, player);
 
 /** title | comingSoon | world */
 let mode = 'title';
@@ -34,19 +44,17 @@ let playPulse = 0;
 let hoverPlay = false;
 let clickLatch = false;
 let comingSoonTimer = 0;
-let showedControllerMap = false;
+let menuLatch = false;
+let mapKeyLatch = false;
 
-const player = { x: 0, y: 0 };
 let prevPadButtons = {};
 let toastTimer = 0;
-let toastText = '';
 
 const toastEl = document.getElementById('action-toast');
 const mapHintEl = document.getElementById('map-hint');
+const hudEl = document.getElementById('hud');
 
-createControllerMap(() => {
-  mode = 'world';
-});
+createControllerMap();
 
 function roadGeometry(width, height, reveal = 1) {
   const cx = width / 2;
@@ -115,9 +123,9 @@ function getPlayButtonBounds(width, height, geo) {
 }
 
 function canvasPoint(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
+  const rect = titleCanvas.getBoundingClientRect();
+  const scaleX = titleCanvas.width / rect.width;
+  const scaleY = titleCanvas.height / rect.height;
   return {
     x: (clientX - rect.left) * scaleX,
     y: (clientY - rect.top) * scaleY,
@@ -162,33 +170,7 @@ function drawPlayButton(btn, pulse, hover, pressed) {
   ctx.restore();
 }
 
-function drawGreenWorld(width, height) {
-  const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, '#4ade80');
-  grad.addColorStop(0.5, '#22c55e');
-  grad.addColorStop(1, '#15803d');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, width, height);
-
-  ctx.strokeStyle = 'rgba(20,83,45,0.15)';
-  ctx.lineWidth = 2;
-  const grid = 48;
-  for (let x = 0; x < width; x += grid) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  }
-  for (let y = 0; y < height; y += grid) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-}
-
 function showToast(text) {
-  toastText = text;
   toastTimer = 2;
   if (toastEl) {
     toastEl.textContent = text;
@@ -196,7 +178,13 @@ function showToast(text) {
   }
 }
 
-function updateWorldMovement(delta, width, height) {
+function enterGameplay() {
+  titleCanvas.style.display = 'none';
+  world.show();
+  if (hudEl) hudEl.hidden = false;
+}
+
+function updateWorldMovement(delta) {
   const pad = getGamepad();
   let { mx, my } = readMovement(pad);
 
@@ -211,44 +199,68 @@ function updateWorldMovement(delta, width, height) {
     my /= len;
   }
 
-  const speed = 220;
-  player.x = Math.max(24, Math.min(width - 24, player.x + mx * speed * delta));
-  player.y = Math.max(24, Math.min(height - 24, player.y + my * speed * delta));
+  updatePlayer(player, mx, my, delta);
 
-  if (pad && mode === 'world' && !isControllerMapVisible()) {
-    const { fired, prevPressed } = readPressedActions(pad, loadBindings(), prevPadButtons);
-    prevPadButtons = prevPressed;
-    for (const f of fired) showToast(f.action);
+  const nextX = player.x + mx * MOVE_SPEED * delta;
+  const nextZ = player.z + my * MOVE_SPEED * delta;
+  const clamped = world.clampPosition(nextX, nextZ);
+  player.x = clamped.x;
+  player.z = clamped.z;
 
-    if (pad.buttons[9]?.pressed && !prevPadButtons._menuLatch) {
-      prevPadButtons._menuLatch = true;
-      showControllerMap();
-      mapHintEl.hidden = true;
+  syncPlayerMesh(player);
+  world.updateCamera(player.x, player.z);
+
+  if (mode === 'world' && !isControllerMapVisible()) {
+    if (pad) {
+      const { fired, prevPressed } = readPressedActions(pad, loadBindings(), prevPadButtons);
+      prevPadButtons = prevPressed;
+      for (const f of fired) showToast(f.action);
+
+      if (pad.buttons[9]?.pressed && !menuLatch) {
+        menuLatch = true;
+        showControllerMap();
+        if (mapHintEl) mapHintEl.hidden = true;
+      }
     }
+    if (!pad?.buttons[9]?.pressed) menuLatch = false;
+
+    if (input.isPressed('m') && !mapKeyLatch) {
+      mapKeyLatch = true;
+      showControllerMap();
+      if (mapHintEl) mapHintEl.hidden = true;
+    }
+    if (!input.isPressed('m')) mapKeyLatch = false;
   }
-  if (!pad?.buttons[9]?.pressed) prevPadButtons._menuLatch = false;
 }
 
 function updateTitleInput(btn) {
   const pt = canvasPoint(input.pointer.x, input.pointer.y);
   hoverPlay = pointInButton(pt.x, pt.y, btn);
-  canvas.style.cursor = hoverPlay ? 'pointer' : 'default';
+  titleCanvas.style.cursor = hoverPlay ? 'pointer' : 'default';
 
   if (input.pointer.down && hoverPlay && !clickLatch) {
     mode = 'comingSoon';
     comingSoonTimer = COMING_SOON_TIME;
-    player.x = canvas.width / 2;
-    player.y = canvas.height / 2;
+    player.x = 0;
+    player.z = 0;
+    syncPlayerMesh(player);
+    enterGameplay();
     clickLatch = true;
   }
   if (!input.pointer.down) clickLatch = false;
 }
 
+function setHud(text) {
+  if (!hudEl) return;
+  hudEl.textContent = text;
+  hudEl.hidden = false;
+}
+
 function render(delta) {
-  const { width, height } = canvas;
+  const { width, height } = titleCanvas;
 
   if (isControllerMapVisible()) {
-    mapHintEl.hidden = true;
+    if (mapHintEl) mapHintEl.hidden = true;
     return;
   }
 
@@ -260,6 +272,8 @@ function render(delta) {
   if (warp > 0) {
     warp = Math.max(0, warp - delta);
     const flash = warp > 0.35 ? 1 - (1.8 - warp) / 1.45 : 0;
+    titleCanvas.style.display = 'block';
+    world.hide();
     clearCanvas(ctx, flash > 0.2 ? '#e0f2fe' : '#22c55e');
     if (flash > 0.05) {
       ctx.fillStyle = `rgba(255,255,255,${flash * 0.75})`;
@@ -273,6 +287,11 @@ function render(delta) {
   }
 
   if (mode === 'title') {
+    titleCanvas.style.display = 'block';
+    world.hide();
+    if (hudEl) hudEl.hidden = true;
+    if (mapHintEl) mapHintEl.hidden = true;
+
     titleAlpha = Math.min(1, titleAlpha + delta * 1.2);
     roadReveal = Math.min(1, roadReveal + delta * 0.55);
     playPulse += delta * 4;
@@ -296,48 +315,22 @@ function render(delta) {
       updateTitleInput(btn);
       drawPlayButton(btn, playPulse, hoverPlay, input.pointer.down && hoverPlay);
     }
-    mapHintEl.hidden = true;
     return;
   }
 
   if (mode === 'comingSoon' || mode === 'world') {
-    if (player.x === 0 && player.y === 0) {
-      player.x = width / 2;
-      player.y = height / 2;
-    }
-
-    updateWorldMovement(delta, width, height);
+    updateWorldMovement(delta);
 
     if (mode === 'comingSoon') {
       comingSoonTimer -= delta;
-      if (comingSoonTimer <= 0) {
-        mode = 'world';
-        if (!showedControllerMap) {
-          showedControllerMap = true;
-          showControllerMap();
-        }
-      }
+      if (comingSoonTimer <= 0) mode = 'world';
+      setHud('driving coming soon');
+    } else {
+      setHud('Left stick / WASD to move · M = controller map');
+      if (mapHintEl) mapHintEl.hidden = false;
     }
 
-    drawGreenWorld(width, height);
-    drawCircle(ctx, player.x, player.y, 18, '#1e3a8a');
-    drawCircle(ctx, player.x, player.y, 12, '#3b82f6');
-
-    if (mode === 'comingSoon') {
-      drawText(ctx, 'driving coming soon', width / 2, height * 0.12, {
-        color: '#14532d',
-        size: 36,
-      });
-    }
-
-    if (mode === 'world') {
-      mapHintEl.hidden = false;
-      if (input.isPressed('m')) showControllerMap();
-      drawText(ctx, 'Left stick / WASD to move · M = controller map', width / 2, height - 28, {
-        color: '#14532d',
-        size: 14,
-      });
-    }
+    world.render();
   }
 }
 

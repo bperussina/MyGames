@@ -8,7 +8,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@mygames/shared": "*"
+    "@mygames/shared": "*",
+    "three": "^0.170.0"
   },
   "devDependencies": {
     "vite": "^6.3.5"
