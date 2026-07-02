@@ -20,14 +20,23 @@ After this, this link works on iPad, phone, and laptop:
 
   ${config.ghPagesPlay}
 
-STEPS:
-  1. Open: ${PAGES_SETTINGS}
-  2. Under "Build and deployment" → Source: Deploy from a branch
-  3. Branch: main    Folder: /docs
-  4. Click Save
-  5. Wait 2 minutes, then open the play link above.
+STEPS (pick one):
 
-Each game has its own folder under /docs (e.g. docs/${config.id}/).
+  A) GitHub Actions (recommended):
+     1. Open: ${PAGES_SETTINGS}
+     2. Build and deployment → Source: **GitHub Actions**
+     3. Wait for "Deploy all games to GitHub Pages" to finish
+
+  B) Branch deploy:
+     1. Open: ${PAGES_SETTINGS}
+     2. Source: Deploy from a branch
+     3. Branch: **gh-pages**   Folder: **/ (root)**
+        (or Branch: **main**   Folder: **/docs**)
+     4. Click Save — wait ~2 minutes
+
+  Or run: npm run deploy-pages
+
+Then open: ${config.ghPagesPlay}
 
 ════════════════════════════════════════════════════════
 `);
