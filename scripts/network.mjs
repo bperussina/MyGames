@@ -3,14 +3,7 @@ import os from 'node:os';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import {
-  PRIMARY_SHARE_LINK,
-  PAGES_SETTINGS,
-  buildShareMessage,
-  GAME_NAME,
-} from './play-urls.mjs';
-
-const SHARE_PATH = '/play.html';
+import { buildShareMessage, PAGES_SETTINGS } from './game-registry.mjs';
 
 function privateIpScore(ip) {
   if (ip.startsWith('192.168.')) return 0;
@@ -30,9 +23,9 @@ export function getLanAddresses() {
   return [...new Set(addrs)].sort((a, b) => privateIpScore(a) - privateIpScore(b));
 }
 
-export function getPlayUrls(port) {
-  const localhost = `http://localhost:${port}${SHARE_PATH}`;
-  const lan = getLanAddresses().map((ip) => `http://${ip}:${port}${SHARE_PATH}`);
+export function getPlayUrls(port, playPath = '/play.html') {
+  const localhost = `http://localhost:${port}${playPath}`;
+  const lan = getLanAddresses().map((ip) => `http://${ip}:${port}${playPath}`);
   return { localhost, lan, primary: lan[0] ?? localhost };
 }
 
@@ -53,29 +46,30 @@ export function copyToClipboard(text) {
   }
 }
 
-export function writeFamilyLinkFile(permanentUrl, tunnelUrl, localUrl = '') {
-  const filePath = join(process.cwd(), 'FAMILY-LINK.txt');
-  const body = `BABY'S REVENGE 2 — LINKS TO TEXT YOUR FAMILY
+export function writeFamilyLinkFile(config, tunnelUrl, localUrl = '') {
+  const filePath = join(process.cwd(), config.familyLinkFile);
+  const body = `${config.title.toUpperCase()} — LINKS TO TEXT YOUR FAMILY
 ============================================
 
 BEST RIGHT NOW (works on iPad — keep computer on):
-${tunnelUrl || '(run: npm run family -- babys-revenge-2)'}
+${tunnelUrl || `(run: npm run family -- ${config.id})`}
 
-PERMANENT LINK (after one-time setup — npm run turn-on-link):
-${permanentUrl}
+PERMANENT LINK (after one-time setup — npm run turn-on-link -- ${config.id}):
+${config.ghPagesPlay}
 
 Same Wi-Fi only (optional):
-${localUrl || '(from npm run family)'}
+${localUrl || `(from npm run family -- ${config.id})`}
 `;
   writeFileSync(filePath, body, 'utf8');
   return filePath;
 }
 
-export function printFamilyPlayBanner(port, gameTitle = GAME_NAME, tunnelUrl = null) {
-  const { localhost, lan, primary } = getPlayUrls(port);
+export function printFamilyPlayBanner(config, tunnelUrl = null) {
+  const { localhost, lan, primary } = getPlayUrls(config.port, config.playPath);
 
   console.log(`\n${'═'.repeat(56)}`);
-  console.log(`  ${gameTitle.toUpperCase()} — FAMILY PLAY`);
+  console.log(`  ${config.title.toUpperCase()} — FAMILY PLAY`);
+  console.log(`  (port ${config.port} — separate from other games)`);
   console.log(`${'═'.repeat(56)}`);
 
   if (tunnelUrl) {
@@ -83,19 +77,19 @@ export function printFamilyPlayBanner(port, gameTitle = GAME_NAME, tunnelUrl = n
     console.log(`  ${tunnelUrl}`);
     console.log('\n  Keep this window open while everyone plays.');
   } else {
-    console.log('\n  For iPad link, run: npm run family -- babys-revenge-2');
-    console.log('  For permanent link, run once: npm run turn-on-link');
+    console.log(`\n  For iPad link, run: npm run family -- ${config.id}`);
+    console.log(`  For permanent link, run once: npm run turn-on-link -- ${config.id}`);
   }
 
-  console.log(`\n  Permanent link (after one-time setup):\n  ${PRIMARY_SHARE_LINK}`);
+  console.log(`\n  Permanent link (after one-time setup):\n  ${config.ghPagesPlay}`);
   console.log(`  Turn on once: ${PAGES_SETTINGS}`);
   console.log('    → Branch: main   Folder: /docs   → Save');
 
   console.log(`\n  On this computer: ${localhost}`);
   if (lan.length > 0) console.log(`  Same Wi-Fi: ${primary}`);
 
-  const shareText = buildShareMessage(tunnelUrl || PRIMARY_SHARE_LINK);
-  const linkFile = writeFamilyLinkFile(PRIMARY_SHARE_LINK, tunnelUrl, primary);
+  const shareText = buildShareMessage(config, tunnelUrl || config.ghPagesPlay);
+  const linkFile = writeFamilyLinkFile(config, tunnelUrl, primary);
   const copied = copyToClipboard(shareText);
 
   console.log(`\n  Saved to: ${linkFile}`);

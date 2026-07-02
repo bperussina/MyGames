@@ -5,12 +5,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { printFamilyPlayBanner } from './network.mjs';
-
-const DEFAULT_PORT = 5176;
-const GAME_TITLES = {
-  'babys-revenge-2': "Baby's Revenge 2",
-  'car-crashing-with-dashing': 'car crashing with dashing',
-};
+import { requireGameConfig } from './game-registry.mjs';
 
 export function run(cmd, args, options = {}) {
   return new Promise((resolve) => {
@@ -62,8 +57,9 @@ export function startCloudflareTunnel(port) {
   });
 }
 
-export async function buildAndServe(game, { family = false, port = DEFAULT_PORT } = {}) {
-  const title = GAME_TITLES[game] ?? game;
+export async function buildAndServe(game, { family = false } = {}) {
+  const config = requireGameConfig(game);
+  const { title, port, playPath } = config;
 
   console.log(family ? `\nBuilding ${title} for family play...` : `\nBuilding ${title}...`);
   const buildCode = await run('npm', ['run', 'build', '-w', `@mygames/${game}`]);
@@ -87,13 +83,13 @@ export async function buildAndServe(game, { family = false, port = DEFAULT_PORT 
     await new Promise((r) => { setTimeout(r, 2500); });
     console.log('\nStarting public link for iPad/phone...');
     const tunnel = await startCloudflareTunnel(port);
-    tunnelUrl = tunnel?.url ? `${tunnel.url}/play.html` : null;
+    tunnelUrl = tunnel?.url ? `${tunnel.url}${playPath}` : null;
   } else {
-    printFamilyPlayBanner(port, title, null);
+    printFamilyPlayBanner(config, null);
   }
 
   if (family) {
-    printFamilyPlayBanner(port, title, tunnelUrl);
+    printFamilyPlayBanner(config, tunnelUrl);
   }
 
   return new Promise((resolve) => {

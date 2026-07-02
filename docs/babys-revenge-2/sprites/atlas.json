@@ -1,0 +1,12 @@
+{
+  "name": "babys-revenge-2-nature-pack",
+  "version": 1,
+  "tiles": {
+    "bark": { "file": "bark.png", "wrap": "repeat" },
+    "leaves": { "file": "leaves.png", "wrap": "repeat" },
+    "duck_body": { "file": "duck_body.png", "wrap": "clamp" },
+    "duck_bill": { "file": "duck_bill.png", "wrap": "clamp" },
+    "water": { "file": "water.png", "wrap": "repeat" },
+    "grass": { "file": "grass.png", "wrap": "repeat" }
+  }
+}
