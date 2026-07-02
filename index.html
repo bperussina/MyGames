@@ -3,26 +3,68 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="apple-mobile-web-app-title" content="Baby's Revenge 2" />
-    <meta name="description" content="Baby's Revenge 2 — survive 20 nights in a 3D meadow." />
-    <meta property="og:title" content="Baby's Revenge 2" />
-    <meta property="og:description" content="Play Baby's Revenge 2!" />
-    <title>Baby's Revenge 2</title>
+    <title>My Games</title>
     <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
-        overflow: hidden;
-        background: #22c55e;
+        min-height: 100vh;
         font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 40px 24px;
+      }
+      h1 { font-size: 2rem; margin-bottom: 8px; }
+      .lead { color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
+      .grid { display: grid; gap: 16px; max-width: 520px; }
+      a.game {
+        display: block;
+        padding: 20px 22px;
+        border-radius: 14px;
+        text-decoration: none;
+        color: inherit;
+        font-weight: 700;
+        font-size: 1.15rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+      }
+      .br2 { background: linear-gradient(135deg, #166534, #22c55e); color: #fff; }
+      .car { background: linear-gradient(135deg, #15803d, #4ade80); color: #14532d; }
+      .sub { display: block; font-size: 0.85rem; font-weight: 500; opacity: 0.9; margin-top: 6px; }
+      .open-all {
+        margin-top: 20px;
+        display: inline-block;
+        background: #facc15;
+        color: #422006;
+        border: none;
+        border-radius: 12px;
+        padding: 14px 20px;
+        font-weight: 800;
+        font-size: 1rem;
+        cursor: pointer;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-COLHE4D4.js"></script>
   </head>
   <body>
+    <h1>My Games</h1>
+    <p class="lead">All local on your computer. Bookmark this page — reload anytime.</p>
+
+    <div class="grid">
+      <a class="game br2" href="./babys-revenge-2/play.html" target="_blank" rel="noopener">
+        Baby's Revenge 2
+        <span class="sub">Click to play</span>
+      </a>
+      <a class="game car" href="./car-crashing-with-dashing/index.html" target="_blank" rel="noopener">
+        car crashing with dashing
+        <span class="sub">Click to play</span>
+      </a>
+    </div>
+
+    <button type="button" class="open-all" id="open-all">Open both games in new tabs</button>
+
+    <script>
+      document.getElementById('open-all').addEventListener('click', () => {
+        window.open('./babys-revenge-2/play.html', '_blank', 'noopener');
+        window.open('./car-crashing-with-dashing/index.html', '_blank', 'noopener');
+      });
+    </script>
   </body>
 </html>

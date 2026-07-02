@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Baby's Revenge 2</title>
+    <meta name="description" content="Baby's Revenge 2 — play in your browser." />
+    <meta name="apple-mobile-web-app-title" content="Baby's Revenge 2" />
+    <meta property="og:title" content="Baby's Revenge 2" />
+    <meta property="og:description" content="Tap to play Baby's Revenge 2!" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:title" content="Baby's Revenge 2" />
+    <meta name="twitter:description" content="Tap to play Baby's Revenge 2!" />
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #166534, #22c55e);
+        color: #fff;
+        font-family: system-ui, -apple-system, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .card { max-width: 420px; }
+      h1 { font-size: 2.2rem; margin-bottom: 8px; }
+      .sub { font-size: 1.05rem; opacity: 0.95; margin-bottom: 24px; }
+      a {
+        display: inline-block;
+        background: #fde047;
+        color: #14532d;
+        font-weight: 800;
+        font-size: 1.35rem;
+        padding: 18px 32px;
+        border-radius: 14px;
+        text-decoration: none;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      }
+      .hint { margin-top: 18px; font-size: 0.95rem; opacity: 0.85; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Baby's Revenge 2</h1>
+      <p class="sub">Tap below to play</p>
+      <a href="index.html">Play Baby's Revenge 2</a>
+      <p class="hint">Works on iPad, phone, and laptop</p>
+    </div>
+    <script>
+      if (!/bot|crawl|preview|facebook|twitter|slack/i.test(navigator.userAgent)) {
+        setTimeout(() => { window.location.replace('index.html'); }, 600);
+      }
+    </script>
+  </body>
+</html>
