@@ -42,9 +42,18 @@
     </div>
     <script>
       const params = new URLSearchParams(location.search);
-      const target = params.has('teleport') ? 'index.html?teleport=1' : 'index.html';
 
-      if (params.has('teleport')) {
+      function buildTarget() {
+        if (params.has('teleport') && !params.has('room')) {
+          return 'index.html?teleport=1';
+        }
+        const qs = params.toString();
+        return qs ? `index.html?${qs}` : 'index.html';
+      }
+
+      const target = buildTarget();
+
+      if (params.has('teleport') && !params.has('room')) {
         window.open(target, '_blank', 'noopener');
         document.querySelector('.hint').textContent = 'Opened in a new tab — your other tabs are still there.';
       } else {

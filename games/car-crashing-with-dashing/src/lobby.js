@@ -1,6 +1,7 @@
 import { createMultiplayerRoom, generateRoomCode, buildShareLink } from './multiplayer.js';
 
 const NAME_KEY = 'ccwd-player-name';
+const HOST_KEY = 'ccwd-host-room';
 
 let overlay = null;
 let room = null;
@@ -56,7 +57,7 @@ export function createLobby(onEnterWorldCallback) {
       <div class="lobby-host-info" id="host-info" hidden>
         <p class="lobby-label">Your room code</p>
         <p class="lobby-code" id="room-code"></p>
-        <p class="lobby-label">Share this link (works on any Wi‑Fi)</p>
+        <p class="lobby-label">Share this link (any internet — phone data, different Wi‑Fi)</p>
         <div class="lobby-link-row">
           <input type="text" class="lobby-link" id="share-link" readonly />
           <button type="button" class="lobby-copy" id="btn-copy">Copy</button>
@@ -210,7 +211,12 @@ export function createLobby(onEnterWorldCallback) {
       codeEl.textContent = info.code;
       linkEl.value = info.link;
       hostInfo.hidden = false;
-      history.replaceState(null, '', info.link);
+      try {
+        sessionStorage.setItem(HOST_KEY, info.code);
+      } catch {
+        /* ignore */
+      }
+      history.replaceState(null, '', `?room=${encodeURIComponent(info.code)}`);
       announceName();
       showEnterButton();
       setStatus('Share the link — friends appear in the lobby when they join.');
@@ -235,7 +241,7 @@ export function createLobby(onEnterWorldCallback) {
     if (e.key === 'Enter') tryJoin();
   });
 
-  async function tryJoin() {
+  async function tryJoin({ fromLink = false } = {}) {
     const code = overlay.querySelector('#join-code').value.trim();
     if (!code) {
       setStatus('Type a room code first.');
@@ -250,18 +256,23 @@ export function createLobby(onEnterWorldCallback) {
       await r.join(code);
       r.send({ t: 'hello', name: getPlayerName() });
       showEnterButton();
-      setStatus(`Joined ${code}! Waiting for host…`);
+      setStatus("You're in the game!");
+      if (fromLink) {
+        setTimeout(() => enterWorld(), 500);
+      }
     } catch {
       /* status set in multiplayer */
     }
   }
 
-  enterBtn.addEventListener('click', () => {
+  function enterWorld() {
     if (!room) return;
     savePlayerName(getPlayerName());
     hideLobby();
     onEnterWorld?.({ room, isHost: room.role === 'host', playerName: getPlayerName() });
-  });
+  }
+
+  enterBtn.addEventListener('click', enterWorld);
 
   function closeLobby() {
     if (room) room.close();
@@ -269,6 +280,11 @@ export function createLobby(onEnterWorldCallback) {
     roster.clear();
     enterBtn.hidden = true;
     hostInfo.hidden = true;
+    try {
+      sessionStorage.removeItem(HOST_KEY);
+    } catch {
+      /* ignore */
+    }
     hideLobby();
     refreshPeople();
   }
@@ -279,8 +295,18 @@ export function createLobby(onEnterWorldCallback) {
   if (urlCode) {
     overlay.querySelector('#join-code').value = urlCode;
     showLobby();
-    setStatus('Joining from your link…');
-    setTimeout(() => tryJoin(), 400);
+    let wasHost = null;
+    try {
+      wasHost = sessionStorage.getItem(HOST_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (wasHost && wasHost.toUpperCase() === urlCode.toUpperCase()) {
+      setStatus('Welcome back! Tap Generate Code to re-open your room for friends.');
+    } else {
+      setStatus('Joining from your link…');
+      setTimeout(() => tryJoin({ fromLink: true }), 400);
+    }
   } else {
     hideLobby();
     refreshPeople();

@@ -96,7 +96,7 @@ createLobby(({ room, isHost: host }) => {
   mode = 'world';
   enterGameplay();
   updateRoomBanner();
-  showToast(host ? 'You are the host — share your link!' : `Joined room ${room.code}`);
+  showToast("You're in the game!");
 });
 
 function setupMultiplayer(room) {

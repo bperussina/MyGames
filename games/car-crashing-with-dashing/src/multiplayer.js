@@ -3,6 +3,39 @@ import Peer from 'peerjs';
 const PEER_PREFIX = 'ccwd-';
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/** Public play link — works on any internet (not localhost). Served from GitHub via jsDelivr. */
+export const PUBLIC_PLAY_URL =
+  'https://cdn.jsdelivr.net/gh/bperussina/MyGames@main/docs/car-crashing-with-dashing/play.html';
+
+/** Same game on GitHub Pages when Pages is enabled. */
+export const GH_PAGES_PLAY_URL =
+  'https://bperussina.github.io/MyGames/car-crashing-with-dashing/play.html';
+
+const PEER_CLOUD = {
+  host: '0.peerjs.com',
+  port: 443,
+  path: '/',
+  secure: true,
+  debug: 0,
+};
+
+/** STUN + PeerJS TURN so different Wi‑Fi / phone data still connect. */
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+    {
+      urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'],
+      username: 'peerjs',
+      credential: 'peerjsp',
+    },
+  ],
+};
+
+const JOIN_ATTEMPTS = 12;
+const JOIN_RETRY_MS = 2000;
+const CONNECT_TIMEOUT_MS = 15000;
+
 export function generateRoomCode(length = 6) {
   let code = '';
   for (let i = 0; i < length; i++) {
@@ -11,15 +44,27 @@ export function generateRoomCode(length = 6) {
   return code;
 }
 
+/** Share link always uses the public game URL so friends are not sent to localhost. */
 export function buildShareLink(code) {
-  const url = new URL(window.location.href);
-  url.searchParams.set('room', code);
-  url.searchParams.delete('teleport');
+  const url = new URL(PUBLIC_PLAY_URL);
+  url.searchParams.set('room', code.toUpperCase());
   return url.toString();
 }
 
 function peerIdForCode(code) {
   return `${PEER_PREFIX}${code.toUpperCase()}`;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function peerOptions(id = undefined) {
+  return {
+    ...PEER_CLOUD,
+    ...(id ? { id } : {}),
+    config: ICE_SERVERS,
+  };
 }
 
 export function createMultiplayerRoom() {
@@ -34,6 +79,25 @@ export function createMultiplayerRoom() {
 
   function setStatus(text) {
     onStatus?.(text);
+  }
+
+  function destroyPeer() {
+    for (const [, conn] of connections) {
+      try {
+        conn.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    connections.clear();
+    if (peer) {
+      try {
+        peer.destroy();
+      } catch {
+        /* ignore */
+      }
+      peer = null;
+    }
   }
 
   function broadcast(msg, exceptConn = null) {
@@ -63,27 +127,33 @@ export function createMultiplayerRoom() {
     });
   }
 
+  function waitForPeerOpen(p) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(Object.assign(new Error('timeout'), { type: 'network' }));
+      }, CONNECT_TIMEOUT_MS);
+
+      p.once('open', (id) => {
+        clearTimeout(timer);
+        resolve(id);
+      });
+
+      p.once('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+    });
+  }
+
   function host(code) {
     roomCode = code.toUpperCase();
     role = 'host';
     myId = peerIdForCode(roomCode);
-    setStatus('Opening your server…');
+    setStatus('Opening your room (works on any internet)…');
 
     return new Promise((resolve, reject) => {
-      peer = new Peer(myId, {
-        debug: 0,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' },
-          ],
-        },
-      });
-
-      peer.on('open', () => {
-        setStatus(`Room ${roomCode} ready — share your link!`);
-        resolve({ code: roomCode, link: buildShareLink(roomCode), role: 'host', id: myId });
-      });
+      destroyPeer();
+      peer = new Peer(myId, peerOptions(myId));
 
       peer.on('connection', (conn) => {
         conn.on('open', () => {
@@ -93,53 +163,106 @@ export function createMultiplayerRoom() {
         });
       });
 
-      peer.on('error', (err) => {
-        setStatus(`Error: ${err.type}`);
-        reject(err);
-      });
+      waitForPeerOpen(peer)
+        .then(() => {
+          setStatus(`Room ${roomCode} ready — share your link!`);
+          resolve({ code: roomCode, link: buildShareLink(roomCode), role: 'host', id: myId });
+        })
+        .catch((err) => {
+          setStatus(friendlyError(err, 'host'));
+          destroyPeer();
+          reject(err);
+        });
     });
   }
 
-  function join(code) {
+  function joinOnce(code) {
     roomCode = code.toUpperCase();
     role = 'client';
     const hostId = peerIdForCode(roomCode);
-    setStatus(`Joining ${roomCode}…`);
 
     return new Promise((resolve, reject) => {
-      peer = new Peer({
-        debug: 0,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' },
-          ],
-        },
-      });
+      destroyPeer();
+      peer = new Peer(peerOptions());
 
-      peer.on('open', () => {
-        myId = peer.id;
-        const conn = peer.connect(hostId, { reliable: true });
-        conn.on('open', () => {
-          attachConnection(conn);
-          setStatus(`Joined room ${roomCode}!`);
-          resolve({ code: roomCode, role: 'client', id: myId });
-        });
-        conn.on('error', () => {
-          setStatus('Could not reach that room. Check the code.');
-          reject(new Error('connect failed'));
-        });
-      });
+      waitForPeerOpen(peer)
+        .then((id) => {
+          myId = id;
+          const conn = peer.connect(hostId, { reliable: true });
 
-      peer.on('error', (err) => {
-        if (err.type === 'peer-unavailable') {
-          setStatus('Room not found — ask host to Generate Code first.');
-        } else {
-          setStatus(`Error: ${err.type}`);
-        }
-        reject(err);
-      });
+          const timer = setTimeout(() => {
+            reject(Object.assign(new Error('connect failed'), { type: 'peer-unavailable' }));
+          }, CONNECT_TIMEOUT_MS);
+
+          conn.on('open', () => {
+            clearTimeout(timer);
+            attachConnection(conn);
+            setStatus("You're in the game!");
+            resolve({ code: roomCode, role: 'client', id: myId });
+          });
+
+          conn.on('error', () => {
+            clearTimeout(timer);
+            reject(Object.assign(new Error('connect failed'), { type: 'peer-unavailable' }));
+          });
+        })
+        .catch((err) => {
+          reject(err);
+        });
     });
+  }
+
+  function isRetryableJoinError(err) {
+    const type = err?.type ?? '';
+    return type === 'peer-unavailable' || type === 'network' || type === 'disconnected';
+  }
+
+  async function join(code) {
+    roomCode = code.toUpperCase();
+    role = 'client';
+    setStatus(`Joining ${roomCode}…`);
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= JOIN_ATTEMPTS; attempt++) {
+      try {
+        if (attempt > 1) {
+          setStatus(`Still connecting… (${attempt}/${JOIN_ATTEMPTS}) — ask host to keep the game open`);
+        }
+        return await joinOnce(code);
+      } catch (err) {
+        lastError = err;
+        destroyPeer();
+        if (attempt < JOIN_ATTEMPTS && isRetryableJoinError(err)) {
+          await sleep(JOIN_RETRY_MS);
+          continue;
+        }
+        setStatus(friendlyError(err, 'join'));
+        throw err;
+      }
+    }
+    setStatus(friendlyError(lastError, 'join'));
+    throw lastError;
+  }
+
+  function friendlyError(err, mode) {
+    const type = err?.type ?? '';
+    if (type === 'peer-unavailable') {
+      return mode === 'join'
+        ? 'Room not open yet — ask host to tap Generate Code and keep the game open.'
+        : 'That room code is taken — tap Generate Code again.';
+    }
+    if (type === 'unavailable-id') {
+      return 'That room code is taken — tap Generate Code again.';
+    }
+    if (type === 'network' || type === 'disconnected') {
+      return 'Internet hiccup — check Wi‑Fi or data and try again.';
+    }
+    if (type === 'browser-incompatible') {
+      return 'Try Chrome, Safari, or Edge for multiplayer.';
+    }
+    return mode === 'join'
+      ? 'Could not connect — make sure the host shared the link and left the game open.'
+      : `Could not open room (${type || 'error'}) — try again.`;
   }
 
   function send(msg) {
@@ -166,12 +289,10 @@ export function createMultiplayerRoom() {
   }
 
   function close() {
-    for (const [, conn] of connections) conn.close();
-    connections.clear();
-    peer?.destroy();
-    peer = null;
+    destroyPeer();
     role = null;
     roomCode = null;
+    myId = null;
   }
 
   return {
