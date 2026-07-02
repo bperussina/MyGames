@@ -83,7 +83,7 @@ const toastEl = document.getElementById('action-toast');
 const controlsHudEl = document.getElementById('controls-hud');
 const roomBannerEl = document.getElementById('room-banner');
 
-createControllerMap(() => refreshControlsHud(controlsHudEl));
+createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
 
 createLobby(({ room, isHost: host }) => {
@@ -162,6 +162,7 @@ function spawnCarFromGarage(spec) {
   addVehicleToScene(world.scene, activeVehicle);
   driving = true;
   enterDriverSeat(player, activeVehicle);
+  refreshControlsHud(controlsHudEl, { driving: true });
   showToast(`Driving ${spec.name}`);
 }
 
@@ -171,6 +172,7 @@ function exitCar() {
   driving = false;
   syncPlayerMesh(player);
   world.updateCamera(player.x, player.z, player.facing);
+  refreshControlsHud(controlsHudEl, { driving: false });
   showToast('Exited vehicle');
 }
 
@@ -368,7 +370,7 @@ function enterGameplay() {
   titleCanvas.style.display = 'none';
   world.show();
   setGarageBoxVisible(true);
-  setControlsHudVisible(controlsHudEl, true);
+  setControlsHudVisible(controlsHudEl, true, { driving });
 }
 
 function updateWorldMovement(delta) {
@@ -529,11 +531,11 @@ function render(delta) {
     if (mode === 'comingSoon') {
       comingSoonTimer -= delta;
       if (comingSoonTimer <= 0) mode = 'world';
-      setControlsHudVisible(controlsHudEl, true);
+      setControlsHudVisible(controlsHudEl, true, { driving });
       setGarageBoxVisible(false);
     } else {
       setGarageBoxVisible(true);
-      setControlsHudVisible(controlsHudEl, true);
+      setControlsHudVisible(controlsHudEl, true, { driving });
     }
 
     world.render();
