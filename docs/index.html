@@ -23,9 +23,17 @@
         margin-bottom: 24px;
         font-size: 0.95rem;
         color: #cbd5e1;
+        line-height: 1.5;
       }
+      .public {
+        background: #14532d;
+        border-color: #22c55e;
+        color: #dcfce7;
+        margin-bottom: 24px;
+      }
+      .public a { color: #fde047; }
       .grid { display: grid; gap: 16px; max-width: 520px; }
-      a {
+      a.game {
         display: block;
         padding: 20px 22px;
         border-radius: 14px;
@@ -54,15 +62,19 @@
   </head>
   <body>
     <h1>My Games</h1>
-    <p class="lead">Bookmark this page. Reload any game tab — it keeps working.</p>
-    <p class="note">Everything runs from this one page. No separate servers per game.</p>
+    <p class="lead">Bookmark this page. Reload anytime — it keeps working.</p>
 
-    <div class="grid">
-      <a class="br2" href="./babys-revenge-2/play.html" target="_blank" rel="noopener">
+    <div class="note public" id="public-box" hidden>
+      <strong>Your play link:</strong><br />
+      <a id="public-hub" href="#">loading...</a>
+    </div>
+
+    <div class="grid" id="game-grid">
+      <a class="game br2" id="br2-link" href="./babys-revenge-2/play.html" target="_blank" rel="noopener">
         Baby's Revenge 2
         <span class="sub">Click to play</span>
       </a>
-      <a class="car" href="./car-crashing-with-dashing/index.html" target="_blank" rel="noopener">
+      <a class="game car" id="car-link" href="./car-crashing-with-dashing/index.html" target="_blank" rel="noopener">
         car crashing with dashing
         <span class="sub">Click to play</span>
       </a>
@@ -71,9 +83,31 @@
     <button type="button" class="open-all" id="open-all">Open both games in new tabs</button>
 
     <script>
+      let br2 = './babys-revenge-2/play.html';
+      let car = './car-crashing-with-dashing/index.html';
+
+      fetch('./tunnel.json')
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then((t) => {
+          if (!t?.hub) return;
+          document.getElementById('public-box').hidden = false;
+          const hub = document.getElementById('public-hub');
+          hub.href = t.hub;
+          hub.textContent = t.hub;
+          if (t.br2) {
+            br2 = t.br2;
+            document.getElementById('br2-link').href = t.br2;
+          }
+          if (t.car) {
+            car = t.car;
+            document.getElementById('car-link').href = t.car;
+          }
+        });
+
       document.getElementById('open-all').addEventListener('click', () => {
-        window.open('./babys-revenge-2/play.html', '_blank', 'noopener');
-        window.open('./car-crashing-with-dashing/index.html', '_blank', 'noopener');
+        window.open(br2, '_blank', 'noopener');
+        window.open(car, '_blank', 'noopener');
       });
     </script>
   </body>

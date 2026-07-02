@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-import { resolveGame } from './games.mjs';
-import { buildAndServe } from './serve-game.mjs';
-import { printPlayableGamesHelp } from './game-registry.mjs';
+/**
+ * Play games locally.
+ *   npm start          → launch everything (recommended)
+ *   npm run play:br2   → Baby's Revenge 2 only (port 5176)
+ *   npm run play:car   → car game only (port 5177)
+ */
+const args = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+const game = args[0];
 
-const game = process.argv[2];
-if (!game) printPlayableGamesHelp('play');
-
-resolveGame(game);
-const family = process.argv.includes('--family');
-const exitCode = await buildAndServe(game, { family });
-process.exit(exitCode);
+if (game) {
+  await import('./play-one.mjs');
+} else {
+  await import('./launch.mjs');
+}

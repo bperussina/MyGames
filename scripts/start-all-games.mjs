@@ -60,7 +60,7 @@ export async function ensureGameServer(gameId, { build = true } = {}) {
 
   const session = `play-${gameId}`;
   console.log(`  Starting ${config.title} on port ${config.port}...`);
-  startTmuxSession(session, `npm run play -- ${gameId}`);
+  startTmuxSession(session, `node scripts/play-one.mjs ${gameId}`);
 
   if (!(await waitForServer(config.port, config.playPath))) {
     console.error(`  Could not start ${config.title} on port ${config.port}.`);
