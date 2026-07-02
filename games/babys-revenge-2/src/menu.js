@@ -150,15 +150,6 @@ export function renderUpdateScreen(ctx, width, height, hover = false) {
   });
 }
 
-export function renderOfflineBanner(ctx, width, height) {
-  ctx.fillStyle = 'rgba(127,29,29,0.9)';
-  ctx.fillRect(0, 0, width, 44);
-  drawText(ctx, '⚠ Connection lost — your game is saved. Reconnecting…', width / 2, 22, {
-    size: 16,
-    color: '#fecaca',
-  });
-}
-
 export function renderLoadError(ctx, width, height, message) {
   ctx.fillStyle = 'rgba(15,23,42,0.95)';
   ctx.fillRect(0, 0, width, height);
@@ -166,7 +157,7 @@ export function renderLoadError(ctx, width, height, message) {
     size: 32,
     color: '#f87171',
   });
-  drawText(ctx, message || 'Check your connection and refresh.', width / 2, height * 0.48, {
+  drawText(ctx, message || 'Refresh the page to try again.', width / 2, height * 0.48, {
     size: 16,
     color: '#94a3b8',
   });

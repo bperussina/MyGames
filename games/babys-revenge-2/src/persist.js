@@ -1,7 +1,46 @@
 import { GAME_VERSION } from './version.js';
 
+const SAVE_KEY = 'br2_save';
 const SESSION_KEY = 'br2_session';
 const VERSION_KEY = 'br2_last_version';
+
+function readSavePayload() {
+  try {
+    return localStorage.getItem(SAVE_KEY) || sessionStorage.getItem(SESSION_KEY);
+  } catch {
+    try {
+      return sessionStorage.getItem(SESSION_KEY);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function writeSavePayload(payload) {
+  try {
+    localStorage.setItem(SAVE_KEY, payload);
+  } catch {
+    /* storage blocked */
+  }
+  try {
+    sessionStorage.setItem(SESSION_KEY, payload);
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+function clearSavePayload() {
+  try {
+    localStorage.removeItem(SAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function markVersionPlayed() {
   try {
@@ -26,39 +65,31 @@ export function clearUpdateFlag() {
 
 export function saveSessionGame(game) {
   if (!game) return;
-  try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
-      version: GAME_VERSION,
-      savedAt: Date.now(),
-      game,
-    }));
-  } catch {
-    /* quota or private mode */
-  }
+  writeSavePayload(JSON.stringify({
+    version: GAME_VERSION,
+    savedAt: Date.now(),
+    game,
+  }));
 }
 
 export function loadSessionGame() {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
+    const raw = readSavePayload();
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (data.version !== GAME_VERSION) {
-      sessionStorage.removeItem(SESSION_KEY);
+      clearSavePayload();
       return null;
     }
     return data.game ?? null;
   } catch {
-    sessionStorage.removeItem(SESSION_KEY);
+    clearSavePayload();
     return null;
   }
 }
 
 export function clearSessionGame() {
-  try {
-    sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* ignore */
-  }
+  clearSavePayload();
 }
 
 export function hasSessionSave() {

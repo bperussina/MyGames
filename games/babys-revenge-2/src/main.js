@@ -7,7 +7,6 @@ import {
   isContinueClicked,
   isUpdateClicked,
   renderUpdateScreen,
-  renderOfflineBanner,
   renderLoadError,
 } from './menu.js';
 import { GAME_VERSION } from './version.js';
@@ -27,16 +26,17 @@ const input = new Input(window);
 canvas.setAttribute('tabindex', '0');
 canvas.addEventListener('click', () => canvas.focus());
 
-let mode = 'MENU';
+let showUpdateScreen = hasNewGameUpdate();
+let resumeAfterLoad = false;
+const shouldAutoResume = !showUpdateScreen && hasSessionSave();
+
+let mode = shouldAutoResume ? 'LOADING' : 'MENU';
 let menuHover = false;
 let updateHover = false;
 let pendingPlayClick = null;
 let pendingMenuAction = null;
 let loading = false;
 let loadError = null;
-let offline = !navigator.onLine;
-let showUpdateScreen = hasNewGameUpdate();
-let resumeAfterLoad = false;
 
 let cutscene = null;
 let game = null;
@@ -150,15 +150,6 @@ function acceptGameUpdate() {
 }
 
 canvas.style.cursor = 'default';
-
-window.addEventListener('offline', () => {
-  offline = true;
-  if (mode === 'GAME' && game) saveSessionGame(game);
-});
-
-window.addEventListener('online', () => {
-  offline = false;
-});
 
 window.addEventListener('beforeunload', () => {
   if (mode === 'GAME' && game) saveSessionGame(game);
@@ -295,6 +286,8 @@ function update(delta) {
     return;
   }
 
+  if (mode === 'LOADING') return;
+
   if (showUpdateScreen) return;
 
   if (mode === 'MENU') {
@@ -364,6 +357,19 @@ function render() {
     return;
   }
 
+  if (mode === 'LOADING') {
+    clearCanvas(ctx, '#15803d');
+    drawText(ctx, "Baby's Revenge 2", canvas.width / 2, canvas.height * 0.42, {
+      size: 40,
+      color: '#ffffff',
+    });
+    drawText(ctx, 'Loading your game...', canvas.width / 2, canvas.height * 0.52, {
+      size: 22,
+      color: '#dcfce7',
+    });
+    return;
+  }
+
   if (mode === 'MENU') {
     renderMenu(ctx, canvas.width, canvas.height, menuHover, {
       canContinue: hasSessionSave(),
@@ -393,10 +399,6 @@ function render() {
   gameplay.renderGameplay(game, ctx, canvas.width, canvas.height);
   adminMod.renderAdmin(admin, ctx, canvas.width, canvas.height, game);
 
-  if (offline) {
-    renderOfflineBanner(ctx, canvas.width, canvas.height);
-  }
-
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   ctx.fillRect(canvas.width - 88, 4, 84, 18);
   drawText(ctx, `v${GAME_VERSION}`, canvas.width - 46, 13, { size: 10, color: '#94a3b8' });
@@ -409,4 +411,24 @@ function tick(delta) {
 
 loop(tick);
 
-ensureCutscenes().then(() => ensureGameplay()).catch(() => {});
+async function bootstrap() {
+  try {
+    if (showUpdateScreen) {
+      await ensureCutscenes();
+      await ensureGameplay();
+      return;
+    }
+
+    if (hasSessionSave()) {
+      await enterGame(true);
+      return;
+    }
+
+    await ensureCutscenes();
+    await ensureGameplay();
+  } catch {
+    if (mode === 'LOADING') mode = 'MENU';
+  }
+}
+
+bootstrap();
