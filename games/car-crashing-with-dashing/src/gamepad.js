@@ -24,6 +24,19 @@ export function readMovement(pad) {
   return { mx, mz };
 }
 
+/** WASD mirrors Xbox driving: W=X gas, S=B brake, A=L turn, D=R turn. */
+export function readKeyboardDriving(input) {
+  let throttle = 0;
+  let brake = 0;
+  let steer = 0;
+  if (input.isPressed('w')) throttle = 1;
+  if (input.isPressed('s')) brake = 1;
+  if (input.isPressed('a')) steer -= 1;
+  if (input.isPressed('d')) steer += 1;
+  steer = Math.max(-1, Math.min(1, steer));
+  return { throttle, brake, steer };
+}
+
 /** Xbox driving: hold X = forward, B = brake, LB/LT/RB = turn (L/T/R). */
 export function readDriving(pad) {
   let throttle = 0;

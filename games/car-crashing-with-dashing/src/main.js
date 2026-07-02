@@ -9,6 +9,7 @@ import {
   getGamepad,
   readMovement,
   readDriving,
+  readKeyboardDriving,
   readPressedActions,
 } from './gamepad.js';
 import {
@@ -176,17 +177,9 @@ function readKeyboardMove() {
   return { mx, mz };
 }
 
+/** WASD on keyboard = same as Xbox drive buttons (X / B / L / R). */
 function readKeyboardDrive() {
-  let throttle = 0;
-  let brake = 0;
-  let steer = 0;
-  if (input.isPressed('x', 'arrowup')) throttle = 1;
-  if (input.isPressed('b', 'arrowdown')) brake = 1;
-  if (input.isPressed('l', 'a', 'arrowleft')) steer -= 1;
-  if (input.isPressed('r', 'd', 'arrowright')) steer += 1;
-  if (steer < -1) steer = -1;
-  if (steer > 1) steer = 1;
-  return { throttle, brake, steer };
+  return readKeyboardDriving(input);
 }
 
 function mergeDrive(padDrive, keyDrive) {
@@ -394,9 +387,9 @@ function render(delta) {
     }
 
     if (driving) {
-      setHud('Hold X = gas · B = brake · LB/LT/RB turn · E exit · M = map');
+      setHud('WASD = Xbox drive (W gas · S brake · A/D turn) · E exit · M = map');
     } else {
-      setHud('Arrows/WASD move · Garage (left) · M = controller map');
+      setHud('WASD / arrows move · Garage (left) · M = controller map');
     }
     if (mapHintEl) mapHintEl.hidden = false;
 
