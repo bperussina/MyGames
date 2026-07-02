@@ -24,5 +24,14 @@ Opens on **port 5177** (Baby's Revenge 2 uses 5176).
 npm run family:car
 ```
 
-Permanent link (after GitHub Pages setup):  
-https://bperussina.github.io/MyGames/car-crashing-with-dashing/play.html
+## Play link (share with family)
+
+**https://bperussina.github.io/MyGames/car-crashing-with-dashing/play.html**
+
+Multiplayer room links:
+
+`https://bperussina.github.io/MyGames/car-crashing-with-dashing/index.html?room=YOURCODE`
+
+Do **not** share `cdn.jsdelivr.net` links — those show a code page, not the game.
+
+If the link says "Site not found", run once: `npm run turn-on-link -- car-crashing-with-dashing`

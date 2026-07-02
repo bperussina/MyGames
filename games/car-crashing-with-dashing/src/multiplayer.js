@@ -3,12 +3,12 @@ import Peer from 'peerjs';
 const PEER_PREFIX = 'ccwd-';
 const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-/** Public play link — works on any internet (not localhost). Served from GitHub via jsDelivr. */
+/** Real public game URL (GitHub Pages — the actual game, not a code page). */
 export const PUBLIC_PLAY_URL =
-  'https://cdn.jsdelivr.net/gh/bperussina/MyGames@main/docs/car-crashing-with-dashing/play.html';
+  'https://bperussina.github.io/MyGames/car-crashing-with-dashing/index.html';
 
-/** Same game on GitHub Pages when Pages is enabled. */
-export const GH_PAGES_PLAY_URL =
+/** Entry page that jumps straight into the game. */
+export const PUBLIC_PLAY_ENTRY_URL =
   'https://bperussina.github.io/MyGames/car-crashing-with-dashing/play.html';
 
 const PEER_CLOUD = {

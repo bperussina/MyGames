@@ -57,7 +57,7 @@ export function createLobby(onEnterWorldCallback) {
       <div class="lobby-host-info" id="host-info" hidden>
         <p class="lobby-label">Your room code</p>
         <p class="lobby-code" id="room-code"></p>
-        <p class="lobby-label">Share this link (any internet — phone data, different Wi‑Fi)</p>
+        <p class="lobby-label">Share this link (opens the real game — any phone or Wi‑Fi)</p>
         <div class="lobby-link-row">
           <input type="text" class="lobby-link" id="share-link" readonly />
           <button type="button" class="lobby-copy" id="btn-copy">Copy</button>
