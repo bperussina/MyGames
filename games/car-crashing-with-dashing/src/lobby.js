@@ -39,6 +39,7 @@ export function createLobby(onEnterWorldCallback) {
       </div>
 
       <p class="lobby-status" id="lobby-status"></p>
+      <button type="button" class="lobby-close" id="lobby-close">Back to title</button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -63,8 +64,7 @@ export function createLobby(onEnterWorldCallback) {
       linkEl.value = info.link;
       hostInfo.hidden = false;
       history.replaceState(null, '', info.link);
-      hideLobby();
-      onEnterWorld?.({ room, isHost: true });
+      setStatus('Share the link — then Enter World when ready.');
     } catch {
       setStatus('Could not create room — try again.');
     }
@@ -110,26 +110,30 @@ export function createLobby(onEnterWorldCallback) {
     }
   }
 
+  overlay.querySelector('#lobby-close').addEventListener('click', hideLobby);
+
   const urlCode = new URLSearchParams(window.location.search).get('room');
   if (urlCode) {
     overlay.querySelector('#join-code').value = urlCode;
+    showLobby();
     setStatus('Joining from your link…');
     setTimeout(() => tryJoin(), 400);
   }
 
+  hideLobby();
   return overlay;
 }
 
 export function hideLobby() {
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) overlay.classList.remove('open');
 }
 
 export function showLobby() {
-  if (overlay) overlay.style.display = 'flex';
+  if (overlay) overlay.classList.add('open');
 }
 
 export function isLobbyVisible() {
-  return overlay?.style.display !== 'none';
+  return overlay?.classList.contains('open') ?? false;
 }
 
 export { buildShareLink };

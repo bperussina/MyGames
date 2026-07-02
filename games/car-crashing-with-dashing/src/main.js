@@ -30,11 +30,12 @@ import {
   updateVehicle,
   spawnInFrontOfPlayer,
 } from './vehicle.js';
-import { createLobby } from './lobby.js';
+import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
 import { createRemotePlayers } from './remotePlayers.js';
 import { buildShareLink } from './multiplayer.js';
 
 const GAME_TITLE = 'car crashing with dashing';
+const COMING_SOON_TIME = 5;
 const MOVE_SPEED = 7;
 const NET_SEND_INTERVAL = 0.05;
 const teleportParam = new URLSearchParams(window.location.search).has('teleport');
@@ -51,11 +52,16 @@ const player = createPlayer(0, 0);
 addPlayerToScene(world.scene, player);
 const remotePlayers = createRemotePlayers(world.scene);
 
-/** title | world */
+/** title | comingSoon | world */
 let mode = 'title';
 let warp = teleportParam ? 1.8 : 0;
 let titleAlpha = 0;
 let roadReveal = 0;
+let playPulse = 0;
+let hoverPlay = false;
+let hoverMulti = false;
+let clickLatch = false;
+let comingSoonTimer = 0;
 
 let mpRoom = null;
 let isHost = false;
@@ -195,6 +201,116 @@ function handlePadActions(pad) {
   if (!pad?.buttons[9]?.pressed) menuLatch = false;
 }
 
+function roadWidthAtY(geo, y) {
+  const t = Math.max(0, Math.min(1, (y - geo.topY) / (geo.bottomY - geo.topY)));
+  return geo.topW * 2 + (geo.bottomW - geo.topW * 2) * t;
+}
+
+function getPlayButtonBounds(width, height, geo) {
+  const centerY = height * 0.62;
+  const roadW = roadWidthAtY(geo, centerY);
+  const btnW = Math.min(roadW * 0.82, width * 0.78, 420);
+  const btnH = btnW * 0.34;
+  return {
+    x: geo.cx - btnW / 2,
+    y: centerY - btnH / 2,
+    w: btnW,
+    h: btnH,
+    cx: geo.cx,
+    cy: centerY,
+  };
+}
+
+function getMultiplayerButtonBounds(playBtn) {
+  const gap = 14;
+  const h = playBtn.h * 0.72;
+  const w = playBtn.w * 0.92;
+  const cy = playBtn.cy + playBtn.h / 2 + gap + h / 2;
+  return {
+    x: playBtn.cx - w / 2,
+    y: cy - h / 2,
+    w,
+    h,
+    cx: playBtn.cx,
+    cy,
+  };
+}
+
+function canvasPoint(clientX, clientY) {
+  const rect = titleCanvas.getBoundingClientRect();
+  const scaleX = titleCanvas.width / rect.width;
+  const scaleY = titleCanvas.height / rect.height;
+  return {
+    x: (clientX - rect.left) * scaleX,
+    y: (clientY - rect.top) * scaleY,
+  };
+}
+
+function pointInButton(x, y, btn) {
+  return x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h;
+}
+
+function drawTitleButton(btn, label, colors, pulse, hover, pressed) {
+  const scale = 1 + Math.sin(pulse) * 0.04 + (hover ? 0.05 : 0) + (pressed ? -0.03 : 0);
+  const w = btn.w * scale;
+  const h = btn.h * scale;
+  const x = btn.cx - w / 2;
+  const y = btn.cy - h / 2;
+  const r = h * 0.28;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetY = 8;
+
+  const grad = ctx.createLinearGradient(x, y, x, y + h);
+  grad.addColorStop(0, pressed ? colors.pressedTop : colors.top);
+  grad.addColorStop(1, pressed ? colors.pressedBottom : colors.bottom);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = colors.stroke;
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  drawText(ctx, label, btn.cx, btn.cy, {
+    size: Math.floor(h * 0.38),
+    color: colors.text,
+  });
+  ctx.restore();
+}
+
+function startSoloPlay() {
+  mode = 'comingSoon';
+  comingSoonTimer = COMING_SOON_TIME;
+  player.x = 0;
+  player.z = 0;
+  syncPlayerMesh(player);
+  enterGameplay();
+}
+
+function updateTitleInput(playBtn, multiBtn) {
+  const pt = canvasPoint(input.pointer.x, input.pointer.y);
+  hoverPlay = pointInButton(pt.x, pt.y, playBtn);
+  hoverMulti = pointInButton(pt.x, pt.y, multiBtn);
+  titleCanvas.style.cursor = hoverPlay || hoverMulti ? 'pointer' : 'default';
+
+  if (input.pointer.down && !clickLatch) {
+    if (hoverPlay) {
+      startSoloPlay();
+      clickLatch = true;
+    } else if (hoverMulti) {
+      showLobby();
+      clickLatch = true;
+    }
+  }
+  if (!input.pointer.down) clickLatch = false;
+}
+
 function roadGeometry(width, height, reveal = 1) {
   const cx = width / 2;
   const topY = height * 0.42;
@@ -205,7 +321,7 @@ function roadGeometry(width, height, reveal = 1) {
 }
 
 function drawRoad(width, height, reveal) {
-  if (reveal <= 0) return;
+  if (reveal <= 0) return roadGeometry(width, height, reveal);
 
   const geo = roadGeometry(width, height, reveal);
   const { cx, topY, bottomY, topW, bottomW } = geo;
@@ -237,6 +353,8 @@ function drawRoad(width, height, reveal) {
   ctx.fillStyle = 'rgba(15,23,42,0.35)';
   ctx.fillRect(0, height * 0.72, width, height * 0.28);
   ctx.restore();
+
+  return geo;
 }
 
 function showToast(text) {
@@ -320,7 +438,7 @@ function setHud(text) {
 function render(delta) {
   const { width, height } = titleCanvas;
 
-  if (isControllerMapVisible() || isGarageVisible()) {
+  if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible()) {
     if (mapHintEl) mapHintEl.hidden = true;
     if (isControllerMapVisible()) return;
   }
@@ -358,30 +476,79 @@ function render(delta) {
 
     titleAlpha = Math.min(1, titleAlpha + delta * 1.2);
     roadReveal = Math.min(1, roadReveal + delta * 0.55);
+    playPulse += delta * 4;
 
     clearCanvas(ctx, '#22c55e');
-    drawRoad(width, height, roadReveal);
+    const geo = drawRoad(width, height, roadReveal);
+    const playBtn = getPlayButtonBounds(width, height, geo);
+    const multiBtn = getMultiplayerButtonBounds(playBtn);
 
     ctx.globalAlpha = titleAlpha;
-    drawText(ctx, GAME_TITLE, width / 2, height * 0.14, {
+    drawText(ctx, GAME_TITLE, width / 2, height * 0.22, {
       color: '#14532d',
-      size: 40,
+      size: 44,
+    });
+    drawText(ctx, 'The best game ever — realism incoming.', width / 2, height * 0.3, {
+      color: '#166534',
+      size: 18,
     });
     ctx.globalAlpha = 1;
+
+    if (roadReveal > 0.5) {
+      updateTitleInput(playBtn, multiBtn);
+      drawTitleButton(
+        playBtn,
+        'PLAY',
+        {
+          top: '#fde047',
+          bottom: '#facc15',
+          pressedTop: '#facc15',
+          pressedBottom: '#eab308',
+          stroke: '#854d0e',
+          text: '#422006',
+        },
+        playPulse,
+        hoverPlay,
+        input.pointer.down && hoverPlay,
+      );
+      drawTitleButton(
+        multiBtn,
+        'MULTIPLAYER',
+        {
+          top: '#4ade80',
+          bottom: '#22c55e',
+          pressedTop: '#22c55e',
+          pressedBottom: '#16a34a',
+          stroke: '#14532d',
+          text: '#14532d',
+        },
+        playPulse + 0.5,
+        hoverMulti,
+        input.pointer.down && hoverMulti,
+      );
+    }
     return;
   }
 
-  if (mode === 'world') {
+  if (mode === 'comingSoon' || mode === 'world') {
     if (!isGarageVisible()) {
       updateWorldMovement(delta);
     }
 
-    if (driving) {
-      setHud('WASD to drive · Xbox: hold X gas, B brake, LB/LT/RB turn · E exit · M = map');
+    if (mode === 'comingSoon') {
+      comingSoonTimer -= delta;
+      if (comingSoonTimer <= 0) mode = 'world';
+      setHud('driving coming soon');
+      setGarageBoxVisible(false);
     } else {
-      setHud('WASD to move · Xbox: stick/D-pad · M = controller map · Garage (left)');
+      setGarageBoxVisible(true);
+      if (driving) {
+        setHud('WASD to drive · Xbox: hold X gas, B brake, LB/LT/RB turn · E exit · M = map');
+      } else {
+        setHud('WASD to move · Xbox: stick/D-pad · M = controller map · Garage (left)');
+      }
+      if (mapHintEl) mapHintEl.hidden = false;
     }
-    if (mapHintEl) mapHintEl.hidden = false;
 
     world.render();
   }

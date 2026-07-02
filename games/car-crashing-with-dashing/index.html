@@ -324,14 +324,19 @@
       }
 
       #multiplayer-lobby {
+        display: none;
         position: fixed;
         inset: 0;
         z-index: 50;
-        display: flex;
         align-items: center;
         justify-content: center;
         padding: 20px;
         pointer-events: none;
+      }
+
+      #multiplayer-lobby.open {
+        display: flex;
+        pointer-events: auto;
       }
 
       .lobby-panel {
@@ -497,8 +502,19 @@
         font-weight: 700;
       }
 
-      #room-banner[hidden] {
-        display: none;
+      .lobby-close {
+        margin-top: 12px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: #94a3b8;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .lobby-close:hover {
+        color: #e2e8f0;
       }
     </style>
   </head>
