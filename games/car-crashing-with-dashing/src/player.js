@@ -42,12 +42,19 @@ function buildLimb(upperLen, upperRad, lowerLen, lowerRad, colors) {
   return { root, knee };
 }
 
-export function createPlayer(x = 0, z = 0) {
+function shirtShade(color) {
+  const c = new THREE.Color(color);
+  c.multiplyScalar(0.75);
+  return c.getHex();
+}
+
+export function createPlayer(x = 0, z = 0, shirtColor = SHIRT) {
+  const shirtDark = shirtShade(shirtColor);
   const mesh = new THREE.Group();
 
   const torso = new THREE.Mesh(
     new THREE.CylinderGeometry(0.42, 0.48, 1.35, 14),
-    mat(SHIRT),
+    mat(shirtColor),
   );
   torso.position.y = 1.35;
   torso.castShadow = true;
@@ -67,17 +74,17 @@ export function createPlayer(x = 0, z = 0) {
   const shoulderSpread = 0.48;
   const hipSpread = 0.28;
 
-  const armL = buildLimb(0.42, 0.13, 0.38, 0.11, [SHIRT, SHIRT_DARK]);
+  const armL = buildLimb(0.42, 0.13, 0.38, 0.11, [shirtColor, shirtDark]);
   armL.root.position.set(-shoulderSpread, shoulderY, 0);
   mesh.add(armL.root);
-  const armCapL = jointBall(0.14, SHIRT);
+  const armCapL = jointBall(0.14, shirtColor);
   armCapL.position.set(-shoulderSpread, shoulderY, 0);
   mesh.add(armCapL);
 
-  const armR = buildLimb(0.42, 0.13, 0.38, 0.11, [SHIRT_DARK, SHIRT]);
+  const armR = buildLimb(0.42, 0.13, 0.38, 0.11, [shirtDark, shirtColor]);
   armR.root.position.set(shoulderSpread, shoulderY, 0);
   mesh.add(armR.root);
-  const armCapR = jointBall(0.14, SHIRT);
+  const armCapR = jointBall(0.14, shirtColor);
   armCapR.position.set(shoulderSpread, shoulderY, 0);
   mesh.add(armCapR);
 
