@@ -24,7 +24,7 @@
       .card { max-width: 420px; }
       h1 { font-size: 2rem; margin-bottom: 8px; }
       .sub { font-size: 1.05rem; margin-bottom: 24px; }
-      a {
+      a, button {
         display: inline-block;
         background: #14532d;
         color: #dcfce7;
@@ -33,22 +33,42 @@
         padding: 18px 32px;
         border-radius: 14px;
         text-decoration: none;
+        border: none;
+        cursor: pointer;
         box-shadow: 0 8px 24px rgba(0,0,0,0.2);
       }
       .hint { margin-top: 18px; font-size: 0.95rem; opacity: 0.85; }
+      .teleport-msg { font-size: 1.1rem; line-height: 1.5; }
     </style>
   </head>
   <body>
-    <div class="card">
+    <div class="card" id="card">
       <h1>car crashing with dashing</h1>
       <p class="sub">Tap below to play</p>
-      <a href="index.html">Play</a>
-      <p class="hint">Separate from Baby's Revenge 2</p>
+      <a href="index.html?teleport=1" id="play-link">Play</a>
+      <p class="hint">Works on iPad, phone, and laptop</p>
     </div>
     <script>
-      if (!/bot|crawl|preview|facebook|twitter|slack/i.test(navigator.userAgent)) {
-        setTimeout(() => { window.location.replace('index.html'); }, 600);
+      const params = new URLSearchParams(location.search);
+      const teleport = params.has('teleport');
+      const playUrl = 'index.html?teleport=1';
+
+      if (teleport) {
+        window.open(playUrl, '_blank', 'noopener');
+        document.getElementById('card').innerHTML = `
+          <h1>car crashing with dashing</h1>
+          <p class="teleport-msg">Teleported — check your <strong>new tab</strong>.</p>
+          <p class="hint">Baby's Revenge 2 is still on its own tab.</p>
+          <p style="margin-top:20px"><a href="${playUrl}" target="_blank" rel="noopener">Open again</a></p>
+        `;
+      } else if (!/bot|crawl|preview|facebook|twitter|slack/i.test(navigator.userAgent)) {
+        setTimeout(() => { window.location.replace(playUrl); }, 600);
       }
+
+      document.getElementById('play-link')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.open(playUrl, '_blank', 'noopener');
+      });
     </script>
   </body>
 </html>

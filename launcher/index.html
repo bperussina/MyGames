@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Games</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        min-height: 100vh;
+        font-family: system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 40px 24px;
+      }
+      h1 { font-size: 2rem; margin-bottom: 8px; }
+      p { color: #94a3b8; margin-bottom: 28px; }
+      .grid {
+        display: grid;
+        gap: 16px;
+        max-width: 520px;
+      }
+      a {
+        display: block;
+        padding: 20px 22px;
+        border-radius: 14px;
+        text-decoration: none;
+        color: inherit;
+        font-weight: 700;
+        font-size: 1.15rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+        transition: transform 0.15s ease;
+      }
+      a:hover { transform: translateY(-2px); }
+      .br2 { background: linear-gradient(135deg, #166534, #22c55e); color: #fff; }
+      .car { background: linear-gradient(135deg, #15803d, #4ade80); color: #14532d; }
+      .sub { display: block; font-size: 0.85rem; font-weight: 500; opacity: 0.9; margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <h1>My Games</h1>
+    <p>Each game opens in its own tab — separate ports, separate worlds.</p>
+    <div class="grid">
+      <a class="br2" href="http://localhost:5176/play.html" target="_blank" rel="noopener">
+        Baby's Revenge 2
+        <span class="sub">Port 5176 — unchanged</span>
+      </a>
+      <a class="car" href="http://localhost:5177/play.html?teleport=1" target="_blank" rel="noopener">
+        car crashing with dashing
+        <span class="sub">Port 5177 — teleport in</span>
+      </a>
+    </div>
+  </body>
+</html>
