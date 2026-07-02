@@ -7,21 +7,49 @@ export function getGamepad() {
 
 export function readMovement(pad) {
   let mx = 0;
-  let my = 0;
+  let mz = 0;
 
   if (pad) {
     const ax = pad.axes[0] ?? 0;
     const ay = pad.axes[1] ?? 0;
     if (Math.abs(ax) > DEADZONE) mx += ax;
-    if (Math.abs(ay) > DEADZONE) my += ay;
+    if (Math.abs(ay) > DEADZONE) mz -= ay;
 
     if (pad.buttons[14]?.pressed) mx -= 1;
     if (pad.buttons[15]?.pressed) mx += 1;
-    if (pad.buttons[12]?.pressed) my -= 1;
-    if (pad.buttons[13]?.pressed) my += 1;
+    if (pad.buttons[12]?.pressed) mz += 1;
+    if (pad.buttons[13]?.pressed) mz -= 1;
   }
 
-  return { mx, my };
+  return { mx, mz };
+}
+
+/** Xbox controls for driving — left stick, triggers, d-pad. */
+export function readDriving(pad) {
+  let throttle = 0;
+  let brake = 0;
+  let steer = 0;
+
+  if (!pad) return { throttle, brake, steer };
+
+  const ax = pad.axes[0] ?? 0;
+  const ay = pad.axes[1] ?? 0;
+
+  if (Math.abs(ax) > DEADZONE) steer = ax;
+  if (ay < -DEADZONE) throttle = Math.min(1, -ay);
+  if (ay > DEADZONE) brake = Math.min(1, ay);
+
+  const rt = pad.buttons[7]?.value ?? (pad.buttons[7]?.pressed ? 1 : 0);
+  const lt = pad.buttons[6]?.value ?? (pad.buttons[6]?.pressed ? 1 : 0);
+  if (rt > 0.08) throttle = Math.max(throttle, rt);
+  if (lt > 0.08) brake = Math.max(brake, lt);
+
+  if (pad.buttons[12]?.pressed) throttle = 1;
+  if (pad.buttons[13]?.pressed) brake = 1;
+  if (pad.buttons[14]?.pressed) steer = -1;
+  if (pad.buttons[15]?.pressed) steer = 1;
+
+  return { throttle, brake, steer };
 }
 
 /** Standard Xbox-style indices (may vary by browser). */

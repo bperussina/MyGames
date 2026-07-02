@@ -55,11 +55,21 @@ export function createScene3d(parent = document.body) {
 
   window.addEventListener('resize', resize);
 
-  function updateCamera(targetX, targetZ) {
-    const camX = targetX - Math.sin(cameraYaw) * camDist;
-    const camZ = targetZ - Math.cos(cameraYaw) * camDist;
+  function updateCamera(targetX, targetZ, rotY = 0) {
+    const yaw = rotY + cameraYaw;
+    const camX = targetX - Math.sin(yaw) * camDist;
+    const camZ = targetZ - Math.cos(yaw) * camDist;
     camera.position.set(camX, camHeight, camZ);
     camera.lookAt(targetX, 1.2, targetZ);
+  }
+
+  function updateDrivingCamera(targetX, targetZ, rotY) {
+    const dist = 10;
+    const height = 5;
+    const camX = targetX - Math.sin(rotY) * dist;
+    const camZ = targetZ - Math.cos(rotY) * dist;
+    camera.position.set(camX, height, camZ);
+    camera.lookAt(targetX, 1.0, targetZ);
   }
 
   let cameraYaw = 0;
@@ -94,6 +104,7 @@ export function createScene3d(parent = document.body) {
     resize,
     render,
     updateCamera,
+    updateDrivingCamera,
     clampPosition,
     worldHalf: WORLD_HALF,
   };

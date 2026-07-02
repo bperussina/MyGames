@@ -8,6 +8,7 @@ import {
 import {
   getGamepad,
   readMovement,
+  readDriving,
   readPressedActions,
 } from './gamepad.js';
 import {
@@ -18,6 +19,15 @@ import {
 } from './controllerMap.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
+import { createGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
+import {
+  addVehicleToScene,
+  removeVehicleFromScene,
+  enterDriverSeat,
+  exitDriverSeat,
+  updateVehicle,
+  spawnInFrontOfPlayer,
+} from './vehicle.js';
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
@@ -46,6 +56,10 @@ let clickLatch = false;
 let comingSoonTimer = 0;
 let menuLatch = false;
 let mapKeyLatch = false;
+let exitLatch = false;
+
+let activeVehicle = null;
+let driving = false;
 
 let prevPadButtons = {};
 let toastTimer = 0;
@@ -55,6 +69,86 @@ const mapHintEl = document.getElementById('map-hint');
 const hudEl = document.getElementById('hud');
 
 createControllerMap();
+createGarage(spawnCarFromGarage);
+
+function spawnCarFromGarage(spec) {
+  if (activeVehicle) {
+    removeVehicleFromScene(world.scene, activeVehicle);
+    activeVehicle = null;
+    driving = false;
+    player.inVehicle = null;
+    player.mesh.visible = true;
+  }
+
+  activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition);
+  addVehicleToScene(world.scene, activeVehicle);
+  driving = true;
+  enterDriverSeat(player, activeVehicle);
+  showToast(`Driving ${spec.name}`);
+}
+
+function exitCar() {
+  if (!activeVehicle || !driving) return;
+  exitDriverSeat(player, activeVehicle);
+  driving = false;
+  syncPlayerMesh(player);
+  world.updateCamera(player.x, player.z, player.facing);
+  showToast('Exited vehicle');
+}
+
+function readKeyboardMove() {
+  let mx = 0;
+  let mz = 0;
+  if (input.isPressed('w', 'arrowup')) mz += 1;
+  if (input.isPressed('s', 'arrowdown')) mz -= 1;
+  if (input.isPressed('a', 'arrowleft')) mx -= 1;
+  if (input.isPressed('d', 'arrowright')) mx += 1;
+  return { mx, mz };
+}
+
+function readKeyboardDrive() {
+  let throttle = 0;
+  let brake = 0;
+  let steer = 0;
+  if (input.isPressed('w', 'arrowup')) throttle = 1;
+  if (input.isPressed('s', 'arrowdown')) brake = 1;
+  if (input.isPressed('a', 'arrowleft')) steer = -1;
+  if (input.isPressed('d', 'arrowright')) steer = 1;
+  return { throttle, brake, steer };
+}
+
+function mergeDrive(padDrive, keyDrive) {
+  return {
+    throttle: Math.max(padDrive.throttle, keyDrive.throttle),
+    brake: Math.max(padDrive.brake, keyDrive.brake),
+    steer: Math.abs(padDrive.steer) > Math.abs(keyDrive.steer) ? padDrive.steer : keyDrive.steer,
+  };
+}
+
+function handlePadActions(pad) {
+  if (!pad || mode !== 'world' || isControllerMapVisible() || isGarageVisible()) return;
+
+  const { fired, prevPressed } = readPressedActions(
+    pad,
+    driving ? loadBindings() : loadBindings(),
+    prevPadButtons,
+  );
+  prevPadButtons = prevPressed;
+  for (const f of fired) showToast(f.action);
+
+  if (pad.buttons[9]?.pressed && !menuLatch) {
+    menuLatch = true;
+    showControllerMap();
+    if (mapHintEl) mapHintEl.hidden = true;
+  }
+  if (!pad?.buttons[9]?.pressed) menuLatch = false;
+
+  if (driving && pad.buttons[1]?.pressed && !exitLatch) {
+    exitLatch = true;
+    exitCar();
+  }
+  if (!pad?.buttons[1]?.pressed) exitLatch = false;
+}
 
 function roadGeometry(width, height, reveal = 1) {
   const cx = width / 2;
@@ -186,43 +280,46 @@ function enterGameplay() {
 
 function updateWorldMovement(delta) {
   const pad = getGamepad();
-  let { mx, my } = readMovement(pad);
+  let { mx, mz } = readMovement(pad);
+  const keys = readKeyboardMove();
+  mx += keys.mx;
+  mz += keys.mz;
 
-  if (input.isPressed('w', 'arrowup')) my -= 1;
-  if (input.isPressed('s', 'arrowdown')) my += 1;
-  if (input.isPressed('a', 'arrowleft')) mx -= 1;
-  if (input.isPressed('d', 'arrowright')) mx += 1;
-
-  const len = Math.hypot(mx, my);
+  const len = Math.hypot(mx, mz);
   if (len > 1) {
     mx /= len;
-    my /= len;
+    mz /= len;
   }
 
-  updatePlayer(player, mx, my, delta);
+  if (driving && activeVehicle) {
+    const padDrive = readDriving(pad);
+    const keyDrive = readKeyboardDrive();
+    const drive = mergeDrive(padDrive, keyDrive);
+    updateVehicle(activeVehicle, drive, delta, world.clampPosition);
+    world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
+    handlePadActions(pad);
+
+    if (input.isPressed('e') && !exitLatch) {
+      exitLatch = true;
+      exitCar();
+    }
+    if (!input.isPressed('e')) exitLatch = false;
+    return;
+  }
+
+  updatePlayer(player, mx, mz, delta);
 
   const nextX = player.x + mx * MOVE_SPEED * delta;
-  const nextZ = player.z + my * MOVE_SPEED * delta;
+  const nextZ = player.z + mz * MOVE_SPEED * delta;
   const clamped = world.clampPosition(nextX, nextZ);
   player.x = clamped.x;
   player.z = clamped.z;
 
   syncPlayerMesh(player);
-  world.updateCamera(player.x, player.z);
+  world.updateCamera(player.x, player.z, player.facing);
 
-  if (mode === 'world' && !isControllerMapVisible()) {
-    if (pad) {
-      const { fired, prevPressed } = readPressedActions(pad, loadBindings(), prevPadButtons);
-      prevPadButtons = prevPressed;
-      for (const f of fired) showToast(f.action);
-
-      if (pad.buttons[9]?.pressed && !menuLatch) {
-        menuLatch = true;
-        showControllerMap();
-        if (mapHintEl) mapHintEl.hidden = true;
-      }
-    }
-    if (!pad?.buttons[9]?.pressed) menuLatch = false;
+  if (mode === 'world') {
+    handlePadActions(pad);
 
     if (input.isPressed('m') && !mapKeyLatch) {
       mapKeyLatch = true;
@@ -259,9 +356,9 @@ function setHud(text) {
 function render(delta) {
   const { width, height } = titleCanvas;
 
-  if (isControllerMapVisible()) {
+  if (isControllerMapVisible() || isGarageVisible()) {
     if (mapHintEl) mapHintEl.hidden = true;
-    return;
+    if (!isGarageVisible()) return;
   }
 
   if (toastTimer > 0) {
@@ -274,6 +371,7 @@ function render(delta) {
     const flash = warp > 0.35 ? 1 - (1.8 - warp) / 1.45 : 0;
     titleCanvas.style.display = 'block';
     world.hide();
+    setGarageBoxVisible(false);
     clearCanvas(ctx, flash > 0.2 ? '#e0f2fe' : '#22c55e');
     if (flash > 0.05) {
       ctx.fillStyle = `rgba(255,255,255,${flash * 0.75})`;
@@ -289,6 +387,7 @@ function render(delta) {
   if (mode === 'title') {
     titleCanvas.style.display = 'block';
     world.hide();
+    setGarageBoxVisible(false);
     if (hudEl) hudEl.hidden = true;
     if (mapHintEl) mapHintEl.hidden = true;
 
@@ -319,14 +418,22 @@ function render(delta) {
   }
 
   if (mode === 'comingSoon' || mode === 'world') {
-    updateWorldMovement(delta);
+    if (!isGarageVisible()) {
+      updateWorldMovement(delta);
+    }
 
     if (mode === 'comingSoon') {
       comingSoonTimer -= delta;
       if (comingSoonTimer <= 0) mode = 'world';
       setHud('driving coming soon');
+      setGarageBoxVisible(false);
     } else {
-      setHud('Left stick / WASD to move · M = controller map');
+      setGarageBoxVisible(true);
+      if (driving) {
+        setHud('Xbox controller to drive · B/E exit · M = controller map');
+      } else {
+        setHud('Arrows/WASD move · Garage (left) · M = controller map');
+      }
       if (mapHintEl) mapHintEl.hidden = false;
     }
 

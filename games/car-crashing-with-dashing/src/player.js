@@ -97,6 +97,7 @@ export function createPlayer(x = 0, z = 0) {
     facing: 0,
     walkPhase: 0,
     isMoving: false,
+    inVehicle: null,
     mesh,
     limbs: { armL, armR, legL, legR },
   };
@@ -106,7 +107,7 @@ export function updatePlayer(player, mx, mz, delta) {
   const len = Math.hypot(mx, mz);
   player.isMoving = len > 0.01;
   if (player.isMoving) {
-    player.facing = Math.atan2(mx, -mz);
+    player.facing = Math.atan2(-mx, -mz);
     player.walkPhase += delta * 10.5;
   }
 }
