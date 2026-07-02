@@ -24,7 +24,7 @@ export function readMovement(pad) {
   return { mx, mz };
 }
 
-/** Xbox controls for driving — left stick, triggers, d-pad. */
+/** Xbox driving: hold X = forward, B = brake, LB/LT/RB = turn (L/T/R). */
 export function readDriving(pad) {
   let throttle = 0;
   let brake = 0;
@@ -32,22 +32,18 @@ export function readDriving(pad) {
 
   if (!pad) return { throttle, brake, steer };
 
-  const ax = pad.axes[0] ?? 0;
-  const ay = pad.axes[1] ?? 0;
+  if (pad.buttons[2]?.pressed) throttle = 1;
 
-  if (Math.abs(ax) > DEADZONE) steer = ax;
-  if (ay < -DEADZONE) throttle = Math.min(1, -ay);
-  if (ay > DEADZONE) brake = Math.min(1, ay);
+  if (pad.buttons[1]?.pressed) brake = 1;
 
-  const rt = pad.buttons[7]?.value ?? (pad.buttons[7]?.pressed ? 1 : 0);
+  let turnLeft = 0;
+  let turnRight = 0;
+  if (pad.buttons[4]?.pressed) turnLeft = 1;
   const lt = pad.buttons[6]?.value ?? (pad.buttons[6]?.pressed ? 1 : 0);
-  if (rt > 0.08) throttle = Math.max(throttle, rt);
-  if (lt > 0.08) brake = Math.max(brake, lt);
+  if (lt > 0.08) turnLeft = 1;
+  if (pad.buttons[5]?.pressed) turnRight = 1;
 
-  if (pad.buttons[12]?.pressed) throttle = 1;
-  if (pad.buttons[13]?.pressed) brake = 1;
-  if (pad.buttons[14]?.pressed) steer = -1;
-  if (pad.buttons[15]?.pressed) steer = 1;
+  steer = turnRight - turnLeft;
 
   return { throttle, brake, steer };
 }

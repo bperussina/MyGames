@@ -180,10 +180,12 @@ function readKeyboardDrive() {
   let throttle = 0;
   let brake = 0;
   let steer = 0;
-  if (input.isPressed('w', 'arrowup')) throttle = 1;
-  if (input.isPressed('s', 'arrowdown')) brake = 1;
-  if (input.isPressed('a', 'arrowleft')) steer = -1;
-  if (input.isPressed('d', 'arrowright')) steer = 1;
+  if (input.isPressed('x', 'arrowup')) throttle = 1;
+  if (input.isPressed('b', 'arrowdown')) brake = 1;
+  if (input.isPressed('l', 'a', 'arrowleft')) steer -= 1;
+  if (input.isPressed('r', 'd', 'arrowright')) steer += 1;
+  if (steer < -1) steer = -1;
+  if (steer > 1) steer = 1;
   return { throttle, brake, steer };
 }
 
@@ -208,12 +210,6 @@ function handlePadActions(pad) {
     if (mapHintEl) mapHintEl.hidden = true;
   }
   if (!pad?.buttons[9]?.pressed) menuLatch = false;
-
-  if (driving && pad.buttons[1]?.pressed && !exitLatch) {
-    exitLatch = true;
-    exitCar();
-  }
-  if (!pad?.buttons[1]?.pressed) exitLatch = false;
 }
 
 function roadGeometry(width, height, reveal = 1) {
@@ -398,7 +394,7 @@ function render(delta) {
     }
 
     if (driving) {
-      setHud('Xbox controller to drive · B/E exit · M = controller map');
+      setHud('Hold X = gas · B = brake · LB/LT/RB turn · E exit · M = map');
     } else {
       setHud('Arrows/WASD move · Garage (left) · M = controller map');
     }

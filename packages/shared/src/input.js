@@ -3,7 +3,7 @@
  */
 const GAME_KEYS = new Set([
   'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
-  ' ', 'w', 'a', 's', 'd', 'x', 'e', 'r',
+  ' ', 'w', 'a', 's', 'd', 'x', 'e', 'r', 'l', 'b',
 ]);
 
 export class Input {
