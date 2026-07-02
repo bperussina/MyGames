@@ -9,6 +9,7 @@ import { printFamilyPlayBanner } from './network.mjs';
 const DEFAULT_PORT = 5176;
 const GAME_TITLES = {
   'babys-revenge-2': "Baby's Revenge 2",
+  'car-crashing-with-dashing': 'car crashing with dashing',
 };
 
 export function run(cmd, args, options = {}) {
