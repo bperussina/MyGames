@@ -1,6 +1,28 @@
 import { BUTTON_IDS } from './gamepad.js';
 
 const STORAGE_KEY = 'ccwd-button-labels';
+const CONTROLLER_IMG = './xbox-controller.jpg';
+
+/** Hotspot on the real controller photo (0–1 coords). */
+const HOTSPOTS = {
+  lb: { x: 0.18, y: 0.15 },
+  rb: { x: 0.78, y: 0.12 },
+  lt: { x: 0.12, y: 0.08 },
+  rt: { x: 0.85, y: 0.05 },
+  view: { x: 0.39, y: 0.33 },
+  menu: { x: 0.51, y: 0.29 },
+  ls: { x: 0.25, y: 0.37 },
+  rs: { x: 0.60, y: 0.45 },
+  dpadUp: { x: 0.40, y: 0.48 },
+  dpadDown: { x: 0.40, y: 0.56 },
+  dpadLeft: { x: 0.36, y: 0.52 },
+  dpadRight: { x: 0.44, y: 0.52 },
+  x: { x: 0.61, y: 0.25 },
+  y: { x: 0.68, y: 0.17 },
+  a: { x: 0.68, y: 0.32 },
+  b: { x: 0.75, y: 0.23 },
+  xbox: { x: 0.42, y: 0.20 },
+};
 
 export function loadBindings() {
   try {
@@ -21,6 +43,41 @@ export function saveBindings(bindings) {
 let overlay = null;
 let onDone = null;
 
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function drawLeaderLines() {
+  const svg = overlay.querySelector('.cm-lines');
+  const img = overlay.querySelector('.cm-photo');
+  const rows = overlay.querySelectorAll('.cm-row');
+  if (!svg || !img || !rows.length) return;
+
+  const scene = overlay.querySelector('.cm-scene');
+  const sceneRect = scene.getBoundingClientRect();
+  const imgRect = img.getBoundingClientRect();
+
+  const lines = [];
+  rows.forEach((row) => {
+    const id = row.dataset.id;
+    const spot = HOTSPOTS[id];
+    if (!spot) return;
+
+    const rowRect = row.querySelector('.cm-input').getBoundingClientRect();
+    const x1 = imgRect.left - sceneRect.left + imgRect.width * spot.x;
+    const y1 = imgRect.top - sceneRect.top + imgRect.height * spot.y;
+    const x2 = rowRect.left - sceneRect.left;
+    const y2 = rowRect.top - sceneRect.top + rowRect.height / 2;
+
+    lines.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`);
+    lines.push(`<circle cx="${x1}" cy="${y1}" r="5" class="cm-dot" />`);
+  });
+
+  svg.setAttribute('width', sceneRect.width);
+  svg.setAttribute('height', sceneRect.height);
+  svg.innerHTML = lines.join('');
+}
+
 export function createControllerMap(onDoneCallback) {
   onDone = onDoneCallback;
   if (overlay) return overlay;
@@ -32,26 +89,14 @@ export function createControllerMap(onDoneCallback) {
       <h1>Xbox controller — write what each button does</h1>
       <p>Leave a line blank and that button won't do anything.</p>
     </div>
-    <div class="cm-body">
-      <div class="cm-pad-wrap">
-        <svg class="cm-svg" viewBox="0 0 520 320" aria-hidden="true">
-          <ellipse cx="260" cy="160" rx="230" ry="130" fill="#2d2d2d" stroke="#111" stroke-width="4"/>
-          <rect x="70" y="95" width="95" height="130" rx="45" fill="#1a1a1a" stroke="#444" stroke-width="3"/>
-          <rect x="355" y="95" width="95" height="130" rx="45" fill="#1a1a1a" stroke="#444" stroke-width="3"/>
-          <circle cx="115" cy="160" r="32" fill="#111" stroke="#555" stroke-width="2"/>
-          <circle cx="405" cy="160" r="32" fill="#111" stroke="#555" stroke-width="2"/>
-          <circle cx="330" cy="115" r="16" fill="#107c10"/>
-          <circle cx="360" cy="145" r="16" fill="#d13438"/>
-          <circle cx="300" cy="145" r="16" fill="#0078d4"/>
-          <circle cx="330" cy="175" r="16" fill="#ffba00"/>
-          <rect x="175" y="55" width="50" height="28" rx="8" fill="#333" stroke="#666"/>
-          <rect x="295" y="55" width="50" height="28" rx="8" fill="#333" stroke="#666"/>
-          <circle cx="260" cy="200" r="18" fill="#333" stroke="#888"/>
-          <text x="260" y="205" text-anchor="middle" fill="#fff" font-size="11" font-family="system-ui">Xbox</text>
-        </svg>
+    <div class="cm-scene">
+      <div class="cm-photo-wrap">
+        <img class="cm-photo" src="${CONTROLLER_IMG}" alt="Xbox wireless controller" width="2073" height="1882" />
       </div>
       <div class="cm-fields" id="cm-fields"></div>
+      <svg class="cm-lines" aria-hidden="true"></svg>
     </div>
+    <p class="cm-credit">Controller photo: Evan Amos — Xbox Wireless Controller (public domain, Wikimedia Commons)</p>
     <button type="button" class="cm-done" id="cm-done">Done — back to green world</button>
   `;
 
@@ -63,10 +108,10 @@ export function createControllerMap(onDoneCallback) {
   for (const btn of BUTTON_IDS) {
     const row = document.createElement('div');
     row.className = 'cm-row';
+    row.dataset.id = btn.id;
     row.innerHTML = `
-      <span class="cm-line"></span>
       <label class="cm-label">${btn.label}</label>
-      <input type="text" class="cm-input" data-id="${btn.id}" placeholder="(blank = does nothing)" value="${escapeAttr(bindings[btn.id] ?? '')}" />
+      <input type="text" class="cm-input" data-id="${btn.id}" placeholder="blank = does nothing" value="${escapeAttr(bindings[btn.id] ?? '')}" />
     `;
     fields.appendChild(row);
   }
@@ -81,16 +126,19 @@ export function createControllerMap(onDoneCallback) {
     onDone?.();
   });
 
-  return overlay;
-}
+  const img = overlay.querySelector('.cm-photo');
+  img.addEventListener('load', () => drawLeaderLines());
+  window.addEventListener('resize', () => {
+    if (isControllerMapVisible()) drawLeaderLines();
+  });
 
-function escapeAttr(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  return overlay;
 }
 
 export function showControllerMap() {
   createControllerMap(onDone);
   overlay.style.display = 'flex';
+  requestAnimationFrame(() => drawLeaderLines());
 }
 
 export function hideControllerMap() {

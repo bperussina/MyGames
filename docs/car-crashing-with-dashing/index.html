@@ -40,45 +40,76 @@
       }
 
       .cm-body {
+        display: none;
+      }
+
+      .cm-scene {
         display: flex;
         flex-wrap: wrap;
-        gap: 24px;
+        gap: 20px 32px;
         flex: 1;
-        align-items: flex-start;
+        align-items: center;
         justify-content: center;
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
       }
 
-      .cm-pad-wrap {
-        flex: 0 1 520px;
-        max-width: 100%;
+      .cm-photo-wrap {
+        position: relative;
+        flex: 1 1 520px;
+        max-width: 720px;
       }
 
-      .cm-svg {
+      .cm-photo {
         width: 100%;
         height: auto;
         display: block;
+        border-radius: 12px;
+        background: #f8fafc;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      }
+
+      .cm-lines {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: visible;
+        z-index: 2;
+      }
+
+      .cm-lines line {
+        stroke: #22c55e;
+        stroke-width: 2;
+        stroke-dasharray: 6 4;
+      }
+
+      .cm-lines .cm-dot {
+        fill: #fde047;
+        stroke: #14532d;
+        stroke-width: 2;
       }
 
       .cm-fields {
-        flex: 1 1 320px;
-        max-width: 480px;
+        flex: 0 1 300px;
+        min-width: 260px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
-      }
-
-      .cm-row {
-        display: grid;
-        grid-template-columns: 24px 110px 1fr;
-        align-items: center;
         gap: 8px;
       }
 
-      .cm-line {
-        display: block;
-        width: 20px;
-        height: 2px;
-        background: #64748b;
+      .cm-row {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+
+      .cm-credit {
+        text-align: center;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 8px;
       }
 
       .cm-label {
@@ -152,7 +183,7 @@
         pointer-events: none;
       }
     </style>
-    <script type="module" crossorigin src="./assets/index-DIlE2fZi.js"></script>
+    <script type="module" crossorigin src="./assets/index-BKv7E573.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>
