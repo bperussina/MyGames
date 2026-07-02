@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { listPlayableGames, getGameConfig } from './game-registry.mjs';
+import { run } from './serve-game.mjs';
 import { startCommandBackground } from './local-process.mjs';
 import { probePort, waitForPort } from './probe.mjs';
 import { logStep, logOk, logFail } from './logger.mjs';
