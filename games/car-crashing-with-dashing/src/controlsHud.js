@@ -64,16 +64,24 @@ export function refreshControlsHud(root, { driving = false } = {}) {
   const pcKeys = driving
     ? [
         { key: 'W', word: 'Gas' },
+        { key: '↑', word: 'Gas' },
         { key: 'S', word: 'Brake' },
+        { key: '↓', word: 'Brake' },
         { key: 'A', word: 'Left' },
+        { key: '←', word: 'Left' },
         { key: 'D', word: 'Right' },
+        { key: '→', word: 'Right' },
         { key: 'E', word: 'Exit car' },
       ]
     : [
         { key: 'W', word: 'Forward' },
+        { key: '↑', word: 'Forward' },
         { key: 'A', word: 'Left' },
+        { key: '←', word: 'Left' },
         { key: 'S', word: 'Back' },
+        { key: '↓', word: 'Back' },
         { key: 'D', word: 'Right' },
+        { key: '→', word: 'Right' },
       ];
 
   const padChips = [`<span class="pad-chip chip-stick" title="Left stick — move"><span class="pad-chip-mark">Stick</span><span class="pad-chip-word">Move</span></span>`];

@@ -24,26 +24,26 @@ export function readMovement(pad) {
   return { mx, mz };
 }
 
-/** Keyboard only — WASD to walk (computer controls, separate from Xbox). */
+/** Keyboard — WASD or arrow keys to walk (computer controls, separate from Xbox). */
 export function readKeyboardMove(input) {
   let mx = 0;
   let mz = 0;
-  if (input.isPressed('w')) mz += 1;
-  if (input.isPressed('s')) mz -= 1;
-  if (input.isPressed('a')) mx -= 1;
-  if (input.isPressed('d')) mx += 1;
+  if (input.isPressed('w', 'arrowup')) mz += 1;
+  if (input.isPressed('s', 'arrowdown')) mz -= 1;
+  if (input.isPressed('a', 'arrowleft')) mx -= 1;
+  if (input.isPressed('d', 'arrowright')) mx += 1;
   return { mx, mz };
 }
 
-/** Keyboard only — WASD to drive (computer controls, separate from Xbox). */
+/** Keyboard — WASD or arrow keys to drive (computer controls, separate from Xbox). */
 export function readKeyboardDriving(input) {
   let throttle = 0;
   let brake = 0;
   let steer = 0;
-  if (input.isPressed('w')) throttle = 1;
-  if (input.isPressed('s')) brake = 1;
-  if (input.isPressed('a')) steer -= 1;
-  if (input.isPressed('d')) steer += 1;
+  if (input.isPressed('w', 'arrowup')) throttle = 1;
+  if (input.isPressed('s', 'arrowdown')) brake = 1;
+  if (input.isPressed('a', 'arrowleft')) steer -= 1;
+  if (input.isPressed('d', 'arrowright')) steer += 1;
   steer = Math.max(-1, Math.min(1, steer));
   return { throttle, brake, steer };
 }
