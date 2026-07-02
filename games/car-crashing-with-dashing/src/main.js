@@ -20,6 +20,7 @@ import {
   loadBindings,
 } from './controllerMap.js';
 import { refreshControlsHud, setControlsHudVisible } from './controlsHud.js';
+import { createTouchControls } from './touchControls.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
 import { createGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
@@ -48,6 +49,8 @@ titleCanvas.style.inset = '0';
 titleCanvas.style.zIndex = '1';
 
 const input = new Input(document.body);
+const touch = createTouchControls();
+touch.onExit(() => exitCar());
 const world = createScene3d();
 const player = createPlayer(0, 0);
 addPlayerToScene(world.scene, player);
@@ -161,6 +164,7 @@ function spawnCarFromGarage(spec) {
   activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition);
   addVehicleToScene(world.scene, activeVehicle);
   driving = true;
+  touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   refreshControlsHud(controlsHudEl, { driving: true });
   showToast(`Driving ${spec.name}`);
@@ -170,6 +174,7 @@ function exitCar() {
   if (!activeVehicle || !driving) return;
   exitDriverSeat(player, activeVehicle);
   driving = false;
+  touch.setDriving(false);
   syncPlayerMesh(player);
   world.updateCamera(player.x, player.z, player.facing);
   refreshControlsHud(controlsHudEl, { driving: false });
@@ -370,6 +375,8 @@ function enterGameplay() {
   titleCanvas.style.display = 'none';
   world.show();
   setGarageBoxVisible(true);
+  touch.setVisible(true);
+  touch.setDriving(driving);
   setControlsHudVisible(controlsHudEl, true, { driving });
 }
 
@@ -377,8 +384,9 @@ function updateWorldMovement(delta) {
   const pad = getGamepad();
   let { mx, mz } = readMovement(pad);
   const keys = readKeyboardMove(input);
-  mx += keys.mx;
-  mz += keys.mz;
+  const touchMove = touch.readMove();
+  mx += keys.mx + touchMove.mx;
+  mz += keys.mz + touchMove.mz;
 
   const len = Math.hypot(mx, mz);
   if (len > 1) {
@@ -389,7 +397,8 @@ function updateWorldMovement(delta) {
   if (driving && activeVehicle) {
     const padDrive = readDriving(pad);
     const keyDrive = readKeyboardDrive();
-    const drive = mergeDrive(padDrive, keyDrive);
+    const touchDrive = touch.readDrive();
+    const drive = mergeDrive(mergeDrive(padDrive, keyDrive), touchDrive);
     updateVehicle(activeVehicle, drive, delta, world.clampPosition);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
     handlePadActions(pad);
@@ -448,6 +457,7 @@ function render(delta) {
     titleCanvas.style.display = 'block';
     world.hide();
     setGarageBoxVisible(false);
+    touch.setVisible(false);
     clearCanvas(ctx, flash > 0.2 ? '#e0f2fe' : '#22c55e');
     if (flash > 0.05) {
       ctx.fillStyle = `rgba(255,255,255,${flash * 0.75})`;
@@ -464,6 +474,7 @@ function render(delta) {
     titleCanvas.style.display = 'block';
     world.hide();
     setGarageBoxVisible(false);
+    touch.setVisible(false);
     setControlsHudVisible(controlsHudEl, false);
     if (roomBannerEl) roomBannerEl.hidden = true;
 
@@ -533,6 +544,7 @@ function render(delta) {
       if (comingSoonTimer <= 0) mode = 'world';
       setControlsHudVisible(controlsHudEl, true, { driving });
       setGarageBoxVisible(false);
+    touch.setVisible(false);
     } else {
       setGarageBoxVisible(true);
       setControlsHudVisible(controlsHudEl, true, { driving });

@@ -29,6 +29,8 @@ export class Input {
     });
 
     target.addEventListener('pointerdown', (event) => {
+      this.pointer.x = event.clientX;
+      this.pointer.y = event.clientY;
       this.pointer.down = true;
       if (target.focus) {
         target.focus();

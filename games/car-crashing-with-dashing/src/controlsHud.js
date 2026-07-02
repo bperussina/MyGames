@@ -85,7 +85,7 @@ export function refreshControlsHud(root, { driving = false } = {}) {
   }
 
   body.innerHTML = `
-    <p class="controls-mini-hint">${driving ? 'Driving' : 'Walking'} — tap a car in the garage (left) to drive</p>
+    <p class="controls-mini-hint">${driving ? 'Driving' : 'Walking'} — iPad: use arrows bottom-left · Garage on left</p>
     <div class="controls-mini-block">
       <span class="controls-mini-label">Keyboard</span>
       <div class="pc-keys">${pcKeys.map(({ key, word }) => renderPcKey(key, word)).join('')}</div>
