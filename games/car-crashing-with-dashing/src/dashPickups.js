@@ -246,7 +246,7 @@ export function createDashSystem(scene, { getPlayerId, isHost, send, relay }) {
     handleMessage,
     setToast,
     syncState: broadcastState,
-    isSessionActive: () => sessionActive,
+    isSessionActive,
     SUPER_MAX_SPEED,
     SUPER_ACCEL_MULT,
   };
