@@ -10,8 +10,8 @@ export function createScene3d(parent = document.body) {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMapping = THREE.LinearToneMapping;
+  renderer.toneMappingExposure = 1.15;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.domElement.id = 'world-canvas';
   renderer.domElement.style.display = 'none';
@@ -20,8 +20,8 @@ export function createScene3d(parent = document.body) {
   parent.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#87c4a8');
-  scene.fog = new THREE.Fog('#9ec8a8', 80, 320);
+  scene.background = new THREE.Color('#8fd498');
+  scene.fog = new THREE.Fog('#a8dcb0', 100, 420);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
@@ -30,10 +30,10 @@ export function createScene3d(parent = document.body) {
 
   const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 800);
 
-  const hemi = new THREE.HemisphereLight('#dce8ff', '#3d4a5c', 0.55);
+  const hemi = new THREE.HemisphereLight('#e8f4ff', '#4a5a48', 0.72);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight('#fff8ee', 1.45);
+  const sun = new THREE.DirectionalLight('#fffef5', 1.15);
   sun.position.set(30, 48, 18);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -45,11 +45,11 @@ export function createScene3d(parent = document.body) {
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
 
-  const fill = new THREE.DirectionalLight('#a8b8d0', 0.35);
+  const fill = new THREE.DirectionalLight('#c8d8f0', 0.28);
   fill.position.set(-22, 18, -14);
   scene.add(fill);
 
-  const rim = new THREE.DirectionalLight('#ffeedd', 0.25);
+  const rim = new THREE.DirectionalLight('#fff8e8', 0.18);
   rim.position.set(-10, 8, 30);
   scene.add(rim);
 

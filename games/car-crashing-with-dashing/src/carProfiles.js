@@ -1,7 +1,7 @@
 /** Visual proportions and iconic cues per car — makes each model read like the real thing. */
 const STYLE_DEFAULTS = {
   sedan: {
-    length: 4.55, width: 1.88, ride: 0.52, cabinH: 0.78, cabinLen: 2.15, hoodLen: 1.35,
+    length: 4.55, width: 1.88, ride: 0.52, cabinH: 0.82, cabinLen: 1.85, hoodLen: 1.55,
     wheelR: 0.36, wheelX: 0.86, wheelZ: 1.36, grille: true, chromeTrim: true,
   },
   sports: {
@@ -85,7 +85,7 @@ export function getCarProfile(spec) {
     id: spec.id,
     name: spec.name,
     style,
-    color: spec.color ?? 0xb8bdc4,
+    color: spec.color ?? (style === 'sedan' ? 0xc9b896 : 0xb8bdc4),
     year: spec.year ?? 2000,
     maker: spec.maker ?? '',
   };

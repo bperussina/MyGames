@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { rbxPlastic, rbxDebrisMaterial } from './blockStyle.js';
 
 const CHIP_SPEED = 5;
 const DENT_SPEED = 28;
@@ -238,14 +239,12 @@ function spawnVoxelScoop(scene, vehicle, panel, hitX, hitY, severity, impactSpee
       local.set(hitX + u * span, hitY + v * span * 0.85, outerZ);
       panel.localToWorld(local);
 
-      const sx = 0.07 + Math.random() * 0.11;
-      const sy = 0.05 + Math.random() * 0.08;
-      const sz = 0.06 + Math.random() * 0.1;
-      const mat = new THREE.MeshStandardMaterial({
-        color: baseColor.clone().lerp(new THREE.Color(0x666666), 0.2 + Math.random() * 0.35),
-        metalness: 0.55 + Math.random() * 0.3,
-        roughness: 0.35 + Math.random() * 0.25,
-      });
+      const sx = 0.1 + Math.random() * 0.14;
+      const sy = 0.08 + Math.random() * 0.12;
+      const sz = 0.09 + Math.random() * 0.13;
+      const mat = rbxDebrisMaterial(
+        baseColor.clone().lerp(new THREE.Color(0x555555), 0.15 + Math.random() * 0.25),
+      );
       const voxel = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
       voxel.position.copy(local);
       voxel.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
@@ -511,13 +510,11 @@ function spawnScoopDebris(scene, vehicle, origin, severity, debris) {
   const count = 3 + Math.floor(severity * 6);
   const base = new THREE.Color(vehicle.spec?.color ?? 0xb8bdc4);
   for (let i = 0; i < count; i++) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: base.clone().lerp(new THREE.Color(0x888888), 0.35 + Math.random() * 0.4),
-      metalness: 0.7,
-      roughness: 0.45,
-    });
+    const mat = rbxDebrisMaterial(
+      base.clone().lerp(new THREE.Color(0x888888), 0.2 + Math.random() * 0.35),
+    );
     const chunk = new THREE.Mesh(
-      new THREE.BoxGeometry(0.04 + Math.random() * 0.08, 0.02 + Math.random() * 0.04, 0.05 + Math.random() * 0.07),
+      new THREE.BoxGeometry(0.06 + Math.random() * 0.12, 0.04 + Math.random() * 0.08, 0.08 + Math.random() * 0.1),
       mat,
     );
     chunk.position.copy(origin);
@@ -539,13 +536,9 @@ function spawnPaintChips(scene, vehicle, count, debris) {
 
   for (let i = 0; i < count; i++) {
     const chipColor = base.clone().lerp(new THREE.Color(0xffffff), 0.1 + Math.random() * 0.35);
-    const mat = new THREE.MeshStandardMaterial({
-      color: chipColor,
-      metalness: 0.45 + Math.random() * 0.35,
-      roughness: 0.25 + Math.random() * 0.3,
-    });
+    const mat = rbxDebrisMaterial(chipColor);
     const chip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03 + Math.random() * 0.06, 0.008 + Math.random() * 0.012, 0.04 + Math.random() * 0.05),
+      new THREE.BoxGeometry(0.04 + Math.random() * 0.08, 0.012 + Math.random() * 0.016, 0.05 + Math.random() * 0.06),
       mat,
     );
     chip.position.copy(origin);

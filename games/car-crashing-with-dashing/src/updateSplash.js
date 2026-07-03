@@ -5,7 +5,7 @@ const UPDATE_HEADLINE = 'MEGA UPDATE';
 const UPDATE_TAGLINE = 'The game just got way bigger.';
 
 const UPDATE_FEATURES = [
-  { icon: '🚗', title: 'Block-panel cars', desc: 'Every car is now chunky Roblox / BeamNG-style panels.' },
+  { icon: '🚗', title: 'Picture-perfect block cars', desc: 'Flat plastic panels, black edges, tan sedans — just like the photos.' },
   { icon: '💥', title: 'Parts fly off', desc: 'Headlights, hood, doors, and wheels break loose in crashes.' },
   { icon: '🏙️', title: 'Huge city + countryside', desc: 'Drive through the city gates into infinite green hills.' },
   { icon: '📊', title: 'Damage HUD', desc: 'Live bars for engine, body, hood, glass, and wheels.' },
