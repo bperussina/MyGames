@@ -105,6 +105,7 @@ export function createPlayer(x = 0, z = 0, shirtColor = SHIRT) {
     walkPhase: 0,
     isMoving: false,
     inVehicle: null,
+    dead: false,
     mesh,
     limbs: { armL, armR, legL, legR },
   };
@@ -121,6 +122,11 @@ export function updatePlayer(player, mx, mz, delta) {
 
 export function syncPlayerMesh(player) {
   const { mesh, limbs, walkPhase, isMoving, facing } = player;
+  if (player.dead) {
+    mesh.position.set(player.x, 0.12, player.z);
+    mesh.rotation.y = facing;
+    return;
+  }
   mesh.position.set(player.x, 0, player.z);
   mesh.rotation.y = facing;
 

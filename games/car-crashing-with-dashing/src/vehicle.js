@@ -1,5 +1,5 @@
 import { buildCarMesh, finishCarMesh } from './carMesh.js';
-import { clearDents, createDefaultPartHealth, DENT_SPEED, SCOOP_SPEED } from './crashFX.js';
+import { clearDents, createDefaultPartHealth, countAttachedParts, DENT_SPEED, SCOOP_SPEED } from './crashFX.js';
 
 const MAX_SPEED = 52;
 const CRUISE_MAX = 22;
@@ -40,6 +40,7 @@ export function createVehicleState(spec, x, z, rotY = 0, envMap = null) {
     suspensionT: 0,
     bodyRoll: 0,
     debris: [],
+    initialPartCount: countAttachedParts(mesh),
   };
 }
 

@@ -212,6 +212,38 @@
         opacity: 1;
       }
 
+      #death-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.72);
+        color: #fecaca;
+        text-align: center;
+        pointer-events: none;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+      }
+
+      #death-overlay[hidden] {
+        display: none !important;
+      }
+
+      #death-overlay .death-title {
+        font-size: clamp(2rem, 8vw, 3.5rem);
+        color: #ef4444;
+        text-shadow: 0 0 24px rgba(239, 68, 68, 0.5);
+        margin-bottom: 12px;
+      }
+
+      #death-overlay .death-timer {
+        font-size: 1.25rem;
+        color: #fca5a5;
+      }
+
       #map-hint {
         display: none !important;
       }
@@ -1225,6 +1257,10 @@
   </head>
   <body>
     <div id="action-toast"></div>
+    <div id="death-overlay" hidden>
+      <p class="death-title">YOU DIED</p>
+      <p class="death-timer" id="death-timer">Respawning in 5...</p>
+    </div>
     <div id="controls-hud" hidden>
       <p class="controls-title">How to play</p>
       <div id="controls-body"></div>

@@ -151,6 +151,28 @@ function collectDetachableParts(root) {
   return parts;
 }
 
+/** How many breakable parts are still on the car. */
+export function countAttachedParts(root) {
+  return collectDetachableParts(root).length;
+}
+
+/** True when the car has been ripped apart — triggers player death. */
+export function isVehicleDestroyed(vehicle) {
+  if (!vehicle?.mesh) return false;
+  const attached = countAttachedParts(vehicle.mesh);
+  if (attached === 0) return true;
+
+  if (!vehicle.initialPartCount) vehicle.initialPartCount = attached;
+  const ratio = attached / vehicle.initialPartCount;
+  const h = vehicle.partHealth ?? createDefaultPartHealth();
+
+  const wheelsOnCar = vehicle.mesh.userData.wheels?.filter((w) => !w.userData.detached).length ?? 0;
+  const criticalGone = wheelsOnCar === 0 && !findPartById(vehicle.mesh, 'hood');
+  const healthGone = h.body <= 0 && h.engine <= 0 && h.hood <= 0;
+
+  return ratio <= 0.22 || (ratio <= 0.35 && healthGone) || (criticalGone && ratio <= 0.4);
+}
+
 const REAR_PART_IDS = new Set([
   'taillight', 'bumper_rear', 'trunk', 'spoiler', 'rear_glass',
 ]);

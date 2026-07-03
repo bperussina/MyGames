@@ -40,6 +40,7 @@ import {
   shouldDent,
   handleCrash,
   updateCrashDebris,
+  isVehicleDestroyed,
 } from './crashFX.js';
 import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
 import { createRemotePlayers } from './remotePlayers.js';
@@ -93,6 +94,9 @@ const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
 const MOVE_SPEED = 7;
 const NET_SEND_INTERVAL = 0.05;
+const SPAWN_X = 0;
+const SPAWN_Z = 0;
+const RESPAWN_DELAY = 5;
 const teleportParam = new URLSearchParams(window.location.search).has('teleport');
 
 const { canvas: titleCanvas, ctx } = createCanvas();
@@ -136,6 +140,7 @@ let collisionCooldown = 0;
 let danceTime = 0;
 let cameraShake = 0;
 let crashDebris = [];
+let respawnTimer = 0;
 
 let mouseLookReady = false;
 
@@ -148,6 +153,8 @@ const damageHudEl = document.getElementById('damage-hud');
 const roomBannerEl = document.getElementById('room-banner');
 const superDashBtnEl = document.getElementById('super-dash-btn');
 const dashScoreHudEl = document.getElementById('dash-score-hud');
+const deathOverlayEl = document.getElementById('death-overlay');
+const deathTimerEl = document.getElementById('death-timer');
 
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
@@ -264,6 +271,11 @@ function handleCarCollision(impactSpeed) {
   handleCrash(activeVehicle, world.scene, impactSpeed, crashDebris);
   refreshDamageHud(damageHudEl, activeVehicle);
 
+  if (isVehicleDestroyed(activeVehicle)) {
+    killPlayer();
+    return;
+  }
+
   if (shouldDent(impactSpeed)) {
     applyCrashBounce(activeVehicle, impactSpeed);
     const huge = Math.abs(impactSpeed) >= 38;
@@ -273,6 +285,83 @@ function handleCarCollision(impactSpeed) {
     activeVehicle.speed *= 0.55;
     collisionCooldown = 0.12;
   }
+}
+
+function killPlayer() {
+  if (player.dead) return;
+  player.dead = true;
+  respawnTimer = RESPAWN_DELAY;
+
+  if (driving && activeVehicle) {
+    const vx = activeVehicle.x;
+    const vz = activeVehicle.z;
+    const rot = activeVehicle.rotY;
+    exitDriverSeat(player, activeVehicle);
+    player.x = vx;
+    player.z = vz;
+    player.facing = rot;
+    activeVehicle.speed = 0;
+    driving = false;
+    touch.setDriving(false);
+    dashSystem.setSuperDash(false);
+    activeVehicle.superDashOn = false;
+  }
+
+  player.mesh.rotation.x = -Math.PI / 2;
+  syncPlayerMesh(player);
+
+  setControlsHudVisible(controlsHudEl, false);
+  setDamageHudVisible(damageHudEl, false);
+  setGarageBoxVisible(false);
+  refreshSuperDashUi();
+  if (deathOverlayEl) deathOverlayEl.hidden = false;
+  if (deathTimerEl) deathTimerEl.textContent = `Respawning in ${RESPAWN_DELAY}...`;
+  showToast('Your car was destroyed!');
+}
+
+function respawnPlayer() {
+  player.dead = false;
+  respawnTimer = 0;
+
+  if (activeVehicle) {
+    removeVehicleFromScene(world.scene, activeVehicle);
+    activeVehicle = null;
+  }
+
+  for (const d of crashDebris) {
+    d.mesh.parent?.remove(d.mesh);
+  }
+  crashDebris.length = 0;
+
+  player.x = SPAWN_X;
+  player.z = SPAWN_Z;
+  player.facing = 0;
+  player.mesh.rotation.set(0, 0, 0);
+  player.mesh.visible = true;
+  player.inVehicle = null;
+  syncPlayerMesh(player);
+
+  driving = false;
+  touch.setDriving(false);
+  if (deathOverlayEl) deathOverlayEl.hidden = true;
+  setGarageBoxVisible(true);
+  showGarage();
+  setControlsHudVisible(controlsHudEl, true, { driving: false });
+  world.updateCamera(player.x, player.z, player.facing);
+  showToast('Respawned at spawn!');
+}
+
+function updateDeathState(delta) {
+  respawnTimer = Math.max(0, respawnTimer - delta);
+  if (deathTimerEl) {
+    deathTimerEl.textContent = respawnTimer > 0
+      ? `Respawning in ${Math.ceil(respawnTimer)}...`
+      : 'Respawning...';
+  }
+  updateCrashDebris(crashDebris, delta);
+  world.updateWorld(player.x, player.z);
+  world.updateCamera(player.x, player.z, player.facing);
+  if (respawnTimer <= 0) respawnPlayer();
 }
 
 function exitCar() {
@@ -587,6 +676,11 @@ function enterGameplay() {
 }
 
 function updateWorldMovement(delta) {
+  if (player.dead) {
+    updateDeathState(delta);
+    return;
+  }
+
   const pad = getGamepad();
   let { mx, mz } = readMovement(pad);
   const keys = readKeyboardMove(input);
@@ -625,6 +719,10 @@ function updateWorldMovement(delta) {
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
     refreshDamageHud(damageHudEl, activeVehicle);
+    if (isVehicleDestroyed(activeVehicle)) {
+      killPlayer();
+      return;
+    }
     world.updateWorld(activeVehicle.x, activeVehicle.z);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY, cameraShake);
     handlePadActions(pad);
