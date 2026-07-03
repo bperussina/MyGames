@@ -52,6 +52,7 @@ import {
   shouldShowDrawPaperOnLoad,
 } from './drawPaper.js';
 import { initMouseLook } from './mouseLook.js';
+import { maybeShowUpdateSplash, markPendingUpdateReload } from './updateSplash.js';
 
 const BUILD_KEY = 'ccwd-build';
 
@@ -68,6 +69,7 @@ function watchForGameUpdates() {
       if (!v) return;
       const prev = localStorage.getItem(BUILD_KEY);
       if (prev && prev !== v) {
+        markPendingUpdateReload();
         localStorage.setItem(BUILD_KEY, v);
         location.reload();
         return;
@@ -82,7 +84,9 @@ function watchForGameUpdates() {
   setInterval(check, 3 * 60 * 1000);
 }
 
-watchForGameUpdates();
+maybeShowUpdateSplash().then(() => {
+  watchForGameUpdates();
+});
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
