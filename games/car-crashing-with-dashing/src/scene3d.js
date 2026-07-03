@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-
-const WORLD_HALF = 80;
+import { buildCity } from './city.js';
 
 export function createScene3d(parent = document.body) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -15,40 +14,30 @@ export function createScene3d(parent = document.body) {
   parent.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#87ceeb');
-  scene.fog = new THREE.Fog('#87ceeb', 40, 120);
+  scene.background = new THREE.Color('#6b8cae');
+  scene.fog = new THREE.Fog('#8aa4c0', 50, 130);
 
   const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
 
-  const hemi = new THREE.HemisphereLight('#dff6ff', '#3d7a36', 0.85);
+  const hemi = new THREE.HemisphereLight('#c8e0ff', '#4a5568', 0.75);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight('#fff8e7', 1.35);
-  sun.position.set(20, 35, 12);
+  const sun = new THREE.DirectionalLight('#fff4e0', 1.2);
+  sun.position.set(25, 40, 15);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -50;
-  sun.shadow.camera.right = 50;
-  sun.shadow.camera.top = 50;
-  sun.shadow.camera.bottom = -50;
+  sun.shadow.camera.left = -55;
+  sun.shadow.camera.right = 55;
+  sun.shadow.camera.top = 55;
+  sun.shadow.camera.bottom = -55;
   sun.shadow.bias = -0.0002;
   scene.add(sun);
 
-  const fill = new THREE.DirectionalLight('#b8d4ff', 0.35);
-  fill.position.set(-15, 12, -10);
+  const fill = new THREE.DirectionalLight('#8899bb', 0.4);
+  fill.position.set(-18, 14, -12);
   scene.add(fill);
 
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(WORLD_HALF * 2, WORLD_HALF * 2),
-    new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.88, metalness: 0.02 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
-  scene.add(ground);
-
-  const grid = new THREE.GridHelper(WORLD_HALF * 2, 40, '#15803d', '#16a34a');
-  grid.position.y = 0.02;
-  scene.add(grid);
+  const city = buildCity(scene);
 
   function resize() {
     const w = window.innerWidth;
@@ -94,9 +83,10 @@ export function createScene3d(parent = document.body) {
   }
 
   function clampPosition(x, z) {
+    const h = city.worldHalf - 2;
     return {
-      x: Math.max(-WORLD_HALF + 2, Math.min(WORLD_HALF - 2, x)),
-      z: Math.max(-WORLD_HALF + 2, Math.min(WORLD_HALF - 2, z)),
+      x: Math.max(-h, Math.min(h, x)),
+      z: Math.max(-h, Math.min(h, z)),
     };
   }
 
@@ -104,6 +94,7 @@ export function createScene3d(parent = document.body) {
     scene,
     camera,
     renderer,
+    city,
     show,
     hide,
     resize,
@@ -111,6 +102,6 @@ export function createScene3d(parent = document.body) {
     updateCamera,
     updateDrivingCamera,
     clampPosition,
-    worldHalf: WORLD_HALF,
+    worldHalf: city.worldHalf,
   };
 }

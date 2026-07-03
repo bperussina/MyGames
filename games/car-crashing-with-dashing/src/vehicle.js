@@ -1,10 +1,14 @@
 import { buildCarMesh } from './carMesh.js';
+import { clearDents } from './crashFX.js';
 
-const MAX_SPEED = 22;
-const ACCEL = 28;
-const BRAKE = 40;
-const STEER_SPEED = 2.2;
-const FRICTION = 10;
+const MAX_SPEED = 52;
+const CRUISE_MAX = 22;
+const ACCEL = 32;
+const BOOST_ACCEL = 48;
+const BRAKE = 42;
+const STEER_SPEED = 2.4;
+const FRICTION = 8;
+const CHARGE_STEER_MAX = 0.38;
 
 export function createVehicleState(spec, x, z, rotY = 0) {
   const mesh = buildCarMesh(spec);
@@ -19,6 +23,10 @@ export function createVehicleState(spec, x, z, rotY = 0) {
     rotY,
     speed: 0,
     steer: 0,
+    damage: 0,
+    dents: [],
+    prevX: x,
+    prevZ: z,
   };
 }
 
@@ -54,28 +62,48 @@ export function syncVehicleMesh(vehicle) {
   vehicle.mesh.rotation.y = vehicle.rotY;
 }
 
+export function resetVehicleAt(vehicle, x, z, rotY = 0) {
+  clearDents(vehicle);
+  vehicle.x = x;
+  vehicle.z = z;
+  vehicle.rotY = rotY;
+  vehicle.speed = 0;
+  vehicle.steer = 0;
+  vehicle.prevX = x;
+  vehicle.prevZ = z;
+  vehicle.mesh.visible = true;
+  syncVehicleMesh(vehicle);
+}
+
 /**
- * @param {{ throttle: number, brake: number, steer: number }} drive -1..1
+ * Straight or slight turns charge up speed; sharp turns slow the boost.
  */
 export function updateVehicle(vehicle, drive, delta, clampPosition) {
   const { throttle, brake, steer } = drive;
 
+  vehicle.prevX = vehicle.x;
+  vehicle.prevZ = vehicle.z;
+
   vehicle.steer += (steer * STEER_SPEED - vehicle.steer) * Math.min(1, delta * 8);
-  vehicle.rotY -= vehicle.steer * delta * (0.8 + Math.abs(vehicle.speed) * 0.06);
+  vehicle.rotY -= vehicle.steer * delta * (0.85 + Math.abs(vehicle.speed) * 0.05);
+
+  const charging = Math.abs(steer) <= CHARGE_STEER_MAX && throttle > 0;
 
   if (throttle > 0) {
-    vehicle.speed += throttle * ACCEL * delta;
+    const accel = charging ? BOOST_ACCEL * (1 + Math.min(Math.abs(vehicle.speed) / 28, 1.2)) : ACCEL * 0.75;
+    vehicle.speed += throttle * accel * delta;
   }
   if (brake > 0) {
     vehicle.speed -= brake * BRAKE * delta;
   }
 
   if (throttle <= 0 && brake <= 0) {
-    if (Math.abs(vehicle.speed) < 0.5) vehicle.speed = 0;
+    if (Math.abs(vehicle.speed) < 0.4) vehicle.speed = 0;
     else vehicle.speed -= Math.sign(vehicle.speed) * FRICTION * delta;
   }
 
-  vehicle.speed = Math.max(-MAX_SPEED * 0.35, Math.min(MAX_SPEED, vehicle.speed));
+  const cap = charging ? MAX_SPEED : CRUISE_MAX;
+  vehicle.speed = Math.max(-MAX_SPEED * 0.3, Math.min(cap, vehicle.speed));
 
   const dx = Math.sin(vehicle.rotY) * vehicle.speed * delta;
   const dz = Math.cos(vehicle.rotY) * vehicle.speed * delta;
@@ -84,6 +112,11 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   vehicle.z = next.z;
 
   syncVehicleMesh(vehicle);
+
+  const wallHit =
+    Math.abs(next.x - (vehicle.prevX + dx)) > 0.05 || Math.abs(next.z - (vehicle.prevZ + dz)) > 0.05;
+
+  return { impactSpeed: Math.abs(vehicle.speed), charging, wallHit };
 }
 
 export function spawnInFrontOfPlayer(player, spec, clampPosition) {
