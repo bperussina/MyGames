@@ -53,6 +53,7 @@ import {
 } from './drawPaper.js';
 import { initMouseLook } from './mouseLook.js';
 import { maybeShowUpdateSplash, markPendingUpdateReload } from './updateSplash.js';
+import { createDashSystem } from './dashPickups.js';
 
 const BUILD_KEY = 'ccwd-build';
 
@@ -145,6 +146,8 @@ const toastEl = document.getElementById('action-toast');
 const controlsHudEl = document.getElementById('controls-hud');
 const damageHudEl = document.getElementById('damage-hud');
 const roomBannerEl = document.getElementById('room-banner');
+const superDashBtnEl = document.getElementById('super-dash-btn');
+const dashScoreHudEl = document.getElementById('dash-score-hud');
 
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
@@ -175,6 +178,7 @@ createLobby(({ room, isHost: host }) => {
   setupMultiplayer(room);
   mode = 'world';
   enterGameplay();
+  startDashSession(hashSeed(room.code ?? 'solo'));
   updateRoomBanner();
   showToast("You're in the game!");
 });
@@ -190,11 +194,16 @@ function setupMultiplayer(room) {
       playerCount += 1;
       updateRoomBanner();
       showToast('Someone joined!');
+      if (isHost) dashSystem.syncState();
     }
     if (msg.t === 'leave' && msg.id) {
       remotePlayers.remove(msg.id);
       playerCount = Math.max(1, playerCount - 1);
       updateRoomBanner();
+    }
+    if (msg.t === 'dashState' || msg.t === 'dashCollect') {
+      dashSystem.handleMessage(msg);
+      refreshSuperDashUi();
     }
   };
 
@@ -354,6 +363,33 @@ function pointInButton(x, y, btn) {
   return x >= btn.x && x <= btn.x + btn.w && y >= btn.y && y <= btn.y + btn.h;
 }
 
+function drawGameTitle(width, height, alpha) {
+  const y = height * 0.22;
+  const size = 44;
+  const part1 = 'car crashing with ';
+  const part2 = 'dashing';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = `800 ${size}px system-ui, sans-serif`;
+  ctx.textBaseline = 'middle';
+  const fullW = ctx.measureText(part1 + part2).width;
+  let x = width / 2 - fullW / 2;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#14532d';
+  ctx.fillText(part1, x, y);
+  x += ctx.measureText(part1).width;
+  ctx.fillText(part2, x, y);
+  const dashingW = ctx.measureText(part2).width;
+  const underlineY = y + size * 0.38;
+  ctx.strokeStyle = '#14532d';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(x, underlineY);
+  ctx.lineTo(x + dashingW, underlineY);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawTitleButton(btn, label, colors, pulse, hover, pressed) {
   const scale = 1 + Math.sin(pulse) * 0.04 + (hover ? 0.05 : 0) + (pressed ? -0.03 : 0);
   const w = btn.w * scale;
@@ -395,6 +431,7 @@ function startSoloPlay() {
   player.z = 0;
   syncPlayerMesh(player);
   enterGameplay();
+  startDashSession(hashSeed(String(Date.now())));
 }
 
 function updateTitleInput(playBtn, multiBtn) {
@@ -467,6 +504,72 @@ function showToast(text) {
     toastEl.textContent = text;
     toastEl.classList.add('show');
   }
+}
+
+function hashSeed(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  return Math.abs(h) || 1;
+}
+
+const dashSystem = createDashSystem(world.scene, {
+  getPlayerId: () => mpRoom?.id ?? 'local',
+  isHost: () => !mpRoom || isHost,
+  send: (msg) => {
+    if (!mpRoom) return;
+    if (isHost && msg.t === 'dashState') mpRoom.send(msg);
+    else if (msg.t === 'dashCollect') mpRoom.sendToHost(msg);
+    else mpRoom.send(msg);
+  },
+});
+dashSystem.setToast(showToast);
+
+function startDashSession(seed) {
+  dashSystem.reset(seed);
+  if (dashSystem.isSessionActive()) {
+    showToast('Blue Dashing circles spawned — collect them!');
+  }
+}
+
+function refreshSuperDashUi() {
+  const leader = dashSystem.isLocalLeader() && driving && dashSystem.isSessionActive();
+  if (superDashBtnEl) {
+    superDashBtnEl.hidden = !leader;
+    superDashBtnEl.classList.toggle('active', dashSystem.isSuperDashOn());
+    superDashBtnEl.textContent = dashSystem.isSuperDashOn() ? 'NORMAL SPEED' : 'SUPER DASH';
+  }
+  if (dashScoreHudEl) {
+    if (mode === 'world' && dashSystem.isSessionActive()) {
+      const scores = dashSystem.getScores();
+      const mine = scores[mpRoom?.id ?? 'local'] ?? 0;
+      const leaders = dashSystem.getLeaderIds();
+      const top = leaders.length ? Math.max(...leaders.map((id) => scores[id] ?? 0)) : 0;
+      dashScoreHudEl.hidden = false;
+      dashScoreHudEl.textContent = `Dashing: ${mine}${leader ? ' ★ LEADING' : ''} · Best: ${top}`;
+    } else {
+      dashScoreHudEl.hidden = true;
+    }
+  }
+  if (!leader) {
+    dashSystem.setSuperDash(false);
+    if (activeVehicle) activeVehicle.superDashOn = false;
+  } else if (activeVehicle) {
+    activeVehicle.superDashOn = dashSystem.isSuperDashOn();
+    activeVehicle.superMaxSpeed = dashSystem.SUPER_MAX_SPEED;
+    activeVehicle.superAccelMult = dashSystem.SUPER_ACCEL_MULT;
+  }
+}
+
+if (superDashBtnEl) {
+  superDashBtnEl.addEventListener('click', () => {
+    if (!dashSystem.isLocalLeader() || !driving || !activeVehicle) return;
+    const on = dashSystem.toggleSuperDash();
+    activeVehicle.superDashOn = on;
+    activeVehicle.superMaxSpeed = dashSystem.SUPER_MAX_SPEED;
+    activeVehicle.superAccelMult = dashSystem.SUPER_ACCEL_MULT;
+    showToast(on ? 'Super dash ON!' : 'Normal speed');
+    refreshSuperDashUi();
+  });
 }
 
 function enterGameplay() {
@@ -620,10 +723,7 @@ function render(delta) {
     const multiBtn = getMultiplayerButtonBounds(playBtn);
 
     ctx.globalAlpha = titleAlpha;
-    drawText(ctx, GAME_TITLE, width / 2, height * 0.22, {
-      color: '#14532d',
-      size: 44,
-    });
+    drawGameTitle(width, height, titleAlpha);
     drawText(ctx, 'The best game ever — realism incoming.', width / 2, height * 0.3, {
       color: '#166534',
       size: 18,
@@ -671,7 +771,9 @@ function render(delta) {
 
   if (mode === 'comingSoon' || mode === 'world') {
     world.renderer.domElement.style.boxShadow = '';
+    dashSystem.update(delta, driving ? activeVehicle : null);
     updateCrashDebris(crashDebris, delta);
+    refreshSuperDashUi();
 
     if (!isGarageVisible()) {
       updateWorldMovement(delta);

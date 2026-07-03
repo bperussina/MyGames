@@ -194,12 +194,13 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
       vehicle.reverseCharge = Math.min(1, (vehicle.reverseCharge ?? 0) + REVERSE_CHARGE_RATE * delta);
     }
   } else if (throttle > 0) {
+    const accelMult = vehicle.superDashOn ? (vehicle.superAccelMult ?? 1.6) : 1;
     if ((vehicle.reverseCharge ?? 0) > 0.12 && vehicle.speed < 2.5) {
-      vehicle.speed += vehicle.reverseCharge * REVERSE_LAUNCH;
+      vehicle.speed += vehicle.reverseCharge * REVERSE_LAUNCH * accelMult;
       vehicle.reverseCharge = 0;
     } else {
       const accel = charging ? BOOST_ACCEL * (1 + Math.min(Math.abs(vehicle.speed) / 28, 1.2)) : ACCEL * 0.75;
-      vehicle.speed += throttle * accel * delta;
+      vehicle.speed += throttle * accel * accelMult * delta;
     }
   }
 
@@ -212,8 +213,9 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
     else vehicle.speed -= Math.sign(vehicle.speed) * FRICTION * delta;
   }
 
-  const cap = charging ? MAX_SPEED : CRUISE_MAX;
-  vehicle.speed = Math.max(-MAX_SPEED * 0.3, Math.min(cap, vehicle.speed));
+  const superOn = vehicle.superDashOn;
+  const speedCap = superOn ? (vehicle.superMaxSpeed ?? 92) : (charging ? MAX_SPEED : CRUISE_MAX);
+  vehicle.speed = Math.max(-MAX_SPEED * 0.3, Math.min(speedCap, vehicle.speed));
 
   const dx = Math.sin(vehicle.rotY) * vehicle.speed * delta;
   const dz = Math.cos(vehicle.rotY) * vehicle.speed * delta;
