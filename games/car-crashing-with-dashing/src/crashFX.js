@@ -50,12 +50,12 @@ function ensureDenseGeometry(panel) {
   if (panel.userData.dentDense) return;
   const geo = panel.geometry;
   const p = geo?.parameters;
-  if (!p?.width || geo.type !== 'BoxGeometry') return;
+  if (!p?.width) return;
 
   const { width, height, depth } = p;
-  const segW = Math.max(6, Math.ceil(width * 8));
-  const segH = Math.max(6, Math.ceil(height * 8));
-  const segD = Math.max(3, Math.ceil(depth * 6));
+  const segW = Math.max(10, Math.ceil(width * 14));
+  const segH = Math.max(10, Math.ceil(height * 14));
+  const segD = Math.max(5, Math.ceil(depth * 12));
   const dense = new THREE.BoxGeometry(width, height, depth, segW, segH, segD);
   panel.geometry.dispose();
   panel.geometry = dense;
@@ -150,16 +150,18 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
   const outerZ = bounds.maxZ;
   const thickness = Math.max(outerZ - innerZ, 0.02);
   const { width, height } = panelSize(panel);
-  const radius = scoop
-    ? Math.min(width, height) * (0.22 + severity * 0.14)
-    : Math.min(width, height) * (0.12 + severity * 0.08);
+  const panelSpan = Math.min(width, height);
+  const radius = panelSpan * (scoop ? 0.26 + severity * 0.2 : 0.14 + severity * 0.08);
+  const dentReach = radius * 1.25;
+  const scoopPower = scoop ? 3.2 + severity * 1.4 : 2;
   const maxInward = scoop
-    ? thickness * (0.7 + severity * 0.85)
-    : thickness * (0.28 + severity * 0.22);
+    ? thickness * (1.25 + severity * 1.6) + panelSpan * 0.06 * severity
+    : thickness * (0.4 + severity * 0.28);
+  const punchThrough = scoop ? thickness * (0.45 + severity * 0.55) : thickness * 0.08;
   const metal = new THREE.Color(0x3a3a42);
   const rust = new THREE.Color(0x5c3a28);
+  const darkMetal = new THREE.Color(0x1a1a20);
   const paint = new THREE.Color(panel.material?.color ?? 0xaaaaaa);
-  const dentReach = radius * 1.5;
 
   for (let i = 0; i < pos.count; i++) {
     const ox = orig[i * 3];
@@ -183,23 +185,27 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
     }
 
     const radialT = 1 - dist / dentReach;
-    const bowl = scoop ? radialT * radialT * radialT : radialT * radialT;
+    const bowl = radialT ** scoopPower;
     const faceT = smoothstep(innerZ, outerZ, oz);
-    const ring = scoop ? Math.exp(-((dist - radius * 0.82) ** 2) * 120) * 0.22 : 0;
-    const faceWeight = 0.3 + 0.7 * faceT;
-    const inward = bowl * maxInward * faceWeight + ring * maxInward * 0.4;
-    const pinch = scoop ? bowl * 0.48 * faceWeight : bowl * 0.18 * faceWeight;
+    const rimDist = Math.abs(dist - radius * 0.88);
+    const rimCrease = scoop ? Math.exp(-(rimDist * rimDist) * 90) * 0.38 : 0;
+    const faceWeight = 0.12 + 0.88 * faceT;
+    const backPull = scoop ? bowl * (1 - faceT) * 0.72 : bowl * (1 - faceT) * 0.25;
+    const inward = bowl * maxInward * faceWeight + rimCrease * maxInward * faceT + backPull * maxInward;
+    const pinch = bowl * (scoop ? 0.62 + severity * 0.28 : 0.22) * (0.35 + 0.65 * faceT);
     const nx = ox - (dx / (dist + 1e-4)) * pinch;
     const ny = oy - (dy / (dist + 1e-4)) * pinch;
-    const nz = Math.min(oz, oz - inward);
+    const floorZ = innerZ - punchThrough * bowl;
+    const nz = Math.min(oz, Math.max(floorZ, oz - inward));
 
     pos.setXYZ(i, nx, ny, nz);
 
     if (colors) {
       const depthFactor = inward / (maxInward + 0.001);
       const c = paint.clone();
-      if (depthFactor > 0.5) c.lerp(rust, (depthFactor - 0.5) * 2);
-      if (depthFactor > 0.72) c.lerp(metal, (depthFactor - 0.72) * 3);
+      if (depthFactor > 0.35) c.lerp(rust, (depthFactor - 0.35) * 1.6);
+      if (depthFactor > 0.58) c.lerp(metal, (depthFactor - 0.58) * 2.2);
+      if (depthFactor > 0.78) c.lerp(darkMetal, (depthFactor - 0.78) * 3.5);
       colors.setXYZ(i, c.r, c.g, c.b);
     }
   }
@@ -226,6 +232,31 @@ function panelLocalHit(panel, vehicle) {
   const local = worldImpactPoint(vehicle);
   panel.worldToLocal(local);
   return { x: local.x, y: local.y };
+}
+
+function spawnScoopDebris(scene, vehicle, origin, severity, debris) {
+  const count = 3 + Math.floor(severity * 6);
+  const base = new THREE.Color(vehicle.spec?.color ?? 0xb8bdc4);
+  for (let i = 0; i < count; i++) {
+    const mat = new THREE.MeshStandardMaterial({
+      color: base.clone().lerp(new THREE.Color(0x888888), 0.35 + Math.random() * 0.4),
+      metalness: 0.7,
+      roughness: 0.45,
+    });
+    const chunk = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04 + Math.random() * 0.08, 0.02 + Math.random() * 0.04, 0.05 + Math.random() * 0.07),
+      mat,
+    );
+    chunk.position.copy(origin);
+    chunk.position.x += (Math.random() - 0.5) * 0.35;
+    chunk.position.y += (Math.random() - 0.5) * 0.25;
+    chunk.position.z += (Math.random() - 0.5) * 0.2;
+    chunk.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+    scene.add(chunk);
+    const vel = new THREE.Vector3((Math.random() - 0.5) * 5, 2 + Math.random() * 4, 1 + Math.random() * 4);
+    vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.rotY);
+    debris.push({ mesh: chunk, vel, life: 1.2 + Math.random() * 0.8, bounce: 0.25 });
+  }
 }
 
 function spawnPaintChips(scene, vehicle, count, debris) {
@@ -315,7 +346,7 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
 
   if (speed >= DENT_SPEED) {
     const severity = dentSeverity(impactSpeed);
-    const scoop = speed >= SCOOP_SPEED && Math.random() < 0.65;
+    const scoop = true;
     const panel = findFrontDentPanel(vehicle.mesh);
     if (panel) {
       const { x: hitX, y: hitY } = panelLocalHit(panel, vehicle);
@@ -323,7 +354,8 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
       if (!vehicle.dents) vehicle.dents = [];
       vehicle.dents.push(record);
       rebuildPanel(panel, vehicle.dents);
-      vehicle.damage = (vehicle.damage ?? 0) + (scoop ? 45 : 22) + severity * 22;
+      vehicle.damage = (vehicle.damage ?? 0) + 35 + severity * 40;
+      if (severity > 0.35) spawnScoopDebris(scene, vehicle, origin, severity, debris);
     }
     if (speed >= SCOOP_SPEED) spawnSparks(scene, origin, 8 + Math.floor(severity * 8), debris);
   }
