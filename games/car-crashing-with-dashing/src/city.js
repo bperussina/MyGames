@@ -76,6 +76,7 @@ export function buildCity(scene) {
     new THREE.MeshStandardMaterial({ color: '#2e3238', roughness: 0.78, metalness: 0.18 }),
   );
   asphalt.rotation.x = -Math.PI / 2;
+  asphalt.position.y = 0.04;
   asphalt.receiveShadow = true;
   group.add(asphalt);
 

@@ -1,7 +1,22 @@
 import * as THREE from 'three';
+import { WORLD_HALF } from './city.js';
 
 const CHUNK_SIZE = 96;
 const LOAD_RADIUS = 4;
+const CITY_MARGIN = 6;
+
+function inCity(x, z) {
+  return Math.abs(x) < WORLD_HALF + CITY_MARGIN && Math.abs(z) < WORLD_HALF + CITY_MARGIN;
+}
+
+function chunkFullyInsideCity(cx, cz) {
+  const minX = cx * CHUNK_SIZE;
+  const maxX = minX + CHUNK_SIZE;
+  const minZ = cz * CHUNK_SIZE;
+  const maxZ = minZ + CHUNK_SIZE;
+  const h = WORLD_HALF + CITY_MARGIN;
+  return minX >= -h && maxX <= h && minZ >= -h && maxZ <= h;
+}
 
 function chunkSeed(cx, cz) {
   return ((cx * 73856093) ^ (cz * 19349663)) >>> 0;
@@ -90,26 +105,38 @@ function makeChunk(cx, cz) {
   }
   pos.needsUpdate = true;
   ground.geometry.computeVertexNormals();
-  ground.position.set(wx + CHUNK_SIZE * 0.5, 0, wz + CHUNK_SIZE * 0.5);
+  ground.position.set(wx + CHUNK_SIZE * 0.5, -0.12, wz + CHUNK_SIZE * 0.5);
   ground.receiveShadow = true;
   g.add(ground);
 
   const treeCount = 4 + Math.floor(rand() * 8);
   for (let i = 0; i < treeCount; i++) {
+    const tx = wx + rand() * CHUNK_SIZE;
+    const tz = wz + rand() * CHUNK_SIZE;
+    if (inCity(tx, tz)) continue;
     const t = tree();
-    t.position.set(wx + rand() * CHUNK_SIZE, 0, wz + rand() * CHUNK_SIZE);
+    t.position.set(tx, 0, tz);
     t.rotation.y = rand() * Math.PI * 2;
     g.add(t);
   }
 
   const bushCount = 6 + Math.floor(rand() * 10);
   for (let i = 0; i < bushCount; i++) {
+    const bx = wx + rand() * CHUNK_SIZE;
+    const bz = wz + rand() * CHUNK_SIZE;
+    if (inCity(bx, bz)) continue;
     const b = bush();
-    b.position.set(wx + rand() * CHUNK_SIZE, 0, wz + rand() * CHUNK_SIZE);
+    b.position.set(bx, 0, bz);
     g.add(b);
   }
 
-  if (rand() > 0.45) g.add(hill(cx, cz, rand));
+  if (rand() > 0.45) {
+    const hillGroup = hill(cx, cz, rand);
+    const hillMesh = hillGroup.children[0];
+    if (hillMesh && !inCity(hillMesh.position.x, hillMesh.position.z)) {
+      g.add(hillGroup);
+    }
+  }
 
   return g;
 }
@@ -145,10 +172,13 @@ export function buildCountryside(scene) {
 
     for (let dx = -LOAD_RADIUS; dx <= LOAD_RADIUS; dx++) {
       for (let dz = -LOAD_RADIUS; dz <= LOAD_RADIUS; dz++) {
-        const key = chunkKey(ccx + dx, ccz + dz);
+        const cx = ccx + dx;
+        const cz = ccz + dz;
+        if (chunkFullyInsideCity(cx, cz)) continue;
+        const key = chunkKey(cx, cz);
         needed.add(key);
         if (!chunks.has(key)) {
-          const chunk = makeChunk(ccx + dx, ccz + dz);
+          const chunk = makeChunk(cx, cz);
           chunks.set(key, chunk);
           group.add(chunk);
         }
