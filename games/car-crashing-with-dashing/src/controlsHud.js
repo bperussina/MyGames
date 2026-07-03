@@ -66,7 +66,7 @@ export function refreshControlsHud(root, { driving = false } = {}) {
         { key: 'W', word: 'Gas' },
         { key: '↑', word: 'Gas' },
         { key: 'S', word: 'Brake' },
-        { key: '↓', word: 'Brake' },
+        { key: '↓', word: 'Reverse' },
         { key: 'A', word: 'Left' },
         { key: '←', word: 'Left' },
         { key: 'D', word: 'Right' },
@@ -93,7 +93,7 @@ export function refreshControlsHud(root, { driving = false } = {}) {
   }
 
   body.innerHTML = `
-    <p class="controls-mini-hint">${driving ? 'Driving' : 'Walking'} — iPad: use arrows bottom-left · Garage on left</p>
+    <p class="controls-mini-hint">${driving ? 'Driving — ↓ reverse then W for speed burst · drag mouse to look' : 'Walking'} — iPad: use arrows bottom-left · Garage on left</p>
     <div class="controls-mini-block">
       <span class="controls-mini-label">Keyboard</span>
       <div class="pc-keys">${pcKeys.map(({ key, word }) => renderPcKey(key, word)).join('')}</div>

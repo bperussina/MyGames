@@ -9,6 +9,10 @@ const BRAKE = 42;
 const STEER_SPEED = 2.4;
 const FRICTION = 8;
 const CHARGE_STEER_MAX = 0.38;
+const REVERSE_ACCEL = 28;
+const REVERSE_MAX = 14;
+const REVERSE_CHARGE_RATE = 0.9;
+const REVERSE_LAUNCH = 26;
 
 export function createVehicleState(spec, x, z, rotY = 0) {
   const mesh = buildCarMesh(spec);
@@ -27,6 +31,7 @@ export function createVehicleState(spec, x, z, rotY = 0) {
     dents: [],
     prevX: x,
     prevZ: z,
+    reverseCharge: 0,
   };
 }
 
@@ -71,6 +76,7 @@ export function resetVehicleAt(vehicle, x, z, rotY = 0) {
   vehicle.steer = 0;
   vehicle.prevX = x;
   vehicle.prevZ = z;
+  vehicle.reverseCharge = 0;
   vehicle.mesh.visible = true;
   syncVehicleMesh(vehicle);
 }
@@ -79,7 +85,7 @@ export function resetVehicleAt(vehicle, x, z, rotY = 0) {
  * Straight or slight turns charge up speed; sharp turns slow the boost.
  */
 export function updateVehicle(vehicle, drive, delta, clampPosition) {
-  const { throttle, brake, steer } = drive;
+  const { throttle, brake, steer, reverse = 0 } = drive;
 
   vehicle.prevX = vehicle.x;
   vehicle.prevZ = vehicle.z;
@@ -87,17 +93,31 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   vehicle.steer += (steer * STEER_SPEED - vehicle.steer) * Math.min(1, delta * 8);
   vehicle.rotY -= vehicle.steer * delta * (0.85 + Math.abs(vehicle.speed) * 0.05);
 
-  const charging = Math.abs(steer) <= CHARGE_STEER_MAX && throttle > 0;
+  const charging = Math.abs(steer) <= CHARGE_STEER_MAX && throttle > 0 && reverse <= 0;
 
-  if (throttle > 0) {
-    const accel = charging ? BOOST_ACCEL * (1 + Math.min(Math.abs(vehicle.speed) / 28, 1.2)) : ACCEL * 0.75;
-    vehicle.speed += throttle * accel * delta;
-  }
   if (brake > 0) {
     vehicle.speed -= brake * BRAKE * delta;
+  } else if (reverse > 0) {
+    vehicle.speed -= reverse * REVERSE_ACCEL * delta;
+    vehicle.speed = Math.max(vehicle.speed, -REVERSE_MAX);
+    if (vehicle.speed < -3) {
+      vehicle.reverseCharge = Math.min(1, (vehicle.reverseCharge ?? 0) + REVERSE_CHARGE_RATE * delta);
+    }
+  } else if (throttle > 0) {
+    if ((vehicle.reverseCharge ?? 0) > 0.12 && vehicle.speed < 2.5) {
+      vehicle.speed += vehicle.reverseCharge * REVERSE_LAUNCH;
+      vehicle.reverseCharge = 0;
+    } else {
+      const accel = charging ? BOOST_ACCEL * (1 + Math.min(Math.abs(vehicle.speed) / 28, 1.2)) : ACCEL * 0.75;
+      vehicle.speed += throttle * accel * delta;
+    }
   }
 
-  if (throttle <= 0 && brake <= 0) {
+  if (reverse <= 0 && throttle <= 0) {
+    vehicle.reverseCharge = Math.max(0, (vehicle.reverseCharge ?? 0) - 0.2 * delta);
+  }
+
+  if (throttle <= 0 && brake <= 0 && reverse <= 0) {
     if (Math.abs(vehicle.speed) < 0.4) vehicle.speed = 0;
     else vehicle.speed -= Math.sign(vehicle.speed) * FRICTION * delta;
   }

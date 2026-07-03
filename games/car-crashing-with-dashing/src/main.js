@@ -50,6 +50,7 @@ import {
   isDrawPaperVisible,
   shouldShowDrawPaperOnLoad,
 } from './drawPaper.js';
+import { initMouseLook } from './mouseLook.js';
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
@@ -102,8 +103,11 @@ let lastCarSpec = null;
 const deathOverlay = document.createElement('div');
 deathOverlay.id = 'death-overlay';
 deathOverlay.hidden = true;
-deathOverlay.innerHTML = '<p class="death-text">Dead, respawning…</p>';
+deathOverlay.innerHTML =
+  '<p class="death-text">Dead, respawning</p><p class="death-count" aria-live="polite">5</p>';
 document.body.appendChild(deathOverlay);
+
+let mouseLookReady = false;
 
 let prevPadButtons = {};
 let toastTimer = 0;
@@ -222,20 +226,26 @@ function handleCarCollision(impactSpeed) {
     activeVehicle.speed *= 0.25;
     hurtFlash = 0.35;
     showToast('Ouch! That hurt!');
-  } else if (impactSpeed > 4) {
-    activeVehicle.speed *= 0.5;
   }
+}
+
+function updateDeathOverlay() {
+  const countEl = deathOverlay.querySelector('.death-count');
+  if (!countEl) return;
+  const n = Math.ceil(respawnTimer);
+  countEl.textContent = n > 0 ? String(n) : '';
 }
 
 function killPlayer() {
   if (!activeVehicle || dead) return;
   dead = true;
-  respawnTimer = 2.8;
+  respawnTimer = 5;
   const { x, z } = activeVehicle;
   activeVehicle.mesh.visible = false;
   activeVehicle.speed = 0;
   explosionFx = spawnExplosion(world.scene, x, z);
   deathOverlay.hidden = false;
+  updateDeathOverlay();
   showToast('Dead, respawning');
 }
 
@@ -280,8 +290,9 @@ function readKeyboardDrive() {
 
 function mergeDrive(padDrive, keyDrive) {
   return {
-    throttle: Math.max(padDrive.throttle, keyDrive.throttle),
-    brake: Math.max(padDrive.brake, keyDrive.brake),
+    throttle: Math.max(padDrive.throttle ?? 0, keyDrive.throttle ?? 0),
+    brake: Math.max(padDrive.brake ?? 0, keyDrive.brake ?? 0),
+    reverse: Math.max(padDrive.reverse ?? 0, keyDrive.reverse ?? 0),
     steer: Math.abs(padDrive.steer) > Math.abs(keyDrive.steer) ? padDrive.steer : keyDrive.steer,
   };
 }
@@ -467,6 +478,10 @@ function showToast(text) {
 function enterGameplay() {
   titleCanvas.style.display = 'none';
   world.show();
+  if (!mouseLookReady) {
+    initMouseLook(world.renderer.domElement);
+    mouseLookReady = true;
+  }
   setGarageBoxVisible(true);
   touch.setVisible(true);
   touch.setDriving(driving);
@@ -515,6 +530,7 @@ function updateWorldMovement(delta) {
 
   if (dead) {
     respawnTimer -= delta;
+    updateDeathOverlay();
     if (respawnTimer <= 0) respawnPlayer();
     if (explosionFx) {
       if (!updateExplosion(explosionFx, delta)) explosionFx = null;

@@ -866,8 +866,10 @@
         inset: 0;
         z-index: 180;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 0.35rem;
         background: rgba(0, 0, 0, 0.72);
         pointer-events: none;
       }
@@ -882,6 +884,16 @@
         color: #ef4444;
         text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
         letter-spacing: 0.04em;
+        margin: 0;
+      }
+
+      .death-count {
+        font-size: clamp(4rem, 16vw, 7rem);
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 4px 32px rgba(239, 68, 68, 0.9);
+        margin: 0;
+        line-height: 1;
       }
     </style>
   </head>

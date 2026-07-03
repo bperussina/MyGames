@@ -35,17 +35,19 @@ export function readKeyboardMove(input) {
   return { mx, mz };
 }
 
-/** Keyboard — WASD or arrow keys to drive (computer controls, separate from Xbox). */
+/** Keyboard — W/↑ gas, S brake, ↓ reverse, A/D steer. */
 export function readKeyboardDriving(input) {
   let throttle = 0;
   let brake = 0;
+  let reverse = 0;
   let steer = 0;
   if (input.isPressed('w', 'arrowup')) throttle = 1;
-  if (input.isPressed('s', 'arrowdown')) brake = 1;
+  if (input.isPressed('s')) brake = 1;
+  if (input.isPressed('arrowdown')) reverse = 1;
   if (input.isPressed('a', 'arrowleft')) steer -= 1;
   if (input.isPressed('d', 'arrowright')) steer += 1;
   steer = Math.max(-1, Math.min(1, steer));
-  return { throttle, brake, steer };
+  return { throttle, brake, reverse, steer };
 }
 
 /** Xbox driving: hold X = forward, B = brake, LB/LT/RB = turn (L/T/R). */
@@ -54,7 +56,7 @@ export function readDriving(pad) {
   let brake = 0;
   let steer = 0;
 
-  if (!pad) return { throttle, brake, steer };
+  if (!pad) return { throttle, brake, reverse: 0, steer };
 
   if (pad.buttons[2]?.pressed) throttle = 1;
 
@@ -69,7 +71,7 @@ export function readDriving(pad) {
 
   steer = turnRight - turnLeft;
 
-  return { throttle, brake, steer };
+  return { throttle, brake, reverse: 0, steer };
 }
 
 /** Standard Xbox-style indices (may vary by browser). */

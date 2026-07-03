@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getMouseLookOffset } from './mouseLook.js';
 import { buildCity } from './city.js';
 
 export function createScene3d(parent = document.body) {
@@ -50,19 +51,28 @@ export function createScene3d(parent = document.body) {
   window.addEventListener('resize', resize);
 
   function updateCamera(targetX, targetZ, rotY = 0) {
-    const yaw = rotY + cameraYaw;
-    const camX = targetX - Math.sin(yaw) * camDist;
-    const camZ = targetZ - Math.cos(yaw) * camDist;
-    camera.position.set(camX, camHeight, camZ);
-    camera.lookAt(targetX, 1.2, targetZ);
+    const look = getMouseLookOffset();
+    const yaw = rotY + cameraYaw + look.yaw;
+    const pitch = look.pitch;
+    const horiz = Math.cos(pitch) * camDist;
+    const camX = targetX - Math.sin(yaw) * horiz;
+    const camZ = targetZ - Math.cos(yaw) * horiz;
+    const camY = camHeight + Math.sin(pitch) * camDist * 0.45;
+    camera.position.set(camX, camY, camZ);
+    camera.lookAt(targetX, 1.2 + pitch * 1.5, targetZ);
   }
 
   function updateDrivingCamera(targetX, targetZ, rotY) {
+    const look = getMouseLookOffset();
     const dist = 10;
     const height = 5;
-    const camX = targetX - Math.sin(rotY) * dist;
-    const camZ = targetZ - Math.cos(rotY) * dist;
-    camera.position.set(camX, height, camZ);
+    const yaw = rotY + look.yaw;
+    const pitch = look.pitch;
+    const horiz = Math.cos(pitch) * dist;
+    const camX = targetX - Math.sin(yaw) * horiz;
+    const camZ = targetZ - Math.cos(yaw) * horiz;
+    const camY = height + Math.sin(pitch) * dist * 0.35;
+    camera.position.set(camX, camY, camZ);
     camera.lookAt(targetX, 1.0, targetZ);
   }
 

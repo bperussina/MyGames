@@ -5,7 +5,7 @@ function isTouchDevice() {
 }
 
 const noop = () => ({ mx: 0, mz: 0 });
-const noopDrive = () => ({ throttle: 0, brake: 0, steer: 0 });
+const noopDrive = () => ({ throttle: 0, brake: 0, reverse: 0, steer: 0 });
 
 export function createTouchControls() {
   if (!isTouchDevice()) {
@@ -74,10 +74,11 @@ export function createTouchControls() {
       return { ...held };
     },
     readDrive() {
-      if (!drivingMode) return { throttle: 0, brake: 0, steer: 0 };
+      if (!drivingMode) return { throttle: 0, brake: 0, reverse: 0, steer: 0 };
       return {
         throttle: held.mz > 0 ? 1 : 0,
-        brake: held.mz < 0 ? 1 : 0,
+        reverse: held.mz < 0 ? 1 : 0,
+        brake: 0,
         steer: held.mx,
       };
     },

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 
-const EXPLODE_SPEED = 20;
-const DENT_SPEED = 7;
+/** Below DENT_SPEED: no damage. Explosion needs a very hard hit. */
+const EXPLODE_SPEED = 44;
+const DENT_SPEED = 20;
 
 export { EXPLODE_SPEED, DENT_SPEED };
 
