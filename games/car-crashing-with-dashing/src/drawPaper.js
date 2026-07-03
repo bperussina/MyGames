@@ -105,10 +105,10 @@ export function showDrawPaper() {
 
 export function shouldShowDrawPaperOnLoad() {
   const params = new URLSearchParams(window.location.search);
-  return !params.has('play') && !params.has('room') && !params.has('teleport') && !params.has('skipdraw');
+  return params.has('draw');
 }
 
-export function createDrawPaper(onExit) {
+export function createDrawPaper(onExit, onMultiplayer) {
   onExitCallback = onExit;
 
   overlay = document.createElement('div');
@@ -128,7 +128,10 @@ export function createDrawPaper(onExit) {
     <div class="draw-footer">
       <p class="draw-hint">Type <strong>undo</strong> and press Enter to play the game</p>
       <input type="text" class="draw-undo-input" id="draw-undo-input" placeholder="undo" autocomplete="off" />
-      <button type="button" class="draw-play-btn" id="draw-play-btn">Play game</button>
+      <div class="draw-footer-actions">
+        <button type="button" class="draw-play-btn" id="draw-play-btn">Play game</button>
+        <button type="button" class="draw-multi-btn" id="draw-multi-btn">Multiplayer</button>
+      </div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -172,6 +175,12 @@ export function createDrawPaper(onExit) {
   });
 
   overlay.querySelector('#draw-play-btn').addEventListener('click', exitToGame);
+  overlay.querySelector('#draw-multi-btn').addEventListener('click', () => {
+    visible = false;
+    overlay.hidden = true;
+    if (onMultiplayer) onMultiplayer();
+    else onExitCallback?.();
+  });
 
   const undoInput = overlay.querySelector('#draw-undo-input');
   undoInput.addEventListener('keydown', (e) => {

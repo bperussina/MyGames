@@ -42,6 +42,7 @@ import { buildShareLink } from './multiplayer.js';
 import {
   createDrawPaper,
   showDrawPaper,
+  hideDrawPaper,
   isDrawPaperVisible,
   shouldShowDrawPaperOnLoad,
 } from './drawPaper.js';
@@ -107,10 +108,17 @@ const roomBannerEl = document.getElementById('room-banner');
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
 
-createDrawPaper(() => {
+createDrawPaper(
+  () => goToTitleScreen(),
+  () => goToTitleScreen(true),
+);
+
+function goToTitleScreen(openMultiplayer = false) {
   mode = 'title';
   titleCanvas.style.display = 'block';
-});
+  hideDrawPaper();
+  if (openMultiplayer) showLobby();
+}
 
 if (mode === 'drawPaper') {
   titleCanvas.style.display = 'none';
@@ -259,7 +267,7 @@ function roadWidthAtY(geo, y) {
 }
 
 function getPlayButtonBounds(width, height, geo) {
-  const centerY = height * 0.62;
+  const centerY = height * 0.56;
   const roadW = roadWidthAtY(geo, centerY);
   const btnW = Math.min(roadW * 0.82, width * 0.78, 420);
   const btnH = btnW * 0.34;
@@ -573,8 +581,10 @@ function render(delta) {
     });
     ctx.globalAlpha = 1;
 
-    if (roadReveal > 0.5 && !isLobbyVisible()) {
+    if (!isLobbyVisible()) {
       updateTitleInput(playBtn, multiBtn);
+      const btnFade = Math.min(1, 0.35 + roadReveal * 0.65) * titleAlpha;
+      ctx.globalAlpha = btnFade;
       drawTitleButton(
         playBtn,
         'PLAY',
@@ -605,6 +615,7 @@ function render(delta) {
         hoverMulti,
         input.pointer.down && hoverMulti,
       );
+      ctx.globalAlpha = 1;
     }
     return;
   }
