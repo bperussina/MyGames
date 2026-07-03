@@ -162,8 +162,10 @@ function addLights(group, width, frontZ, rearZ) {
 
 function addBumpers(group, width, frontZ, rearZ) {
   const bumper = (z, id) => {
+    const isFront = id === 'bumper_front';
     const b = tagPart(roundBox(width * 0.92, 0.22, 0.28, plastic(0x222222), 0.28, 0.04), id, {
       detachable: true,
+      dentPanel: isFront,
     });
     b.position.z = z;
     return b;
@@ -288,6 +290,7 @@ function buildCybertruck(color) {
   const lightBar = sharpBox(2.05, 0.1, 0.08, glow(0xffffff, 1.6), 0.62, 0, 2.52);
   const bumper = tagPart(sharpBox(2.24, 0.18, 0.2, matteBlack(), 0.22, 0, 2.58), 'bumper_front', {
     detachable: true,
+    dentPanel: true,
   });
 
   const roofFront = sharpBox(2.02, 0.52, 2.05, steel, 1.42, 0, -0.15, -0.32, 0);

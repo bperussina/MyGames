@@ -21,9 +21,47 @@ function panelSize(panel) {
   return { width: p.width ?? 2, height: p.height ?? 0.6, depth: p.depth ?? 1.2 };
 }
 
+function boundsFromOrig(orig) {
+  const bounds = {
+    minX: Infinity,
+    maxX: -Infinity,
+    minY: Infinity,
+    maxY: -Infinity,
+    minZ: Infinity,
+    maxZ: -Infinity,
+  };
+  for (let i = 0; i < orig.length; i += 3) {
+    bounds.minX = Math.min(bounds.minX, orig[i]);
+    bounds.maxX = Math.max(bounds.maxX, orig[i]);
+    bounds.minY = Math.min(bounds.minY, orig[i + 1]);
+    bounds.maxY = Math.max(bounds.maxY, orig[i + 1]);
+    bounds.minZ = Math.min(bounds.minZ, orig[i + 2]);
+    bounds.maxZ = Math.max(bounds.maxZ, orig[i + 2]);
+  }
+  return bounds;
+}
+
 function smoothstep(edge0, edge1, x) {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
+}
+
+function ensureDenseGeometry(panel) {
+  if (panel.userData.dentDense) return;
+  const geo = panel.geometry;
+  const p = geo?.parameters;
+  if (!p?.width || geo.type !== 'BoxGeometry') return;
+
+  const { width, height, depth } = p;
+  const segW = Math.max(6, Math.ceil(width * 8));
+  const segH = Math.max(6, Math.ceil(height * 8));
+  const segD = Math.max(3, Math.ceil(depth * 6));
+  const dense = new THREE.BoxGeometry(width, height, depth, segW, segH, segD);
+  panel.geometry.dispose();
+  panel.geometry = dense;
+  panel.userData.dentOriginal = null;
+  panel.userData.dentColorOriginal = null;
+  panel.userData.dentDense = true;
 }
 
 export function findFrontDentPanel(root) {
@@ -32,11 +70,20 @@ export function findFrontDentPanel(root) {
     if (child.isMesh && child.userData.dentPanel === 'front') panels.push(child);
   });
   if (!panels.length) return null;
-  return panels.reduce((best, panel) => {
-    const a = panelSize(best);
-    const b = panelSize(panel);
-    return b.width * b.height >= a.width * b.height ? panel : best;
-  });
+
+  root.updateWorldMatrix(true, true);
+  const local = new THREE.Vector3();
+  let best = panels[0];
+  let bestZ = -Infinity;
+  for (const panel of panels) {
+    panel.getWorldPosition(local);
+    root.worldToLocal(local);
+    if (local.z > bestZ) {
+      bestZ = local.z;
+      best = panel;
+    }
+  }
+  return best;
 }
 
 function collectDetachableParts(root) {
@@ -87,6 +134,7 @@ function restorePanel(panel) {
 }
 
 function deformPanel(panel, hitX, hitY, severity, scoop) {
+  ensureDenseGeometry(panel);
   const orig = saveOriginalVertices(panel);
   const pos = panel.geometry?.attributes?.position;
   if (!orig || !pos) return;
@@ -97,13 +145,21 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
     panel.userData.dentColorOriginal = Float32Array.from(colors.array);
   }
 
-  const { depth } = panelSize(panel);
-  const halfD = depth * 0.5;
-  const radius = scoop ? 0.45 + severity * 0.25 : 0.22 + severity * 0.12;
-  const maxDepth = scoop ? 0.32 + severity * 0.28 : 0.1 + severity * 0.08;
+  const bounds = boundsFromOrig(orig);
+  const innerZ = bounds.minZ;
+  const outerZ = bounds.maxZ;
+  const thickness = Math.max(outerZ - innerZ, 0.02);
+  const { width, height } = panelSize(panel);
+  const radius = scoop
+    ? Math.min(width, height) * (0.22 + severity * 0.14)
+    : Math.min(width, height) * (0.12 + severity * 0.08);
+  const maxInward = scoop
+    ? thickness * (0.7 + severity * 0.85)
+    : thickness * (0.28 + severity * 0.22);
   const metal = new THREE.Color(0x3a3a42);
   const rust = new THREE.Color(0x5c3a28);
   const paint = new THREE.Color(panel.material?.color ?? 0xaaaaaa);
+  const dentReach = radius * 1.5;
 
   for (let i = 0; i < pos.count; i++) {
     const ox = orig[i * 3];
@@ -113,33 +169,37 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
     const dy = oy - hitY;
     const dist = Math.hypot(dx, dy);
 
-    if (dist > radius * 1.3) {
+    if (dist > dentReach) {
       pos.setXYZ(i, ox, oy, oz);
       if (colors && panel.userData.dentColorOriginal) {
-        colors.setXYZ(i, panel.userData.dentColorOriginal[i * 3], panel.userData.dentColorOriginal[i * 3 + 1], panel.userData.dentColorOriginal[i * 3 + 2]);
+        colors.setXYZ(
+          i,
+          panel.userData.dentColorOriginal[i * 3],
+          panel.userData.dentColorOriginal[i * 3 + 1],
+          panel.userData.dentColorOriginal[i * 3 + 2],
+        );
       }
       continue;
     }
 
-    const surface = smoothstep(halfD - 0.45, halfD - 0.01, oz);
-    if (surface <= 0) {
-      pos.setXYZ(i, ox, oy, oz);
-      continue;
-    }
+    const radialT = 1 - dist / dentReach;
+    const bowl = scoop ? radialT * radialT * radialT : radialT * radialT;
+    const faceT = smoothstep(innerZ, outerZ, oz);
+    const ring = scoop ? Math.exp(-((dist - radius * 0.82) ** 2) * 120) * 0.22 : 0;
+    const faceWeight = 0.3 + 0.7 * faceT;
+    const inward = bowl * maxInward * faceWeight + ring * maxInward * 0.4;
+    const pinch = scoop ? bowl * 0.48 * faceWeight : bowl * 0.18 * faceWeight;
+    const nx = ox - (dx / (dist + 1e-4)) * pinch;
+    const ny = oy - (dy / (dist + 1e-4)) * pinch;
+    const nz = Math.min(oz, oz - inward);
 
-    const t = 1 - dist / (radius * 1.3);
-    const bowl = (scoop ? t * t * t : t * t) * maxDepth * surface;
-    const pinch = scoop ? bowl * 0.55 : bowl * 0.25;
-    const nx = ox - (dx / (dist + 0.0001)) * pinch;
-    const ny = oy - (dy / (dist + 0.0001)) * pinch;
-    const nz = oz - bowl;
     pos.setXYZ(i, nx, ny, nz);
 
     if (colors) {
-      const depthFactor = bowl / (maxDepth + 0.001);
+      const depthFactor = inward / (maxInward + 0.001);
       const c = paint.clone();
-      if (depthFactor > 0.55) c.lerp(rust, (depthFactor - 0.55) * 1.8);
-      if (depthFactor > 0.75) c.lerp(metal, (depthFactor - 0.75) * 2.5);
+      if (depthFactor > 0.5) c.lerp(rust, (depthFactor - 0.5) * 2);
+      if (depthFactor > 0.72) c.lerp(metal, (depthFactor - 0.72) * 3);
       colors.setXYZ(i, c.r, c.g, c.b);
     }
   }
@@ -160,6 +220,12 @@ function worldImpactPoint(vehicle) {
   const p = new THREE.Vector3(0, 0.75, 2.1);
   vehicle.mesh.localToWorld(p);
   return p;
+}
+
+function panelLocalHit(panel, vehicle) {
+  const local = worldImpactPoint(vehicle);
+  panel.worldToLocal(local);
+  return { x: local.x, y: local.y };
 }
 
 function spawnPaintChips(scene, vehicle, count, debris) {
@@ -252,9 +318,7 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
     const scoop = speed >= SCOOP_SPEED && Math.random() < 0.65;
     const panel = findFrontDentPanel(vehicle.mesh);
     if (panel) {
-      const { width, height } = panelSize(panel);
-      const hitX = (Math.random() - 0.5) * width * 0.38;
-      const hitY = (Math.random() - 0.5) * height * 0.28;
+      const { x: hitX, y: hitY } = panelLocalHit(panel, vehicle);
       const record = { panel, hitX, hitY, severity, scoop };
       if (!vehicle.dents) vehicle.dents = [];
       vehicle.dents.push(record);
