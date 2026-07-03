@@ -44,6 +44,28 @@ function glow(color, intensity = 1.2) {
   });
 }
 
+function sharpBox(w, h, d, mat, y, x = 0, z = 0, rotX = 0, rotY = 0) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z);
+  m.rotation.set(rotX, rotY, 0);
+  m.castShadow = true;
+  m.receiveShadow = true;
+  return m;
+}
+
+function stainless(color = 0xb8bdc4) {
+  return new THREE.MeshPhysicalMaterial({
+    color,
+    metalness: 0.96,
+    roughness: 0.14,
+    clearcoat: 0.55,
+    clearcoatRoughness: 0.06,
+  });
+}
+
+function matteBlack() {
+  return new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.35, roughness: 0.55 });
+}
 function roundBox(w, h, d, mat, y = h / 2, radius = 0.1) {
   const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, radius), mat);
   m.position.y = y;
@@ -136,21 +158,62 @@ function cabin(width, height, depth, zOff, roofColor = 0x223344) {
   return g;
 }
 
+function cyberWheel(x, z, r = 0.4) {
+  const g = new THREE.Group();
+  const cover = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.88, r * 0.88, 0.18, 6), matteBlack());
+  cover.rotation.z = Math.PI / 2;
+  const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.24, 14), rubber());
+  tire.rotation.z = Math.PI / 2;
+  g.add(cover, tire);
+  g.position.set(x, r * 0.92, z);
+  return g;
+}
+
 function buildCybertruck(color) {
   const g = new THREE.Group();
-  const body = roundBox(2.15, 0.78, 4.9, paint(color, 0.92, 0.12), 0.88, 0.04);
-  const roof = roundBox(2.05, 0.58, 2.25, paint(color, 0.92, 0.12), 1.38, 0.04);
-  roof.position.set(0, 0, -0.42);
-  roof.rotation.x = -0.2;
-  const glassPanel = roundBox(1.75, 0.42, 1.85, glass(), 1.28, 0.03);
-  glassPanel.position.set(0, 0, -0.38);
-  glassPanel.rotation.x = -0.2;
-  const bed = roundBox(2.1, 0.35, 2.1, paint(color, 0.88, 0.15), 0.72, 0.03);
-  bed.position.z = -1.55;
-  g.add(body, roof, glassPanel, bed);
-  addLights(g, 2.15, 2.35, -2.35);
-  addBumpers(g, 2.15, 2.48, -2.48);
-  addWheels(g, 0.98, 1.58, 0.4);
+  const steel = stainless(color ?? 0xb8bdc4);
+  const steelDark = stainless(0x9aa0a8);
+
+  // Low angular body — trapezoid profile
+  const skirt = sharpBox(2.28, 0.42, 5.05, steelDark, 0.48, 0, 0);
+  const belly = sharpBox(2.18, 0.55, 4.85, steel, 0.78, 0, 0.05);
+  const hood = sharpBox(2.12, 0.28, 1.55, steel, 0.98, 0, 1.55, -0.08, 0);
+  const front = sharpBox(2.22, 0.72, 0.22, steel, 0.72, 0, 2.42);
+  const lightBar = sharpBox(2.05, 0.1, 0.08, glow(0xffffff, 1.6), 0.62, 0, 2.52);
+  const bumper = sharpBox(2.24, 0.18, 0.2, matteBlack(), 0.22, 0, 2.58);
+
+  // Peaked roof — signature Cybertruck triangle
+  const roofFront = sharpBox(2.02, 0.52, 2.05, steel, 1.42, 0, -0.15, -0.32, 0);
+  const roofRear = sharpBox(2.02, 0.48, 1.85, steel, 1.55, 0, -1.55, 0.28, 0);
+  const sailL = sharpBox(0.12, 0.95, 3.35, steelDark, 1.05, -1.1, -0.35, 0, 0.12);
+  const sailR = sharpBox(0.12, 0.95, 3.35, steelDark, 1.05, 1.1, -0.35, 0, -0.12);
+
+  // Black glass band
+  const glassBand = sharpBox(1.92, 0.38, 2.45, matteBlack(), 1.18, 0, -0.05);
+  const windshield = sharpBox(1.75, 0.32, 1.15, glass(), 1.12, 0, 0.55, -0.42, 0);
+
+  // Vault bed
+  const bedFloor = sharpBox(2.12, 0.18, 2.15, steelDark, 0.52, 0, -1.75);
+  const bedLeft = sharpBox(0.14, 0.42, 2.15, steel, 0.78, -1.08, -1.75);
+  const bedRight = sharpBox(0.14, 0.42, 2.15, steel, 0.78, 1.08, -1.75);
+  const tailBar = sharpBox(2.02, 0.08, 0.08, glow(0xff2222, 0.85), 0.58, 0, -2.72);
+
+  // Fender arches
+  for (const x of [-1.02, 1.02]) {
+    const arch = sharpBox(0.55, 0.22, 0.85, matteBlack(), 0.52, x, 1.45);
+    g.add(arch);
+    const archR = sharpBox(0.55, 0.22, 0.85, matteBlack(), 0.52, x, -1.45);
+    g.add(archR);
+  }
+
+  g.add(
+    skirt, belly, hood, front, lightBar, bumper,
+    roofFront, roofRear, sailL, sailR,
+    glassBand, windshield,
+    bedFloor, bedLeft, bedRight, tailBar,
+  );
+
+  g.add(cyberWheel(-1.02, 1.48), cyberWheel(1.02, 1.48), cyberWheel(-1.02, -1.48), cyberWheel(1.02, -1.48));
   return g;
 }
 

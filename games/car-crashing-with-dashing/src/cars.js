@@ -1,6 +1,6 @@
 /** Famous cars across history — searchable garage catalog. */
 export const CAR_CATALOG = [
-  { id: 'cybertruck', name: 'Tesla Cybertruck', year: 2024, maker: 'Tesla', style: 'cybertruck', color: 0xb8bcc4 },
+  { id: 'cybertruck', name: 'Tesla Cybertruck', year: 2024, maker: 'Tesla', style: 'cybertruck', color: 0xb8bdc4 },
   { id: 'model-t', name: 'Ford Model T', year: 1908, maker: 'Ford', style: 'vintage', color: 0x1a1a1a },
   { id: 'model-a', name: 'Ford Model A', year: 1927, maker: 'Ford', style: 'vintage', color: 0x2d5016 },
   { id: 'beetle', name: 'Volkswagen Beetle', year: 1938, maker: 'Volkswagen', style: 'compact', color: 0x4a90d9 },

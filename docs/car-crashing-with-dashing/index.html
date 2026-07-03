@@ -725,8 +725,143 @@
         color: #fde047;
         font-weight: 700;
       }
+
+      #draw-paper {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #draw-paper[hidden] {
+        display: none !important;
+      }
+
+      #draw-paper-canvas {
+        flex: 1;
+        width: 100%;
+        touch-action: none;
+        cursor: crosshair;
+        background: #ffffff;
+      }
+
+      .draw-toolbar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.88);
+        border-radius: 12px;
+        pointer-events: auto;
+      }
+
+      .draw-title {
+        width: 100%;
+        margin: 0 0 2px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #e2e8f0;
+      }
+
+      .draw-tools {
+        display: flex;
+        gap: 6px;
+      }
+
+      .draw-tool,
+      .draw-clear,
+      .draw-play-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .draw-tool {
+        background: #334155;
+        color: #e2e8f0;
+      }
+
+      .draw-tool.active {
+        background: #22c55e;
+        color: #14532d;
+      }
+
+      .draw-colors {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .draw-swatch {
+        width: 28px;
+        height: 28px;
+        border: 2px solid #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .draw-swatch.active {
+        outline: 3px solid #22c55e;
+        outline-offset: 2px;
+      }
+
+      .draw-clear {
+        background: #475569;
+        color: #fff;
+        margin-left: auto;
+      }
+
+      .draw-footer {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 12px;
+        pointer-events: auto;
+      }
+
+      .draw-hint {
+        flex: 1 1 200px;
+        margin: 0;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+      }
+
+      .draw-undo-input {
+        flex: 0 1 140px;
+        padding: 10px 12px;
+        border: 2px solid #334155;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #fff;
+        font-size: 1rem;
+      }
+
+      .draw-play-btn {
+        background: #22c55e;
+        color: #14532d;
+        font-size: 1rem;
+        padding: 10px 18px;
+      }
     </style>
-    <script type="module" crossorigin src="./assets/index-B6Yumba9.js"></script>
+    <script type="module" crossorigin src="./assets/index-mwjZqHYF.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>

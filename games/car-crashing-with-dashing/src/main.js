@@ -35,6 +35,12 @@ import {
 import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
 import { createRemotePlayers } from './remotePlayers.js';
 import { buildShareLink } from './multiplayer.js';
+import {
+  createDrawPaper,
+  showDrawPaper,
+  isDrawPaperVisible,
+  shouldShowDrawPaperOnLoad,
+} from './drawPaper.js';
 
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
@@ -56,8 +62,8 @@ const player = createPlayer(0, 0);
 addPlayerToScene(world.scene, player);
 const remotePlayers = createRemotePlayers(world.scene);
 
-/** title | comingSoon | world */
-let mode = 'title';
+/** drawPaper | title | comingSoon | world */
+let mode = shouldShowDrawPaperOnLoad() ? 'drawPaper' : 'title';
 let warp = teleportParam ? 1.8 : 0;
 let titleAlpha = 0;
 let roadReveal = 0;
@@ -88,6 +94,16 @@ const roomBannerEl = document.getElementById('room-banner');
 
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
+
+createDrawPaper(() => {
+  mode = 'title';
+  titleCanvas.style.display = 'block';
+});
+
+if (mode === 'drawPaper') {
+  titleCanvas.style.display = 'none';
+  showDrawPaper();
+}
 
 createLobby(({ room, isHost: host }) => {
   mpRoom = room;
@@ -441,9 +457,9 @@ function updateWorldMovement(delta) {
 function render(delta) {
   const { width, height } = titleCanvas;
 
-  if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible()) {
+  if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible() || isDrawPaperVisible()) {
     setControlsHudVisible(controlsHudEl, false);
-    if (isControllerMapVisible()) return;
+    if (isControllerMapVisible() || isDrawPaperVisible()) return;
   }
 
   if (toastTimer > 0) {
@@ -467,6 +483,14 @@ function render(delta) {
       color: '#0f172a',
       size: 36,
     });
+    return;
+  }
+
+  if (mode === 'drawPaper') {
+    titleCanvas.style.display = 'none';
+    world.hide();
+    setGarageBoxVisible(false);
+    touch.setVisible(false);
     return;
   }
 
