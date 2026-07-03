@@ -202,13 +202,12 @@ function spawnCarFromGarage(spec) {
     player.mesh.visible = true;
   }
 
-  activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition);
+  activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
   driving = true;
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   refreshControlsHud(controlsHudEl, { driving: true });
-  showToast(`Driving ${spec.name}`);
 }
 
 function handleCarCollision(impactSpeed) {

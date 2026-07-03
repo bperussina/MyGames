@@ -27,7 +27,7 @@ export function buildCity(scene) {
 
   const asphalt = new THREE.Mesh(
     new THREE.PlaneGeometry(WORLD_HALF * 2, WORLD_HALF * 2),
-    new THREE.MeshStandardMaterial({ color: '#3a3f47', roughness: 0.92, metalness: 0.05 }),
+    new THREE.MeshStandardMaterial({ color: '#2e3238', roughness: 0.78, metalness: 0.18 }),
   );
   asphalt.rotation.x = -Math.PI / 2;
   asphalt.receiveShadow = true;
@@ -74,6 +74,14 @@ export function buildCity(scene) {
       b.castShadow = true;
       b.receiveShadow = true;
       group.add(b);
+
+      const curb = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 1.2, 0.22, d + 1.2),
+        new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.85 }),
+      );
+      curb.position.set(cx, 0.11, cz);
+      curb.receiveShadow = true;
+      group.add(curb);
 
       // Windows
       const rows = Math.floor(h / 2.5);

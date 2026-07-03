@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { buildCockpit, prepareWheels, applyEnvironmentToCar } from './carRealism.js';
 
 function paint(color, metal = 0.72, rough = 0.18) {
   return new THREE.MeshPhysicalMaterial({
@@ -25,14 +26,15 @@ function glass() {
 
 function driverGlass() {
   return new THREE.MeshPhysicalMaterial({
-    color: 0xa8cce8,
-    metalness: 0.15,
+    color: 0xc8ddf0,
+    metalness: 0.2,
     roughness: 0.02,
     transparent: true,
-    opacity: 0.32,
-    transmission: 0.72,
-    thickness: 0.2,
-    envMapIntensity: 1.2,
+    opacity: 0.28,
+    transmission: 0.82,
+    thickness: 0.25,
+    ior: 1.45,
+    envMapIntensity: 1.5,
   });
 }
 
@@ -99,10 +101,12 @@ function roundBox(w, h, d, mat, y = h / 2, radius = 0.1) {
 function wheel(radius = 0.36) {
   const g = new THREE.Group();
   g.userData.isWheel = true;
-  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.26, 18), rubber());
+  const brake = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.5, radius * 0.5, 0.055, 18), chrome());
+  brake.rotation.z = Math.PI / 2;
+  const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.26, 24), rubber());
   tire.rotation.z = Math.PI / 2;
   tire.castShadow = true;
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.62, radius * 0.62, 0.28, 16), chrome());
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.62, radius * 0.62, 0.28, 18), chrome());
   rim.rotation.z = Math.PI / 2;
   const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.22, radius * 0.22, 0.3, 10), plastic(0x333333));
   hub.rotation.z = Math.PI / 2;
@@ -112,7 +116,13 @@ function wheel(radius = 0.36) {
     spoke.rotation.z = Math.PI / 2;
     g.add(spoke);
   }
-  g.add(tire, rim, hub);
+  for (let i = 0; i < 8; i++) {
+    const tread = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.14), rubber());
+    tread.position.set(0, Math.cos((i / 8) * Math.PI * 2) * radius, Math.sin((i / 8) * Math.PI * 2) * radius);
+    tread.rotation.x = (i / 8) * Math.PI * 2;
+    g.add(tread);
+  }
+  g.add(brake, tire, rim, hub);
   return g;
 }
 
@@ -256,7 +266,14 @@ function finalizeCar(group, driverSeat = { x: 0.32, y: 0.78, z: 0.05 }) {
     });
     group.userData.wheels = found;
   }
+  buildCockpit(group, driverSeat);
+  prepareWheels(group);
   return group;
+}
+
+export function finishCarMesh(mesh, envMap) {
+  applyEnvironmentToCar(mesh, envMap);
+  return mesh;
 }
 
 function buildCybertruck(color) {

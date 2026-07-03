@@ -55,12 +55,34 @@ function saveOriginalVertices(panel) {
   return panel.userData.dentOriginal;
 }
 
+function ensureVertexColors(panel) {
+  const pos = panel.geometry?.attributes?.position;
+  if (!pos || panel.geometry.attributes.color) return;
+  const base = new THREE.Color(panel.material?.color ?? 0xaaaaaa);
+  const arr = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    arr[i * 3] = base.r;
+    arr[i * 3 + 1] = base.g;
+    arr[i * 3 + 2] = base.b;
+  }
+  panel.geometry.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+  if (panel.material) {
+    panel.material = panel.material.clone();
+    panel.material.vertexColors = true;
+  }
+}
+
 function restorePanel(panel) {
   const orig = panel.userData.dentOriginal;
   const pos = panel.geometry?.attributes?.position;
   if (!orig || !pos) return;
   pos.array.set(orig);
   pos.needsUpdate = true;
+  const col = panel.geometry.attributes.color;
+  if (col && panel.userData.dentColorOriginal) {
+    col.array.set(panel.userData.dentColorOriginal);
+    col.needsUpdate = true;
+  }
   panel.geometry.computeVertexNormals();
 }
 
@@ -69,10 +91,19 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
   const pos = panel.geometry?.attributes?.position;
   if (!orig || !pos) return;
 
-  const { width, height, depth } = panelSize(panel);
+  ensureVertexColors(panel);
+  const colors = panel.geometry.attributes.color;
+  if (colors && !panel.userData.dentColorOriginal) {
+    panel.userData.dentColorOriginal = Float32Array.from(colors.array);
+  }
+
+  const { depth } = panelSize(panel);
   const halfD = depth * 0.5;
-  const radius = scoop ? 0.38 + severity * 0.22 : 0.2 + severity * 0.14;
-  const maxDepth = scoop ? 0.26 + severity * 0.22 : 0.08 + severity * 0.07;
+  const radius = scoop ? 0.45 + severity * 0.25 : 0.22 + severity * 0.12;
+  const maxDepth = scoop ? 0.32 + severity * 0.28 : 0.1 + severity * 0.08;
+  const metal = new THREE.Color(0x3a3a42);
+  const rust = new THREE.Color(0x5c3a28);
+  const paint = new THREE.Color(panel.material?.color ?? 0xaaaaaa);
 
   for (let i = 0; i < pos.count; i++) {
     const ox = orig[i * 3];
@@ -81,27 +112,40 @@ function deformPanel(panel, hitX, hitY, severity, scoop) {
     const dx = ox - hitX;
     const dy = oy - hitY;
     const dist = Math.hypot(dx, dy);
-    if (dist > radius * 1.25) {
+
+    if (dist > radius * 1.3) {
       pos.setXYZ(i, ox, oy, oz);
+      if (colors && panel.userData.dentColorOriginal) {
+        colors.setXYZ(i, panel.userData.dentColorOriginal[i * 3], panel.userData.dentColorOriginal[i * 3 + 1], panel.userData.dentColorOriginal[i * 3 + 2]);
+      }
       continue;
     }
 
-    const surface = smoothstep(halfD - 0.4, halfD - 0.01, oz);
+    const surface = smoothstep(halfD - 0.45, halfD - 0.01, oz);
     if (surface <= 0) {
       pos.setXYZ(i, ox, oy, oz);
       continue;
     }
 
-    const t = 1 - dist / (radius * 1.25);
+    const t = 1 - dist / (radius * 1.3);
     const bowl = (scoop ? t * t * t : t * t) * maxDepth * surface;
-    const pinch = scoop ? bowl * 0.45 : bowl * 0.2;
+    const pinch = scoop ? bowl * 0.55 : bowl * 0.25;
     const nx = ox - (dx / (dist + 0.0001)) * pinch;
     const ny = oy - (dy / (dist + 0.0001)) * pinch;
     const nz = oz - bowl;
     pos.setXYZ(i, nx, ny, nz);
+
+    if (colors) {
+      const depthFactor = bowl / (maxDepth + 0.001);
+      const c = paint.clone();
+      if (depthFactor > 0.55) c.lerp(rust, (depthFactor - 0.55) * 1.8);
+      if (depthFactor > 0.75) c.lerp(metal, (depthFactor - 0.75) * 2.5);
+      colors.setXYZ(i, c.r, c.g, c.b);
+    }
   }
 
   pos.needsUpdate = true;
+  if (colors) colors.needsUpdate = true;
   panel.geometry.computeVertexNormals();
 }
 
@@ -121,28 +165,49 @@ function worldImpactPoint(vehicle) {
 function spawnPaintChips(scene, vehicle, count, debris) {
   const color = vehicle.spec?.color ?? 0xb8bdc4;
   const origin = worldImpactPoint(vehicle);
-  const mat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(color).lerp(new THREE.Color(0xffffff), 0.15 + Math.random() * 0.2),
-    metalness: 0.55,
-    roughness: 0.35,
-  });
+  const base = new THREE.Color(color);
 
   for (let i = 0; i < count; i++) {
-    const chip = new THREE.Mesh(new THREE.BoxGeometry(0.04 + Math.random() * 0.07, 0.015, 0.05 + Math.random() * 0.06), mat);
+    const chipColor = base.clone().lerp(new THREE.Color(0xffffff), 0.1 + Math.random() * 0.35);
+    const mat = new THREE.MeshStandardMaterial({
+      color: chipColor,
+      metalness: 0.45 + Math.random() * 0.35,
+      roughness: 0.25 + Math.random() * 0.3,
+    });
+    const chip = new THREE.Mesh(
+      new THREE.BoxGeometry(0.03 + Math.random() * 0.06, 0.008 + Math.random() * 0.012, 0.04 + Math.random() * 0.05),
+      mat,
+    );
     chip.position.copy(origin);
-    chip.position.x += (Math.random() - 0.5) * 0.5;
-    chip.position.y += (Math.random() - 0.5) * 0.35;
-    chip.position.z += (Math.random() - 0.5) * 0.25;
+    chip.position.x += (Math.random() - 0.5) * 0.55;
+    chip.position.y += (Math.random() - 0.5) * 0.4;
+    chip.position.z += (Math.random() - 0.5) * 0.3;
     chip.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
     scene.add(chip);
+
+    const vel = new THREE.Vector3((Math.random() - 0.5) * 4, 1.8 + Math.random() * 3.5, (Math.random() - 0.2) * 4);
+    vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.rotY);
+    debris.push({ mesh: chip, vel, life: 0.9 + Math.random() * 0.6, bounce: 0.32 });
+  }
+}
+
+function spawnSparks(scene, origin, count, debris) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffaa44,
+    emissive: 0xff6600,
+    emissiveIntensity: 2,
+    metalness: 0.8,
+    roughness: 0.3,
+  });
+  for (let i = 0; i < count; i++) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.025 + Math.random() * 0.03, 6, 6), mat);
+    s.position.copy(origin);
+    scene.add(s);
     debris.push({
-      mesh: chip,
-      vel: new THREE.Vector3(
-        (Math.random() - 0.5) * 5,
-        1.5 + Math.random() * 3,
-        (Math.random() - 0.3) * 4,
-      ),
-      life: 0.7 + Math.random() * 0.5,
+      mesh: s,
+      vel: new THREE.Vector3((Math.random() - 0.5) * 8, 2 + Math.random() * 6, (Math.random() - 0.5) * 8),
+      life: 0.15 + Math.random() * 0.2,
+      sparkle: true,
     });
   }
 }
@@ -158,55 +223,51 @@ function detachPart(vehicle, scene, part, impactSpeed, debris) {
   scene.add(part);
   part.position.copy(worldPos);
   part.quaternion.copy(worldQuat);
-  part.scale.multiplyScalar(1);
 
   const speed = Math.abs(impactSpeed);
-  const vel = new THREE.Vector3(
-    (Math.random() - 0.5) * 3,
-    1.2 + Math.random() * 2.5,
-    2 + Math.random() * 3,
-  );
+  const vel = new THREE.Vector3((Math.random() - 0.5) * 2, 1.5 + Math.random() * 2, 2.5 + Math.random() * 2);
   vel.applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.rotY);
-  vel.multiplyScalar(0.08 + speed * 0.012);
+  vel.multiplyScalar(0.06 + speed * 0.014);
 
   debris.push({
     mesh: part,
     vel,
-    life: 3.5,
+    life: 4,
     isPart: true,
-    spin: new THREE.Vector3((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8),
+    bounce: 0.28,
+    spin: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6),
   });
 }
 
-/** Full crash: paint chips, scoop dents, part fly-off — no text. */
 export function handleCrash(vehicle, scene, impactSpeed, debris) {
   const speed = Math.abs(impactSpeed);
   if (speed < CHIP_SPEED) return;
 
-  const chipCount = Math.min(14, 2 + Math.floor(speed * 0.22));
+  const origin = worldImpactPoint(vehicle);
+  const chipCount = Math.min(18, 3 + Math.floor(speed * 0.28));
   spawnPaintChips(scene, vehicle, chipCount, debris);
 
-  if (speed < DENT_SPEED) return;
-
-  const severity = dentSeverity(impactSpeed);
-  const scoop = speed >= SCOOP_SPEED && Math.random() < 0.62;
-  const panel = findFrontDentPanel(vehicle.mesh);
-  if (panel) {
-    const { width, height } = panelSize(panel);
-    const hitX = (Math.random() - 0.5) * width * 0.4;
-    const hitY = (Math.random() - 0.5) * height * 0.3;
-    const record = { panel, hitX, hitY, severity, scoop };
-    if (!vehicle.dents) vehicle.dents = [];
-    vehicle.dents.push(record);
-    rebuildPanel(panel, vehicle.dents);
-    vehicle.damage = (vehicle.damage ?? 0) + (scoop ? 40 : 20) + severity * 20;
+  if (speed >= DENT_SPEED) {
+    const severity = dentSeverity(impactSpeed);
+    const scoop = speed >= SCOOP_SPEED && Math.random() < 0.65;
+    const panel = findFrontDentPanel(vehicle.mesh);
+    if (panel) {
+      const { width, height } = panelSize(panel);
+      const hitX = (Math.random() - 0.5) * width * 0.38;
+      const hitY = (Math.random() - 0.5) * height * 0.28;
+      const record = { panel, hitX, hitY, severity, scoop };
+      if (!vehicle.dents) vehicle.dents = [];
+      vehicle.dents.push(record);
+      rebuildPanel(panel, vehicle.dents);
+      vehicle.damage = (vehicle.damage ?? 0) + (scoop ? 45 : 22) + severity * 22;
+    }
+    if (speed >= SCOOP_SPEED) spawnSparks(scene, origin, 8 + Math.floor(severity * 8), debris);
   }
 
-  if (speed >= PART_FLY_SPEED && Math.random() < 0.38) {
+  if (speed >= PART_FLY_SPEED && Math.random() < 0.42) {
     const parts = collectDetachableParts(vehicle.mesh);
     if (parts.length) {
-      const part = parts[Math.floor(Math.random() * parts.length)];
-      detachPart(vehicle, scene, part, impactSpeed, debris);
+      detachPart(vehicle, scene, parts[Math.floor(Math.random() * parts.length)], impactSpeed, debris);
     }
   }
 }
@@ -215,13 +276,26 @@ export function updateCrashDebris(debris, delta) {
   for (let i = debris.length - 1; i >= 0; i--) {
     const p = debris[i];
     p.life -= delta;
+    p.vel.y -= 16 * delta;
     p.mesh.position.addScaledVector(p.vel, delta);
-    p.vel.y -= 14 * delta;
+
+    if (!p.sparkle && p.mesh.position.y < 0.04) {
+      p.mesh.position.y = 0.04;
+      if (p.vel.y < 0) p.vel.y = -p.vel.y * (p.bounce ?? 0.3);
+      p.vel.x *= 0.72;
+      p.vel.z *= 0.72;
+    }
+
     if (p.spin) {
       p.mesh.rotation.x += p.spin.x * delta;
       p.mesh.rotation.y += p.spin.y * delta;
       p.mesh.rotation.z += p.spin.z * delta;
     }
+
+    if (p.sparkle && p.mesh.material?.emissiveIntensity > 0) {
+      p.mesh.material.emissiveIntensity = Math.max(0, p.mesh.material.emissiveIntensity - delta * 8);
+    }
+
     if (p.life <= 0) {
       p.mesh.parent?.remove(p.mesh);
       debris.splice(i, 1);

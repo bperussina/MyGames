@@ -1,4 +1,4 @@
-import { buildCarMesh } from './carMesh.js';
+import { buildCarMesh, finishCarMesh } from './carMesh.js';
 import { clearDents, DENT_SPEED, SCOOP_SPEED } from './crashFX.js';
 
 const MAX_SPEED = 52;
@@ -15,8 +15,9 @@ const REVERSE_CHARGE_RATE = 0.9;
 const REVERSE_LAUNCH = 26;
 const DANCE_SPEED = 38;
 
-export function createVehicleState(spec, x, z, rotY = 0) {
+export function createVehicleState(spec, x, z, rotY = 0, envMap = null) {
   const mesh = buildCarMesh(spec);
+  finishCarMesh(mesh, envMap);
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY;
 
@@ -35,6 +36,8 @@ export function createVehicleState(spec, x, z, rotY = 0) {
     reverseCharge: 0,
     knockTilt: 0,
     wheelSpin: 0,
+    suspensionT: 0,
+    bodyRoll: 0,
     debris: [],
   };
 }
@@ -76,11 +79,20 @@ export function syncPlayerPosition(player) {
 
 export function spinWheels(vehicle, delta) {
   const wheels = vehicle.mesh.userData.wheels ?? [];
-  const spin = vehicle.speed * delta * 2.4;
+  const speed = vehicle.speed;
+  const spin = speed * delta * 2.6;
   vehicle.wheelSpin = (vehicle.wheelSpin ?? 0) + spin;
-  for (const w of wheels) {
+  vehicle.suspensionT = (vehicle.suspensionT ?? 0) + delta * (6 + Math.abs(speed) * 0.5);
+
+  const bounce = Math.abs(speed) * 0.004;
+  wheels.forEach((w, i) => {
+    const baseY = w.userData.baseY ?? w.position.y;
+    w.position.y = baseY + Math.sin(vehicle.suspensionT + i * 1.7) * bounce;
     w.rotation.x = vehicle.wheelSpin;
-  }
+    if (w.userData.steerable) {
+      w.rotation.y = -vehicle.steer * 0.42;
+    }
+  });
 }
 
 export function syncVehicleMesh(vehicle) {
@@ -96,6 +108,9 @@ export function applyVehicleEffects(vehicle, time, delta) {
   let rx = 0;
   let rz = 0;
   let y = 0;
+
+  vehicle.bodyRoll += (-vehicle.steer * 0.08 * Math.min(1, Math.abs(vehicle.speed) / 18) - vehicle.bodyRoll) * Math.min(1, delta * 6);
+  rz = vehicle.bodyRoll;
 
   if ((vehicle.knockTilt ?? 0) > 0.01) {
     rx = -vehicle.knockTilt;
@@ -163,7 +178,8 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   vehicle.prevZ = vehicle.z;
 
   vehicle.steer += (steer * STEER_SPEED - vehicle.steer) * Math.min(1, delta * 8);
-  vehicle.rotY -= vehicle.steer * delta * (0.85 + Math.abs(vehicle.speed) * 0.05);
+  const speedFactor = 0.85 + Math.abs(vehicle.speed) * 0.05;
+  vehicle.rotY -= vehicle.steer * delta * speedFactor;
 
   const charging = Math.abs(steer) <= CHARGE_STEER_MAX && throttle > 0 && reverse <= 0;
 
@@ -212,10 +228,10 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   return { impactSpeed: Math.abs(vehicle.speed), charging, wallHit };
 }
 
-export function spawnInFrontOfPlayer(player, spec, clampPosition) {
+export function spawnInFrontOfPlayer(player, spec, clampPosition, envMap = null) {
   const dist = 4;
   const sx = player.x + Math.sin(player.facing) * dist;
   const sz = player.z + Math.cos(player.facing) * dist;
   const clamped = clampPosition(sx, sz);
-  return createVehicleState(spec, clamped.x, clamped.z, player.facing);
+  return createVehicleState(spec, clamped.x, clamped.z, player.facing, envMap);
 }
