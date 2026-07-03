@@ -155,6 +155,9 @@ const superDashBtnEl = document.getElementById('super-dash-btn');
 const dashScoreHudEl = document.getElementById('dash-score-hud');
 const deathOverlayEl = document.getElementById('death-overlay');
 const deathTimerEl = document.getElementById('death-timer');
+const nonDyingBtnEl = document.getElementById('non-dying-btn');
+
+let nonDyingMode = false;
 
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
@@ -271,7 +274,7 @@ function handleCarCollision(impactSpeed) {
   handleCrash(activeVehicle, world.scene, impactSpeed, crashDebris);
   refreshDamageHud(damageHudEl, activeVehicle);
 
-  if (isVehicleDestroyed(activeVehicle)) {
+  if (isVehicleDestroyed(activeVehicle) && !nonDyingMode) {
     killPlayer();
     return;
   }
@@ -620,6 +623,24 @@ function startDashSession(seed) {
   }
 }
 
+function refreshNonDyingUi() {
+  if (!nonDyingBtnEl) return;
+  const show = (mode === 'world' || mode === 'comingSoon') && !player.dead;
+  nonDyingBtnEl.hidden = !show;
+  nonDyingBtnEl.classList.toggle('active', nonDyingMode);
+  nonDyingBtnEl.textContent = nonDyingMode ? 'NON-DYING' : 'DYING ON';
+}
+
+if (nonDyingBtnEl) {
+  nonDyingBtnEl.addEventListener('click', () => {
+    nonDyingMode = !nonDyingMode;
+    refreshNonDyingUi();
+    showToast(nonDyingMode
+      ? 'Non-dying ON — drive with no parts!'
+      : 'Dying ON — destroyed car kills you');
+  });
+}
+
 function refreshSuperDashUi() {
   const leader = dashSystem.isLocalLeader() && driving && dashSystem.isSessionActive();
   if (superDashBtnEl) {
@@ -673,6 +694,7 @@ function enterGameplay() {
   touch.setVisible(true);
   touch.setDriving(driving);
   setControlsHudVisible(controlsHudEl, true, { driving });
+  refreshNonDyingUi();
 }
 
 function updateWorldMovement(delta) {
@@ -719,7 +741,7 @@ function updateWorldMovement(delta) {
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
     refreshDamageHud(damageHudEl, activeVehicle);
-    if (isVehicleDestroyed(activeVehicle)) {
+    if (isVehicleDestroyed(activeVehicle) && !nonDyingMode) {
       killPlayer();
       return;
     }
@@ -872,6 +894,7 @@ function render(delta) {
     dashSystem.update(delta, driving ? activeVehicle : null);
     updateCrashDebris(crashDebris, delta);
     refreshSuperDashUi();
+    refreshNonDyingUi();
 
     if (!isGarageVisible()) {
       updateWorldMovement(delta);
