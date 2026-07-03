@@ -77,11 +77,11 @@ function tailLens() {
   });
 }
 
-function tagPart(mesh, partId, opts = {}) {
-  mesh.userData.carPart = partId;
-  if (opts.detachable) mesh.userData.detachable = true;
-  if (opts.dentPanel) mesh.userData.dentPanel = 'front';
-  return mesh;
+function tagPart(node, partId, opts = {}) {
+  node.userData.carPart = partId;
+  if (opts.detachable !== false) node.userData.detachable = true;
+  if (opts.dentPanel) node.userData.dentPanel = 'front';
+  return node;
 }
 
 function mesh(geo, mat, cast = true) {
@@ -153,6 +153,7 @@ function addWheels(group, p) {
     const w = wheel(r, sport);
     w.position.set(x, r, z);
     w.userData.carPart = id;
+    w.userData.detachable = true;
     group.add(w);
     wheels.push(w);
   }
@@ -167,7 +168,7 @@ function addWheelArch(group, x, z, r, color) {
   arch.rotation.x = Math.PI / 2;
   arch.rotation.z = x < 0 ? Math.PI : 0;
   arch.position.set(x, r * 0.92, z);
-  group.add(arch);
+  group.add(tagPart(arch, `arch_${x < 0 ? 'l' : 'r'}_${z > 0 ? 'f' : 'r'}`));
 }
 
 function addHeadlight(group, x, y, z, round = false) {
@@ -255,8 +256,7 @@ function addDoorsWindows(group, p, cabinZ) {
   group.add(doorL, doorR);
   const winL = tagPart(roundBox(0.04, p.cabinH * 0.62, p.cabinLen * 0.48, driverGlass(), p.cabinH * 0.38, 0.015), 'window_l');
   winL.position.set(-p.width * 0.47, p.ride + p.cabinH * 0.55, cabinZ);
-  const winR = winL.clone();
-  winR.position.x = p.width * 0.47;
+  const winR = tagPart(roundBox(0.04, p.cabinH * 0.62, p.cabinLen * 0.48, driverGlass(), p.cabinH * 0.38, 0.015), 'window_r');
   group.add(winL, winR);
 }
 
@@ -302,7 +302,7 @@ function buildCybertruck(p) {
   g.add(box(2.18, 0.55, 4.85, steel, 0.78, 0, 0.05));
   g.add(tagPart(box(2.12, 0.28, 1.55, steel, 0.98, 0, 1.55, -0.08), 'hood', { dentPanel: true }));
   g.add(tagPart(box(2.22, 0.72, 0.22, steel, 0.72, 0, 2.42), 'front_panel', { dentPanel: true }));
-  g.add(box(2.05, 0.1, 0.08, lensMat(1.4), 0.62, 0, 2.52));
+  g.add(tagPart(box(2.05, 0.1, 0.08, lensMat(1.4), 0.62, 0, 2.52), 'headlight'));
   g.add(tagPart(box(2.24, 0.18, 0.2, matteBlack(), 0.22, 0, 2.58), 'bumper_front', { detachable: true, dentPanel: true }));
   g.add(box(2.02, 0.52, 2.05, steel, 1.42, 0, -0.15, -0.32));
   g.add(box(2.02, 0.48, 1.85, steel, 1.55, 0, -1.55, 0.28));
@@ -326,6 +326,7 @@ function buildCybertruck(p) {
     const w = wheel(0.4, false);
     w.position.set(x, 0.38, z);
     w.userData.carPart = id;
+    w.userData.detachable = true;
     g.add(w);
     wheels.push(w);
   }

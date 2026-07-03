@@ -86,6 +86,7 @@ export function spinWheels(vehicle, delta) {
 
   const bounce = Math.abs(speed) * 0.004;
   wheels.forEach((w, i) => {
+    if (w.userData.detached) return;
     const baseY = w.userData.baseY ?? w.position.y;
     w.position.y = baseY + Math.sin(vehicle.suspensionT + i * 1.7) * bounce;
     w.rotation.x = vehicle.wheelSpin;
