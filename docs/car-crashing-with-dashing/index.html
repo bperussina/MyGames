@@ -854,6 +854,21 @@
         font-size: 1rem;
       }
 
+      .draw-play-btn,
+      .draw-multi-btn {
+        border: none;
+        border-radius: 10px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .draw-footer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
       .draw-play-btn {
         background: #22c55e;
         color: #14532d;
@@ -861,30 +876,20 @@
         padding: 10px 18px;
       }
 
-      #death-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 180;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.72);
-        pointer-events: none;
+      .draw-multi-btn {
+        background: #4ade80;
+        color: #14532d;
+        font-size: 1rem;
+        padding: 10px 18px;
       }
 
-      #death-overlay[hidden] {
-        display: none !important;
+      .draw-multi-btn:hover,
+      .draw-play-btn:hover {
+        filter: brightness(1.05);
       }
 
-      .death-text {
-        font-size: clamp(2rem, 8vw, 3.5rem);
-        font-weight: 900;
-        color: #ef4444;
-        text-shadow: 0 4px 24px rgba(0, 0, 0, 0.8);
-        letter-spacing: 0.04em;
-      }
     </style>
-    <script type="module" crossorigin src="./assets/index-CdLP6sA3.js"></script>
+    <script type="module" crossorigin src="./assets/index-Bz3_18LA.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>
