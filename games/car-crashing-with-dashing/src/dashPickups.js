@@ -166,9 +166,27 @@ export function createDashSystem(scene, { getPlayerId, isHost, send, relay }) {
     broadcastState();
   }
 
+  function handleScoreReset(msg) {
+    if (!isHost?.()) return;
+    if (msg.playerId) scores[msg.playerId] = 0;
+    broadcastState();
+  }
+
+  function resetPlayerScore(targetId = null) {
+    const id = targetId ?? playerId();
+    scores[id] = 0;
+    if (id === playerId()) superDashOn = false;
+    if (isHost?.()) {
+      broadcastState();
+    } else {
+      send?.({ t: 'dashScoreReset', playerId: id });
+    }
+  }
+
   function handleMessage(msg) {
     if (msg.t === 'dashState') applyRemoteState(msg);
     if (msg.t === 'dashCollect') handleCollectRequest(msg);
+    if (msg.t === 'dashScoreReset') handleScoreReset(msg);
   }
 
   function getScores() {
@@ -246,6 +264,7 @@ export function createDashSystem(scene, { getPlayerId, isHost, send, relay }) {
     handleMessage,
     setToast,
     syncState: broadcastState,
+    resetPlayerScore,
     isSessionActive,
     SUPER_MAX_SPEED,
     SUPER_ACCEL_MULT,

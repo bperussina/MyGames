@@ -215,6 +215,10 @@ function setupMultiplayer(room) {
       dashSystem.handleMessage(msg);
       refreshSuperDashUi();
     }
+    if (msg.t === 'dashScoreReset') {
+      dashSystem.handleMessage(msg);
+      refreshSuperDashUi();
+    }
   };
 
   room.onPeerCount = (n) => {
@@ -309,6 +313,9 @@ function killPlayer() {
     dashSystem.setSuperDash(false);
     activeVehicle.superDashOn = false;
   }
+
+  dashSystem.resetPlayerScore();
+  refreshSuperDashUi();
 
   player.mesh.rotation.x = -Math.PI / 2;
   syncPlayerMesh(player);
@@ -611,6 +618,7 @@ const dashSystem = createDashSystem(world.scene, {
     if (!mpRoom) return;
     if (isHost && msg.t === 'dashState') mpRoom.send(msg);
     else if (msg.t === 'dashCollect') mpRoom.sendToHost(msg);
+    else if (msg.t === 'dashScoreReset') mpRoom.sendToHost(msg);
     else mpRoom.send(msg);
   },
 });
