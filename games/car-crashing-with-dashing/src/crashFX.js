@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/** Below this speed, wall taps do nothing. Hard hits leave a dent. */
+/** Below this speed, wall taps do nothing. Hard hits leave a visible dent. */
 const DENT_SPEED = 32;
 const HUGE_DENT_SPEED = 40;
 
@@ -19,108 +19,140 @@ export function dentSeverity(speed) {
   return Math.min(1, (Math.abs(speed) - DENT_SPEED) / (52 - DENT_SPEED));
 }
 
-function dentMetalMaterial(dark = false) {
-  return new THREE.MeshPhysicalMaterial({
-    color: dark ? 0x0c0c0c : 0x252525,
-    metalness: 0.88,
-    roughness: dark ? 0.92 : 0.72,
-    clearcoat: dark ? 0 : 0.15,
-    clearcoatRoughness: 0.4,
-  });
+function panelSize(panel) {
+  const p = panel?.geometry?.parameters ?? {};
+  return {
+    width: p.width ?? 2,
+    height: p.height ?? 0.6,
+    depth: p.depth ?? 1.2,
+  };
 }
 
-function paintChipMaterial() {
-  return new THREE.MeshStandardMaterial({
-    color: 0x4a4a4a,
-    metalness: 0.55,
-    roughness: 0.78,
-    side: THREE.DoubleSide,
+/** Pick the largest front body panel so dents land on hood/doors — not buried inside. */
+export function findFrontDentPanel(root) {
+  const panels = [];
+  root.traverse((child) => {
+    if (child.isMesh && child.userData.dentPanel === 'front') panels.push(child);
+  });
+  if (!panels.length) return null;
+  return panels.reduce((best, panel) => {
+    const a = panelSize(best);
+    const b = panelSize(panel);
+    return b.width * b.height >= a.width * a.height ? panel : best;
   });
 }
 
 /**
- * Crushed-metal dent: sunken crater, stress folds, and paint chips on the impact panel.
+ * Obvious crushed-metal dent sitting ON the car surface — dark bowl, silver crumple lip, scratches.
  */
 export function addDentToVehicle(vehicle, impactSpeed) {
   if (!vehicle?.mesh) return;
 
   const severity = dentSeverity(impactSpeed);
   const huge = isHugeDent(impactSpeed);
-  const scale = huge ? 1.45 : 0.75 + severity * 0.65;
+  const scale = huge ? 1.7 : 1.1 + severity * 0.75;
+  const radius = (0.34 + severity * 0.3) * scale;
+
+  const panel = findFrontDentPanel(vehicle.mesh);
+  const parent = panel ?? vehicle.mesh;
+  const { width, height, depth } = panelSize(panel);
 
   const dent = new THREE.Group();
   dent.name = 'dent';
+  dent.renderOrder = 2;
 
-  const radius = (0.22 + severity * 0.32) * scale;
+  const lipMat = new THREE.MeshPhysicalMaterial({
+    color: huge ? 0xd1d5db : 0xb8bec8,
+    metalness: 0.94,
+    roughness: 0.38,
+    clearcoat: 0.45,
+    clearcoatRoughness: 0.2,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
 
-  // Main inward crater — partial sphere pressed into the panel
-  const crater = new THREE.Mesh(
-    new THREE.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.52),
-    dentMetalMaterial(false),
+  const craterMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0a0a,
+    metalness: 0.75,
+    roughness: 0.9,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+
+  // Crumpled lip bulging outward — easy to spot from the camera
+  const lip = new THREE.Mesh(new THREE.SphereGeometry(radius, 16, 14), lipMat);
+  lip.scale.set(1.25, 0.42 + severity * 0.28, 1.15);
+  lip.position.z = radius * 0.22;
+  lip.castShadow = true;
+  dent.add(lip);
+
+  // Deep black crushed center
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.78, 14, 12), craterMat);
+  bowl.scale.set(1, 0.28 + severity * 0.18, 1);
+  bowl.position.z = -radius * 0.08;
+  dent.add(bowl);
+
+  // Buckled ring around the impact
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(radius * 0.95, 0.05 + severity * 0.035, 10, 24),
+    lipMat,
   );
-  crater.rotation.x = Math.PI / 2;
-  crater.scale.set(1.15, 0.32 + severity * 0.22, 1.05);
-  crater.position.z = -0.05 - severity * 0.1;
-  crater.castShadow = true;
-  dent.add(crater);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.z = radius * 0.08;
+  dent.add(ring);
 
-  // Deep shadow pocket at the center of the fold
-  const pocket = new THREE.Mesh(
-    new THREE.SphereGeometry(radius * 0.62, 12, 10),
-    dentMetalMaterial(true),
-  );
-  pocket.scale.set(1, 0.18 + severity * 0.12, 1);
-  pocket.position.z = -0.1 - severity * 0.14;
-  dent.add(pocket);
-
-  // Buckled rim where paint cracked away from the metal
-  const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(radius * 0.92, 0.035 + severity * 0.025, 8, 20),
-    paintChipMaterial(),
-  );
-  rim.rotation.x = Math.PI / 2;
-  rim.position.z = -0.02;
-  dent.add(rim);
-
-  // Radiating crease lines — metal folding under impact
-  const foldCount = huge ? 6 : 3 + Math.floor(severity * 2);
-  for (let i = 0; i < foldCount; i++) {
-    const foldLen = (0.28 + severity * 0.45) * scale;
-    const fold = new THREE.Mesh(
-      new THREE.BoxGeometry(0.035, 0.018, foldLen),
-      dentMetalMaterial(i % 2 === 0),
+  // Silver paint scratches
+  const scratchCount = huge ? 6 : 4;
+  for (let i = 0; i < scratchCount; i++) {
+    const scratch = new THREE.Mesh(
+      new THREE.BoxGeometry(0.045, 0.022, radius * (0.9 + Math.random() * 0.8)),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.3 }),
     );
-    const angle = (i / foldCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
-    fold.position.set(
-      Math.cos(angle) * radius * 0.75,
-      (Math.random() - 0.5) * 0.08,
-      Math.sin(angle) * radius * 0.35 - 0.03,
+    const angle = (i / scratchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    scratch.position.set(
+      Math.cos(angle) * radius * 0.7,
+      Math.sin(angle) * radius * 0.35,
+      radius * 0.12,
     );
-    fold.rotation.y = angle;
-    fold.rotation.x = -0.55 - severity * 0.35 - Math.random() * 0.15;
-    dent.add(fold);
+    scratch.rotation.y = angle;
+    scratch.rotation.x = -0.35 - Math.random() * 0.25;
+    dent.add(scratch);
   }
 
-  // Extra jagged tear on huge impacts
+  // Fold creases on huge hits
   if (huge) {
-    for (let i = 0; i < 3; i++) {
-      const tear = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, 0.025, 0.2 + Math.random() * 0.35),
-        dentMetalMaterial(true),
+    for (let i = 0; i < 4; i++) {
+      const crease = new THREE.Mesh(
+        new THREE.BoxGeometry(0.05, 0.025, radius * 1.1),
+        craterMat,
       );
-      tear.position.set((Math.random() - 0.5) * radius * 1.4, 0.05, radius * 0.2);
-      tear.rotation.set(-0.8, Math.random() * 0.8, Math.random() * 0.5);
-      dent.add(tear);
+      const angle = (i / 4) * Math.PI + 0.4;
+      crease.position.set(Math.cos(angle) * radius * 0.85, Math.sin(angle) * radius * 0.4, 0.05);
+      crease.rotation.y = angle;
+      crease.rotation.x = -0.7;
+      dent.add(crease);
     }
   }
 
-  // Place on the front panel where head-on hits land
-  const sideX = (Math.random() - 0.5) * (huge ? 1.1 : 0.75);
-  dent.position.set(sideX, 0.5 + severity * 0.42, 1.55 + Math.random() * 0.4);
-  dent.rotation.y = (Math.random() - 0.5) * 0.3;
-  dent.rotation.x = -0.08 - severity * 0.12;
+  const halfW = width * 0.5;
+  const halfH = height * 0.5;
+  const halfD = depth * 0.5;
 
-  vehicle.mesh.add(dent);
+  if (panel) {
+    dent.position.set(
+      (Math.random() - 0.5) * halfW * 0.75,
+      (Math.random() - 0.5) * halfH * 0.45,
+      halfD + 0.08,
+    );
+    dent.rotation.y = (Math.random() - 0.5) * 0.2;
+    dent.rotation.x = -0.05 - severity * 0.08;
+  } else {
+    dent.position.set((Math.random() - 0.5) * 0.9, 0.55 + severity * 0.2, 2.05);
+  }
+
+  parent.add(dent);
   if (!vehicle.dents) vehicle.dents = [];
   vehicle.dents.push(dent);
   vehicle.damage = (vehicle.damage ?? 0) + (huge ? 35 : 18) + severity * 22;
@@ -128,7 +160,9 @@ export function addDentToVehicle(vehicle, impactSpeed) {
 
 export function clearDents(vehicle) {
   if (!vehicle?.dents) return;
-  for (const d of vehicle.dents) vehicle.mesh.remove(d);
+  for (const d of vehicle.dents) {
+    d.parent?.remove(d);
+  }
   vehicle.dents = [];
   vehicle.damage = 0;
 }

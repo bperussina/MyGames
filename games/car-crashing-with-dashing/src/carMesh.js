@@ -74,6 +74,11 @@ function roundBox(w, h, d, mat, y = h / 2, radius = 0.1) {
   return m;
 }
 
+function tagDentPanel(mesh) {
+  mesh.userData.dentPanel = 'front';
+  return mesh;
+}
+
 function wheel(radius = 0.36) {
   const g = new THREE.Group();
   const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.26, 18), rubber());
@@ -178,7 +183,7 @@ function buildCybertruck(color) {
   const skirt = sharpBox(2.28, 0.42, 5.05, steelDark, 0.48, 0, 0);
   const belly = sharpBox(2.18, 0.55, 4.85, steel, 0.78, 0, 0.05);
   const hood = sharpBox(2.12, 0.28, 1.55, steel, 0.98, 0, 1.55, -0.08, 0);
-  const front = sharpBox(2.22, 0.72, 0.22, steel, 0.72, 0, 2.42);
+  const front = tagDentPanel(sharpBox(2.22, 0.72, 0.22, steel, 0.72, 0, 2.42));
   const lightBar = sharpBox(2.05, 0.1, 0.08, glow(0xffffff, 1.6), 0.62, 0, 2.52);
   const bumper = sharpBox(2.24, 0.18, 0.2, matteBlack(), 0.22, 0, 2.58);
 
@@ -207,7 +212,7 @@ function buildCybertruck(color) {
   }
 
   g.add(
-    skirt, belly, hood, front, lightBar, bumper,
+    skirt, belly, tagDentPanel(hood), front, lightBar, bumper,
     roofFront, roofRear, sailL, sailR,
     glassBand, windshield,
     bedFloor, bedLeft, bedRight, tailBar,
@@ -221,7 +226,7 @@ function buildSedan(color) {
   const g = new THREE.Group();
   g.add(roundBox(1.95, 0.58, 4.25, paint(color), 0.52, 0.1));
   g.add(cabin(1.62, 0.78, 2.05, -0.15));
-  const hood = roundBox(1.75, 0.18, 1.35, paint(color, 0.78, 0.2), 0.62, 0.06);
+  const hood = tagDentPanel(roundBox(1.75, 0.18, 1.35, paint(color, 0.78, 0.2), 0.62, 0.06));
   hood.position.z = 1.35;
   g.add(hood);
   addGrille(g, 1.95, 2.05);
@@ -236,7 +241,7 @@ function buildSports(color) {
   const g = new THREE.Group();
   const body = roundBox(1.9, 0.38, 4.05, paint(color, 0.8, 0.12), 0.42, 0.08);
   g.add(body);
-  const hood = roundBox(1.72, 0.14, 1.55, paint(color, 0.85, 0.1), 0.5, 0.05);
+  const hood = tagDentPanel(roundBox(1.72, 0.14, 1.55, paint(color, 0.85, 0.1), 0.5, 0.05));
   hood.position.set(0, 0, 1.15);
   g.add(hood);
   g.add(cabin(1.42, 0.52, 1.45, 0.05, 0x151520));
@@ -255,7 +260,7 @@ function buildSports(color) {
 
 function buildSuv(color) {
   const g = new THREE.Group();
-  g.add(roundBox(2.05, 0.88, 4.45, paint(color), 0.68, 0.1));
+  g.add(tagDentPanel(roundBox(2.05, 0.88, 4.45, paint(color), 0.68, 0.1)));
   g.add(cabin(1.78, 0.95, 2.45, -0.22));
   const railL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.8), chrome());
   railL.position.set(-1.02, 1.55, -0.1);
@@ -272,7 +277,7 @@ function buildSuv(color) {
 
 function buildTruck(color) {
   const g = new THREE.Group();
-  g.add(roundBox(2.05, 0.72, 1.85, paint(color), 0.78, 0.08));
+  g.add(tagDentPanel(roundBox(2.05, 0.72, 1.85, paint(color), 0.78, 0.08)));
   g.add(cabin(1.72, 0.82, 1.25, 0.55));
   const bedFloor = roundBox(2.05, 0.2, 2.45, paint(color, 0.5, 0.35), 0.52, 0.04);
   bedFloor.position.z = -1.95;
@@ -293,7 +298,7 @@ function buildTruck(color) {
 
 function buildCompact(color) {
   const g = new THREE.Group();
-  g.add(roundBox(1.62, 0.52, 3.25, paint(color), 0.48, 0.09));
+  g.add(tagDentPanel(roundBox(1.62, 0.52, 3.25, paint(color), 0.48, 0.09)));
   g.add(cabin(1.38, 0.68, 1.65, -0.05));
   addLights(g, 1.62, 1.58, -1.58);
   addBumpers(g, 1.62, 1.64, -1.64);
@@ -303,7 +308,7 @@ function buildCompact(color) {
 
 function buildVintage(color) {
   const g = new THREE.Group();
-  const body = roundBox(1.72, 0.68, 3.85, paint(color, 0.35, 0.45), 0.72, 0.12);
+  const body = tagDentPanel(roundBox(1.72, 0.68, 3.85, paint(color, 0.35, 0.45), 0.72, 0.12));
   g.add(body);
   const fenderL = new THREE.Mesh(new THREE.SphereGeometry(0.38, 14, 10), paint(color, 0.3, 0.5));
   fenderL.scale.set(1, 0.55, 1.1);
@@ -322,7 +327,7 @@ function buildVintage(color) {
 
 function buildVan(color) {
   const g = new THREE.Group();
-  g.add(roundBox(1.92, 1.42, 4.05, paint(color), 0.95, 0.08));
+  g.add(tagDentPanel(roundBox(1.92, 1.42, 4.05, paint(color), 0.95, 0.08)));
   const windows = roundBox(1.72, 0.75, 2.85, glass(), 1.38, 0.06);
   windows.position.z = -0.08;
   g.add(windows);

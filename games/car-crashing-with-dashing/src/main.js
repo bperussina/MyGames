@@ -90,7 +90,6 @@ let exitLatch = false;
 
 let activeVehicle = null;
 let driving = false;
-let hurtFlash = 0;
 let lastCarSpec = null;
 let collisionCooldown = 0;
 let danceTime = 0;
@@ -213,9 +212,8 @@ function handleCarCollision(impactSpeed) {
   if (shouldDent(impactSpeed)) {
     addDentToVehicle(activeVehicle, impactSpeed);
     const { huge } = applyCrashBounce(activeVehicle, impactSpeed);
-    hurtFlash = huge ? 0.45 : 0.22;
-    cameraShake = huge ? 0.85 : 0.35;
-    showToast(huge ? 'Huge dent — bounced back!' : 'Hard hit — dented!');
+    cameraShake = huge ? 0.5 : 0.22;
+    showToast(huge ? 'Big dent on the hood!' : 'Dent on the car!');
     collisionCooldown = huge ? 0.55 : 0.4;
   } else {
     activeVehicle.speed *= 0.55;
@@ -621,12 +619,7 @@ function render(delta) {
   }
 
   if (mode === 'comingSoon' || mode === 'world') {
-    if (hurtFlash > 0) {
-      hurtFlash = Math.max(0, hurtFlash - delta);
-      world.renderer.domElement.style.boxShadow = `inset 0 0 ${80 + hurtFlash * 200}px rgba(220,38,38,${hurtFlash * 1.8})`;
-    } else {
-      world.renderer.domElement.style.boxShadow = '';
-    }
+    world.renderer.domElement.style.boxShadow = '';
 
     if (!isGarageVisible()) {
       updateWorldMovement(delta);
