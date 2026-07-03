@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 /** Below this speed, wall taps do nothing. Hard hits leave a visible dent. */
 const DENT_SPEED = 32;
 const HUGE_DENT_SPEED = 40;
@@ -28,7 +26,12 @@ function panelSize(panel) {
   };
 }
 
-/** Pick the largest front body panel so dents land on hood/doors — not buried inside. */
+function smoothstep(edge0, edge1, x) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
+/** Pick the largest front body panel (hood / front body). */
 export function findFrontDentPanel(root) {
   const panels = [];
   root.traverse((child) => {
@@ -38,131 +41,119 @@ export function findFrontDentPanel(root) {
   return panels.reduce((best, panel) => {
     const a = panelSize(best);
     const b = panelSize(panel);
-    return b.width * b.height >= a.width * a.height ? panel : best;
+    return b.width * b.height >= a.width * b.height ? panel : best;
   });
 }
 
-/**
- * Obvious crushed-metal dent sitting ON the car surface — dark bowl, silver crumple lip, scratches.
- */
+function saveOriginalVertices(panel) {
+  if (panel.userData.dentOriginal) return panel.userData.dentOriginal;
+  const pos = panel.geometry?.attributes?.position;
+  if (!pos) return null;
+  panel.userData.dentOriginal = Float32Array.from(pos.array);
+  return panel.userData.dentOriginal;
+}
+
+function restorePanel(panel) {
+  const orig = panel.userData.dentOriginal;
+  const pos = panel.geometry?.attributes?.position;
+  if (!orig || !pos) return;
+  pos.array.set(orig);
+  pos.needsUpdate = true;
+  panel.geometry.computeVertexNormals();
+  if (panel.material?.roughness !== undefined) {
+    panel.material.roughness = panel.userData.baseRoughness ?? panel.material.roughness;
+  }
+}
+
+/** Push panel vertices inward — an actual dent in the mesh, not a sticker on top. */
+function applyDentToPanel(panel, hitX, hitY, severity, huge) {
+  const orig = saveOriginalVertices(panel);
+  const pos = panel.geometry?.attributes?.position;
+  if (!orig || !pos) return;
+
+  const { width, height, depth } = panelSize(panel);
+  const halfD = depth * 0.5;
+  const radius = (huge ? 0.32 : 0.18) + severity * (huge ? 0.14 : 0.1);
+  const maxDepth = (huge ? 0.14 : 0.06) + severity * (huge ? 0.08 : 0.05);
+
+  if (panel.material && panel.userData.baseRoughness === undefined) {
+    panel.userData.baseRoughness = panel.material.roughness ?? 0.2;
+  }
+  if (panel.material?.roughness !== undefined) {
+    panel.material.roughness = Math.min(
+      0.92,
+      (panel.userData.baseRoughness ?? 0.2) + severity * 0.22 + (huge ? 0.12 : 0),
+    );
+  }
+
+  for (let i = 0; i < pos.count; i++) {
+    const ox = orig[i * 3];
+    const oy = orig[i * 3 + 1];
+    const oz = orig[i * 3 + 2];
+
+    const dx = ox - hitX;
+    const dy = oy - hitY;
+    const dist = Math.hypot(dx, dy);
+    if (dist > radius * 1.2) {
+      pos.setXYZ(i, ox, oy, oz);
+      continue;
+    }
+
+    const surface = smoothstep(halfD - 0.35, halfD - 0.02, oz);
+    if (surface <= 0) {
+      pos.setXYZ(i, ox, oy, oz);
+      continue;
+    }
+
+    const falloff = 1 - dist / (radius * 1.2);
+    const bowl = falloff * falloff * maxDepth * surface;
+
+    const crumple = bowl * 0.22;
+    const nx = ox - (dx / (dist + 0.0001)) * crumple;
+    const ny = oy - (dy / (dist + 0.0001)) * crumple;
+    const nz = oz - bowl;
+
+    pos.setXYZ(i, nx, ny, nz);
+  }
+
+  pos.needsUpdate = true;
+  panel.geometry.computeVertexNormals();
+}
+
+function rebuildPanelFromDents(panel, dentRecords) {
+  restorePanel(panel);
+  for (const d of dentRecords) {
+    if (d.panel === panel) {
+      applyDentToPanel(panel, d.hitX, d.hitY, d.severity, d.huge);
+    }
+  }
+}
+
+/** Dent the actual car body mesh — crushed panel, not a floating shape. */
 export function addDentToVehicle(vehicle, impactSpeed) {
   if (!vehicle?.mesh) return;
 
   const severity = dentSeverity(impactSpeed);
   const huge = isHugeDent(impactSpeed);
-  const scale = huge ? 1.7 : 1.1 + severity * 0.75;
-  const radius = (0.34 + severity * 0.3) * scale;
-
   const panel = findFrontDentPanel(vehicle.mesh);
-  const parent = panel ?? vehicle.mesh;
-  const { width, height, depth } = panelSize(panel);
+  if (!panel) return;
 
-  const dent = new THREE.Group();
-  dent.name = 'dent';
-  dent.renderOrder = 2;
+  const { width, height } = panelSize(panel);
+  const hitX = (Math.random() - 0.5) * width * 0.42;
+  const hitY = (Math.random() - 0.5) * height * 0.32;
 
-  const lipMat = new THREE.MeshPhysicalMaterial({
-    color: huge ? 0xd1d5db : 0xb8bec8,
-    metalness: 0.94,
-    roughness: 0.38,
-    clearcoat: 0.45,
-    clearcoatRoughness: 0.2,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-  });
-
-  const craterMat = new THREE.MeshStandardMaterial({
-    color: 0x0a0a0a,
-    metalness: 0.75,
-    roughness: 0.9,
-    polygonOffset: true,
-    polygonOffsetFactor: -2,
-    polygonOffsetUnits: -2,
-  });
-
-  // Crumpled lip bulging outward — easy to spot from the camera
-  const lip = new THREE.Mesh(new THREE.SphereGeometry(radius, 16, 14), lipMat);
-  lip.scale.set(1.25, 0.42 + severity * 0.28, 1.15);
-  lip.position.z = radius * 0.22;
-  lip.castShadow = true;
-  dent.add(lip);
-
-  // Deep black crushed center
-  const bowl = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.78, 14, 12), craterMat);
-  bowl.scale.set(1, 0.28 + severity * 0.18, 1);
-  bowl.position.z = -radius * 0.08;
-  dent.add(bowl);
-
-  // Buckled ring around the impact
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(radius * 0.95, 0.05 + severity * 0.035, 10, 24),
-    lipMat,
-  );
-  ring.rotation.x = Math.PI / 2;
-  ring.position.z = radius * 0.08;
-  dent.add(ring);
-
-  // Silver paint scratches
-  const scratchCount = huge ? 6 : 4;
-  for (let i = 0; i < scratchCount; i++) {
-    const scratch = new THREE.Mesh(
-      new THREE.BoxGeometry(0.045, 0.022, radius * (0.9 + Math.random() * 0.8)),
-      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.85, roughness: 0.3 }),
-    );
-    const angle = (i / scratchCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-    scratch.position.set(
-      Math.cos(angle) * radius * 0.7,
-      Math.sin(angle) * radius * 0.35,
-      radius * 0.12,
-    );
-    scratch.rotation.y = angle;
-    scratch.rotation.x = -0.35 - Math.random() * 0.25;
-    dent.add(scratch);
-  }
-
-  // Fold creases on huge hits
-  if (huge) {
-    for (let i = 0; i < 4; i++) {
-      const crease = new THREE.Mesh(
-        new THREE.BoxGeometry(0.05, 0.025, radius * 1.1),
-        craterMat,
-      );
-      const angle = (i / 4) * Math.PI + 0.4;
-      crease.position.set(Math.cos(angle) * radius * 0.85, Math.sin(angle) * radius * 0.4, 0.05);
-      crease.rotation.y = angle;
-      crease.rotation.x = -0.7;
-      dent.add(crease);
-    }
-  }
-
-  const halfW = width * 0.5;
-  const halfH = height * 0.5;
-  const halfD = depth * 0.5;
-
-  if (panel) {
-    dent.position.set(
-      (Math.random() - 0.5) * halfW * 0.75,
-      (Math.random() - 0.5) * halfH * 0.45,
-      halfD + 0.08,
-    );
-    dent.rotation.y = (Math.random() - 0.5) * 0.2;
-    dent.rotation.x = -0.05 - severity * 0.08;
-  } else {
-    dent.position.set((Math.random() - 0.5) * 0.9, 0.55 + severity * 0.2, 2.05);
-  }
-
-  parent.add(dent);
+  const record = { panel, hitX, hitY, severity, huge };
   if (!vehicle.dents) vehicle.dents = [];
-  vehicle.dents.push(dent);
+  vehicle.dents.push(record);
+
+  rebuildPanelFromDents(panel, vehicle.dents);
   vehicle.damage = (vehicle.damage ?? 0) + (huge ? 35 : 18) + severity * 22;
 }
 
 export function clearDents(vehicle) {
-  if (!vehicle?.dents) return;
-  for (const d of vehicle.dents) {
-    d.parent?.remove(d);
-  }
+  if (!vehicle?.dents?.length) return;
+  const panels = new Set(vehicle.dents.map((d) => d.panel).filter(Boolean));
+  for (const panel of panels) restorePanel(panel);
   vehicle.dents = [];
   vehicle.damage = 0;
 }
