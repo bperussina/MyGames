@@ -294,23 +294,9 @@ export function createLobby(onEnterWorldCallback) {
   const urlCode = new URLSearchParams(window.location.search).get('room');
   if (urlCode) {
     overlay.querySelector('#join-code').value = urlCode;
-    showLobby();
-    let wasHost = null;
-    try {
-      wasHost = sessionStorage.getItem(HOST_KEY);
-    } catch {
-      /* ignore */
-    }
-    if (wasHost && wasHost.toUpperCase() === urlCode.toUpperCase()) {
-      setStatus('Welcome back! Tap Generate Code to re-open your room for friends.');
-    } else {
-      setStatus('Joining from your link…');
-      setTimeout(() => tryJoin({ fromLink: true }), 400);
-    }
-  } else {
-    hideLobby();
-    refreshPeople();
   }
+  hideLobby();
+  refreshPeople();
 
   return overlay;
 }
