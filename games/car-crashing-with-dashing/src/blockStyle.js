@@ -10,20 +10,24 @@ export function rbxPlastic(color = 0x1a1a1a) {
 }
 
 export function rbxChrome() {
-  return new THREE.MeshLambertMaterial({ color: 0xcccccc, flatShading: true });
+  return new THREE.MeshLambertMaterial({ color: 0xdddddd, flatShading: true });
 }
 
 export function rbxRubber() {
   return new THREE.MeshLambertMaterial({ color: 0x141414, flatShading: true });
 }
 
+/** Blue-tinted cabin glass — visible from outside like the reference pictures. */
 export function rbxGlass() {
-  return new THREE.MeshLambertMaterial({
-    color: 0xa8d4f8,
+  const mat = new THREE.MeshLambertMaterial({
+    color: 0x8ec8e8,
     flatShading: true,
     transparent: true,
-    opacity: 0.45,
+    opacity: 0.62,
+    side: THREE.DoubleSide,
+    depthWrite: false,
   });
+  return mat;
 }
 
 export function rbxLens() {
@@ -68,11 +72,15 @@ export function rbxCylinder(radius, height, mat, segments = 8) {
 
 const edgeMat = new THREE.LineBasicMaterial({ color: 0x111111 });
 
-/** Black outline on every sharp edge — classic block-game look. */
+export function markNoEdges(mesh) {
+  mesh.userData.skipBlockEdges = true;
+  return mesh;
+}
+
+/** Black outline on body panels — not on glass. */
 export function addBlockEdges(mesh, thresholdAngle = 12) {
-  if (!mesh?.geometry || mesh.userData.hasBlockEdges) return mesh;
-  const geo = mesh.geometry;
-  const edges = new THREE.EdgesGeometry(geo, thresholdAngle);
+  if (!mesh?.geometry || mesh.userData.hasBlockEdges || mesh.userData.skipBlockEdges) return mesh;
+  const edges = new THREE.EdgesGeometry(mesh.geometry, thresholdAngle);
   const lines = new THREE.LineSegments(edges, edgeMat);
   lines.renderOrder = 1;
   mesh.add(lines);
@@ -90,4 +98,35 @@ export function applyBlockOutlines(root) {
 
 export function rbxDebrisMaterial(color) {
   return new THREE.MeshLambertMaterial({ color, flatShading: true });
+}
+
+/** Glass panel with thin black frame — reads clearly like the reference cars. */
+export function glassPanel(w, h, d, partId, opts = {}) {
+  const group = new THREE.Group();
+  if (partId) tagGlassPart(group, partId, opts);
+
+  const glass = rbxPart(w, h, d, rbxGlass());
+  markNoEdges(glass);
+  glass.renderOrder = 2;
+  group.add(glass);
+
+  const frameT = 0.05;
+  const frameMat = rbxPlastic(0x141414);
+  const top = rbxPart(w + frameT * 2, frameT, d + frameT, frameMat);
+  top.position.y = h / 2 + frameT / 2;
+  const bottom = top.clone();
+  bottom.position.y = -h / 2 - frameT / 2;
+  const left = rbxPart(frameT, h, d, frameMat);
+  left.position.x = -w / 2 - frameT / 2;
+  const right = left.clone();
+  right.position.x = w / 2 + frameT / 2;
+  group.add(top, bottom, left, right);
+
+  return group;
+}
+
+function tagGlassPart(node, partId, opts = {}) {
+  node.userData.carPart = partId;
+  if (opts.detachable !== false) node.userData.detachable = true;
+  return node;
 }

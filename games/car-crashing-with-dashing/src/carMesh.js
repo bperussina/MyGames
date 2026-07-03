@@ -14,6 +14,8 @@ import {
   rbxPart,
   rbxCylinder,
   applyBlockOutlines,
+  glassPanel,
+  markNoEdges,
 } from './blockStyle.js';
 
 function tagPart(node, partId, opts = {}) {
@@ -134,34 +136,93 @@ function addBlockGrille(g, p, fz) {
 
 function addBlockMirrors(g, p, z) {
   for (const [x, id] of [[-p.width * 0.52, 'mirror_l'], [p.width * 0.52, 'mirror_r']]) {
-    const m = tagPart(rbxPart(0.14, 0.1, 0.12, rbxPlastic()), id);
-    m.position.set(x, p.ride + p.cabinH * 0.58, z);
+    const arm = rbxPart(0.06, 0.05, 0.1, rbxPlastic());
+    arm.position.set(x * 0.92, p.ride + p.cabinH * 0.56, z + p.cabinLen * 0.18);
+    g.add(arm);
+    const m = tagPart(rbxPart(0.16, 0.12, 0.1, rbxPlastic()), id);
+    m.position.set(x, p.ride + p.cabinH * 0.58, z + p.cabinLen * 0.22);
     g.add(m);
   }
 }
 
-function addDoorsWindows(g, p, cabinZ) {
-  const col = rbxPaint(p.color);
+function addDoorHandles(g, p, cabinZ) {
   const hw = p.width * 0.5;
-  for (const [x, id] of [[-hw, 'door_l'], [hw, 'door_r']]) {
-    const door = tagPart(rbxPart(0.1, p.cabinH * 0.84, p.cabinLen * 0.46, col), id);
-    door.position.set(x, p.ride + p.cabinH * 0.44, cabinZ);
-    g.add(door);
-    const win = tagPart(rbxPart(0.06, p.cabinH * 0.56, p.cabinLen * 0.38, rbxGlass()), id === 'door_l' ? 'window_l' : 'window_r');
-    win.position.set(x * 0.94, p.ride + p.cabinH * 0.54, cabinZ + 0.02);
-    g.add(win);
+  for (const x of [-hw * 0.88, hw * 0.88]) {
+    const handle = rbxPart(0.14, 0.04, 0.06, rbxChrome());
+    handle.position.set(x, p.ride + p.cabinH * 0.28, cabinZ + p.cabinLen * 0.05);
+    g.add(handle);
   }
 }
 
-function addWindshield(g, p, cabinZ, tilt = -0.4) {
-  const ws = tagPart(rbxPart(p.width * 0.74, p.cabinH * 0.6, 0.1, rbxGlass()), 'windshield');
-  ws.position.set(0, p.ride + p.cabinH * 0.5, cabinZ + p.cabinLen * 0.2);
-  ws.rotation.x = tilt;
+/** Full glass cabin — side windows, windshield, rear glass, pillars (not a solid box). */
+function addGlassCabin(g, p, cabinZ, col) {
+  const W = p.width;
+  const ride = p.ride;
+  const cabinH = p.cabinH ?? 0.82;
+  const cabinLen = p.cabinLen ?? 1.85;
+  const hw = W * 0.5;
+  const lowerH = cabinH * 0.36;
+  const winH = cabinH * 0.46;
+  const winZ = cabinZ;
+  const winLen = cabinLen * 0.74;
+  const winY = ride + lowerH + winH * 0.5 + 0.02;
+
+  const floor = rbxPart(W * 0.86, 0.12, cabinLen * 0.9, rbxPlastic(0x1a1a1a));
+  floor.position.set(0, ride + 0.06, cabinZ);
+  g.add(floor);
+
+  for (const [x, doorId, winId] of [[-hw, 'door_l', 'window_l'], [hw, 'door_r', 'window_r']]) {
+    const rocker = rbxPart(0.14, lowerH, cabinLen * 0.88, col);
+    rocker.position.set(x * 0.9, ride + lowerH * 0.5, cabinZ);
+    g.add(rocker);
+
+    const door = tagPart(rbxPart(0.12, lowerH + winH * 0.15, cabinLen * 0.44, col), doorId);
+    door.position.set(x, ride + lowerH * 0.55, cabinZ);
+    g.add(door);
+
+    const sideWin = glassPanel(0.1, winH, winLen, winId);
+    sideWin.position.set(x * 0.97, winY, winZ);
+    g.add(sideWin);
+
+    const pillar = rbxPart(0.1, cabinH * 0.62, 0.14, col);
+    pillar.position.set(x * 0.9, ride + cabinH * 0.38, cabinZ + cabinLen * 0.38);
+    g.add(pillar);
+    const pillarRear = pillar.clone();
+    pillarRear.position.z = cabinZ - cabinLen * 0.38;
+    g.add(pillarRear);
+  }
+
+  const belt = rbxPart(W * 0.88, 0.05, cabinLen * 0.82, rbxChrome());
+  belt.position.set(0, ride + lowerH + 0.02, cabinZ);
+  g.add(belt);
+
+  const roof = rbxPart(W * 0.84, 0.16, cabinLen * 0.9, col);
+  roof.position.set(0, ride + cabinH * 0.72, cabinZ);
+  g.add(roof);
+
+  const wsTilt = p.upright ? -0.34 : -0.42;
+  const ws = glassPanel(W * 0.72, cabinH * 0.52, 0.12, 'windshield');
+  ws.position.set(0, ride + cabinH * 0.5, cabinZ + cabinLen * 0.34);
+  ws.rotation.x = wsTilt;
   g.add(ws);
-  const rear = rbxPart(p.width * 0.68, p.cabinH * 0.46, 0.08, rbxGlass());
-  rear.position.set(0, p.ride + p.cabinH * 0.48, cabinZ - p.cabinLen * 0.3);
-  rear.rotation.x = 0.36;
+
+  const rear = glassPanel(W * 0.66, cabinH * 0.4, 0.1, 'rear_glass');
+  rear.position.set(0, ride + cabinH * 0.48, cabinZ - cabinLen * 0.36);
+  rear.rotation.x = 0.38;
   g.add(rear);
+
+  for (const x of [-W * 0.22, W * 0.22]) {
+    const quarter = glassPanel(0.08, cabinH * 0.28, 0.1, null);
+    quarter.position.set(x, ride + cabinH * 0.52, cabinZ + cabinLen * 0.42);
+    quarter.rotation.y = x < 0 ? 0.42 : -0.42;
+    g.add(quarter);
+  }
+
+  addDoorHandles(g, p, cabinZ);
+}
+
+function addWindshield(g, p, cabinZ) {
+  addGlassCabin(g, p, cabinZ, rbxPaint(p.color));
 }
 
 function fz(p) {
@@ -203,13 +264,7 @@ function buildReferenceSedan(g, p) {
     g.add(fender);
   }
 
-  const cabinBody = rbxPart(W * 0.92, cabinH * 0.58, cabinLen, col);
-  cabinBody.position.set(0, ride + cabinH * 0.34, cabinZ);
-  g.add(cabinBody);
-
-  const roof = rbxPart(W * 0.86, 0.18, cabinLen * 0.92, col);
-  roof.position.set(0, ride + cabinH * 0.68, cabinZ);
-  g.add(roof);
+  addGlassCabin(g, p, cabinZ, col);
 
   const trunkZ = -L * 0.5 + trunkLen * 0.5 + 0.1;
   const trunk = rbxPart(W * 0.92, trunkH, trunkLen, col);
@@ -220,8 +275,6 @@ function buildReferenceSedan(g, p) {
   addPanelSeam(g, W * 0.94, 0.05, 0.08, 0, ride + cabinH * 0.12, cabinZ + cabinLen * 0.5 + 0.02);
   addPanelSeam(g, W * 0.94, 0.05, 0.08, 0, ride + 0.04, trunkZ + trunkLen * 0.5 + 0.02);
 
-  addWindshield(g, p, cabinZ, p.upright ? -0.34 : -0.4);
-  addDoorsWindows(g, p, cabinZ);
   addBlockGrille(g, p, frontZ);
   addBlockLights(g, p, frontZ + 0.04, rearZ);
   addBlockBumpers(g, p, frontZ + 0.1, rearZ - 0.1);
@@ -284,8 +337,7 @@ function buildBlockCar(p) {
 
   if (p.bodyShape === 'round') {
     buildRoundBody(g, p, col);
-    addWindshield(g, p, cabinZ, -0.38);
-    addDoorsWindows(g, p, cabinZ);
+    addGlassCabin(g, p, cabinZ, col);
     addBlockGrille(g, p, frontZ);
     addBlockLights(g, p, frontZ + 0.04, rearZ);
     addBlockBumpers(g, p, frontZ + 0.1, rearZ - 0.1);
@@ -309,13 +361,9 @@ function buildBlockCar(p) {
     g.add(fender);
   }
 
-  const cabinBody = rbxPart(W * 0.92, cabinH * 0.56, cabinLen, col);
+  const cabinBody = rbxPart(W * 0.24, cabinH * 0.5, cabinLen * 0.85, col);
   cabinBody.position.set(0, ride + cabinH * 0.34, cabinZ);
   g.add(cabinBody);
-
-  const roof = rbxPart(W * 0.86, 0.18, cabinLen * 0.9, col);
-  roof.position.set(0, ride + cabinH * 0.66, cabinZ);
-  g.add(roof);
 
   addPanelSeam(g, W * 0.94, 0.05, 0.08, 0, ride + 0.08, hoodZ - hoodLen * 0.5 - 0.02);
   addPanelSeam(g, W * 0.94, 0.05, 0.08, 0, ride + cabinH * 0.3, cabinZ + cabinLen * 0.5 + 0.02);
@@ -361,12 +409,22 @@ function buildBlockCar(p) {
   }
 
   if (p.bodyShape === 'box-suv' || p.upright || p.style === 'suv' || p.bodyShape === 'ev-suv' || p.bodyShape === 'luxury-suv') {
-    const tall = rbxPart(W * 0.94, cabinH * 0.7, cabinLen * 1.08, col);
-    tall.position.set(0, ride + cabinH * 0.42, cabinZ);
+    const tall = rbxPart(W * 0.22, cabinH * 0.65, cabinLen * 1.05, col);
+    tall.position.set(0, ride + cabinH * 0.4, cabinZ);
     g.add(tall);
-    const boxRoof = rbxPart(W * 0.88, 0.2, cabinLen * 0.95, col);
-    boxRoof.position.set(0, ride + cabinH * 0.8, cabinZ);
-    g.add(boxRoof);
+    const winH = cabinH * 0.55;
+    for (const [x, id] of [[-W * 0.5, 'window_l'], [W * 0.5, 'window_r']]) {
+      const suvWin = glassPanel(0.12, winH, cabinLen * 0.88, id);
+      suvWin.position.set(x * 0.97, ride + cabinH * 0.48, cabinZ);
+      g.add(tagPart(suvWin, id));
+    }
+    const suvRoof = rbxPart(W * 0.88, 0.2, cabinLen * 0.95, col);
+    suvRoof.position.set(0, ride + cabinH * 0.82, cabinZ);
+    g.add(suvRoof);
+    const ws = glassPanel(W * 0.76, cabinH * 0.42, 0.12, 'windshield');
+    ws.position.set(0, ride + cabinH * 0.55, cabinZ + cabinLen * 0.38);
+    ws.rotation.x = -0.32;
+    g.add(tagPart(ws, 'windshield'));
   }
 
   if (p.bed || p.bodyShape === 'truck' || p.bodyShape === 'ev-truck') {
@@ -386,16 +444,29 @@ function buildBlockCar(p) {
   }
 
   if (p.bodyShape === 'flat-van' || p.style === 'van') {
-    const van = tagPart(rbxPart(W * 0.94, cabinH * 1.2, L * 0.84, col), 'body', { dentPanel: true });
-    van.position.set(0, ride + cabinH * 0.62, -0.05);
-    g.add(van);
+    const vanLower = rbxPart(W * 0.94, cabinH * 0.45, L * 0.82, col);
+    vanLower.position.set(0, ride + cabinH * 0.28, -0.05);
+    g.add(vanLower);
+    const vanRoof = tagPart(rbxPart(W * 0.92, 0.2, L * 0.8, col), 'body', { dentPanel: true });
+    vanRoof.position.set(0, ride + cabinH * 0.78, -0.05);
+    g.add(vanRoof);
+    for (const [x, id] of [[-W * 0.5, 'window_l'], [W * 0.5, 'window_r']]) {
+      const vWin = glassPanel(0.12, cabinH * 0.72, L * 0.62, id);
+      vWin.position.set(x * 0.97, ride + cabinH * 0.52, -0.05);
+      g.add(tagPart(vWin, id));
+    }
     if (p.splitWindshield) {
       for (const [x, ry] of [[-W * 0.2, 0.14], [W * 0.2, -0.14]]) {
-        const sw = tagPart(rbxPart(W * 0.36, cabinH * 0.54, 0.1, rbxGlass()), 'windshield');
-        sw.position.set(x, ride + cabinH * 0.6, frontZ - 0.18);
+        const sw = glassPanel(W * 0.34, cabinH * 0.48, 0.12, 'windshield');
+        sw.position.set(x, ride + cabinH * 0.56, frontZ - 0.16);
         sw.rotation.y = ry;
-        g.add(sw);
+        g.add(tagPart(sw, 'windshield'));
       }
+    } else {
+      const vws = glassPanel(W * 0.7, cabinH * 0.5, 0.12, 'windshield');
+      vws.position.set(0, ride + cabinH * 0.54, frontZ - 0.12);
+      vws.rotation.x = -0.2;
+      g.add(tagPart(vws, 'windshield'));
     }
   }
 
@@ -405,15 +476,14 @@ function buildBlockCar(p) {
     g.add(spare);
   }
 
-  addWindshield(g, p, cabinZ, p.upright ? -0.34 : -0.4);
-  if (!p.splitWindshield) addDoorsWindows(g, p, cabinZ);
-  else {
-    for (const [x, id] of [[-W * 0.5, 'door_l'], [W * 0.5, 'door_r']]) {
-      const door = tagPart(rbxPart(0.1, cabinH * 0.88, cabinLen * 0.55, col), id);
-      door.position.set(x, ride + cabinH * 0.47, cabinZ);
-      g.add(door);
-    }
+  const hasCustomGlass = p.bodyShape === 'box-suv' || p.upright || p.style === 'suv'
+    || p.bodyShape === 'ev-suv' || p.bodyShape === 'luxury-suv'
+    || p.bodyShape === 'flat-van' || p.style === 'van';
+
+  if (!hasCustomGlass) {
+    addGlassCabin(g, p, cabinZ, col);
   }
+
   addBlockGrille(g, p, frontZ);
   addBlockLights(g, p, frontZ + 0.04, rearZ);
   addBlockBumpers(g, p, frontZ + 0.1, rearZ - 0.1);
@@ -505,10 +575,16 @@ function buildBlockCybertruck(p) {
     g.add(sail);
   }
 
-  const ws = tagPart(rbxPart(1.75, 0.32, 1.15, rbxGlass()), 'windshield');
+  const ws = glassPanel(1.75, 0.32, 1.15, 'windshield');
   ws.position.set(0, 1.12, 0.55);
   ws.rotation.x = -0.42;
-  g.add(ws);
+  g.add(tagPart(ws, 'windshield'));
+
+  for (const [x, id] of [[-1.02, 'window_l'], [1.02, 'window_r']]) {
+    const side = glassPanel(0.1, 0.55, 1.8, id);
+    side.position.set(x, 1.05, -0.2);
+    g.add(tagPart(side, id));
+  }
 
   const bedFloor = rbxPart(2.12, 0.18, 2.15, dark);
   bedFloor.position.set(0, 0.52, -1.75);
