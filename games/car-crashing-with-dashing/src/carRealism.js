@@ -44,6 +44,43 @@ export function buildCockpit(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
   return cockpit;
 }
 
+/** Engine block visible when the hood tears off in a crash. */
+export function buildEngineBay(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
+  const engine = new THREE.Group();
+  engine.name = 'engine';
+  engine.userData.carPart = 'engine';
+  engine.userData.detachable = false;
+
+  const block = new THREE.Mesh(
+    new THREE.BoxGeometry(0.72, 0.42, 0.85),
+    new THREE.MeshStandardMaterial({ color: 0x3a3a42, metalness: 0.75, roughness: 0.45 }),
+  );
+  block.position.y = 0.21;
+  block.castShadow = true;
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.55, 0.22, 0.48),
+    new THREE.MeshStandardMaterial({ color: 0x2a2a32, metalness: 0.8, roughness: 0.35 }),
+  );
+  head.position.set(0, 0.48, 0.12);
+  const manifold = new THREE.Mesh(
+    new THREE.BoxGeometry(0.62, 0.08, 0.35),
+    new THREE.MeshStandardMaterial({ color: 0x555560, metalness: 0.85, roughness: 0.3 }),
+  );
+  manifold.position.set(0, 0.38, -0.22);
+  for (const x of [-0.18, 0.18]) {
+    const cyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 0.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x4a4a55, metalness: 0.7, roughness: 0.4 }),
+    );
+    cyl.position.set(x, 0.52, 0.05);
+    engine.add(cyl);
+  }
+  engine.add(block, head, manifold);
+  engine.position.set(0.02, seat.y - 0.42, seat.z + 0.55);
+  group.add(engine);
+  return engine;
+}
+
 export function prepareWheels(group) {
   const wheels = group.userData.wheels ?? [];
   for (const w of wheels) {

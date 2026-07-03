@@ -239,6 +239,68 @@
         display: none !important;
       }
 
+      #damage-hud {
+        position: fixed;
+        left: 10px;
+        bottom: 10px;
+        z-index: 42;
+        width: min(42vw, 168px);
+        padding: 8px 10px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        border-radius: 8px;
+        font-size: 8px;
+        color: #e2e8f0;
+        pointer-events: none;
+      }
+
+      #damage-hud[hidden] {
+        display: none !important;
+      }
+
+      .dmg-title {
+        margin: 0 0 6px;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #f87171;
+      }
+
+      .dmg-row {
+        display: grid;
+        grid-template-columns: 38px 1fr 26px;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 3px;
+      }
+
+      .dmg-label {
+        font-size: 7px;
+        font-weight: 700;
+        color: #94a3b8;
+      }
+
+      .dmg-track {
+        height: 5px;
+        background: #1e293b;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .dmg-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.2s;
+      }
+
+      .dmg-pct {
+        font-size: 7px;
+        font-weight: 800;
+        text-align: right;
+        color: #cbd5e1;
+      }
+
       .controls-title {
         margin: 0 0 4px;
         font-size: 8px;
@@ -917,7 +979,7 @@
       }
 
     </style>
-    <script type="module" crossorigin src="./assets/index-Duukpuga.js"></script>
+    <script type="module" crossorigin src="./assets/index-DvGkJKwL.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>
@@ -925,6 +987,7 @@
       <p class="controls-title">How to play</p>
       <div id="controls-body"></div>
     </div>
+    <div id="damage-hud" hidden></div>
     <div id="hud" hidden></div>
     <div id="map-hint" hidden></div>
     <div id="room-banner" hidden></div>

@@ -20,6 +20,7 @@ import {
   loadBindings,
 } from './controllerMap.js';
 import { refreshControlsHud, setControlsHudVisible } from './controlsHud.js';
+import { refreshDamageHud, setDamageHudVisible } from './damageHud.js';
 import { createTouchControls } from './touchControls.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
@@ -138,6 +139,7 @@ let toastTimer = 0;
 
 const toastEl = document.getElementById('action-toast');
 const controlsHudEl = document.getElementById('controls-hud');
+const damageHudEl = document.getElementById('damage-hud');
 const roomBannerEl = document.getElementById('room-banner');
 
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
@@ -239,12 +241,15 @@ function spawnCarFromGarage(spec) {
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   refreshControlsHud(controlsHudEl, { driving: true });
+  setDamageHudVisible(damageHudEl, true);
+  refreshDamageHud(damageHudEl, activeVehicle);
 }
 
 function handleCarCollision(impactSpeed) {
   if (!activeVehicle || collisionCooldown > 0) return;
 
   handleCrash(activeVehicle, world.scene, impactSpeed, crashDebris);
+  refreshDamageHud(damageHudEl, activeVehicle);
 
   if (shouldDent(impactSpeed)) {
     applyCrashBounce(activeVehicle, impactSpeed);
@@ -265,6 +270,7 @@ function exitCar() {
   syncPlayerMesh(player);
   world.updateCamera(player.x, player.z, player.facing);
   refreshControlsHud(controlsHudEl, { driving: false });
+  setDamageHudVisible(damageHudEl, false);
   showToast('Exited vehicle');
 }
 
@@ -511,6 +517,7 @@ function updateWorldMovement(delta) {
 
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
+    refreshDamageHud(damageHudEl, activeVehicle);
     world.updateWorld(activeVehicle.x, activeVehicle.z);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY, cameraShake);
     handlePadActions(pad);

@@ -8,6 +8,50 @@ const HEADLIGHT_BREAK_SPEED = 18;
 
 export { DENT_SPEED, SCOOP_SPEED };
 
+export function createDefaultPartHealth() {
+  return {
+    engine: 100,
+    body: 100,
+    hood: 100,
+    windshield: 100,
+    wheel_fl: 100,
+    wheel_fr: 100,
+    wheel_rl: 100,
+    wheel_rr: 100,
+  };
+}
+
+function findPartById(root, partId) {
+  let found = null;
+  root.traverse((child) => {
+    if (child.userData?.carPart === partId && !child.userData.detached) found = child;
+  });
+  return found;
+}
+
+function damagePartHealth(vehicle, partId, amount) {
+  if (!vehicle.partHealth) vehicle.partHealth = createDefaultPartHealth();
+  const h = vehicle.partHealth;
+  const map = {
+    headlight: 'body',
+    grille: 'body',
+    bumper_front: 'body',
+    hood: 'hood',
+    windshield: 'windshield',
+    door_l: 'body',
+    door_r: 'body',
+    wheel_fl: 'wheel_fl',
+    wheel_fr: 'wheel_fr',
+    wheel_rl: 'wheel_rl',
+    wheel_rr: 'wheel_rr',
+  };
+  const key = map[partId] ?? 'body';
+  if (h[key] != null) h[key] = Math.max(0, h[key] - amount);
+  if (partId === 'hood' || partId === 'bumper_front' || partId === 'grille') {
+    h.engine = Math.max(0, h.engine - amount * 0.45);
+  }
+}
+
 export function shouldDent(speed) {
   return Math.abs(speed) >= DENT_SPEED;
 }
@@ -134,32 +178,182 @@ function isFrontPart(part, root) {
   return local.z > 0.15;
 }
 
+function shatterGlass(part, severity = 0.5) {
+  if (!part || part.userData.shattered) return;
+  part.userData.shattered = true;
+  const crackMat = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+  });
+  const cracks = new THREE.Group();
+  cracks.name = 'cracks';
+  const count = 10 + Math.floor(severity * 16);
+  for (let i = 0; i < count; i++) {
+    const line = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.15 + Math.random() * 0.55, 0.012 + Math.random() * 0.02),
+      crackMat,
+    );
+    line.position.set((Math.random() - 0.5) * 1.4, (Math.random() - 0.5) * 0.9, 0.03 + Math.random() * 0.02);
+    line.rotation.z = Math.random() * Math.PI;
+    cracks.add(line);
+  }
+  part.add(cracks);
+  if (part.material && !Array.isArray(part.material)) {
+    part.material = part.material.clone();
+    part.material.opacity = Math.min(part.material.opacity ?? 0.4, 0.35);
+    part.material.transmission = 0.25;
+    part.material.needsUpdate = true;
+  }
+}
+
+function hangDoorOpen(part, side = 1) {
+  if (!part || part.userData.hung || part.userData.detached) return;
+  part.userData.hung = true;
+  part.rotation.y = side * (0.55 + Math.random() * 0.35);
+  part.position.x += side * 0.08;
+}
+
+function spawnVoxelScoop(scene, vehicle, panel, hitX, hitY, severity, impactSpeed, debris) {
+  if (!panel?.geometry) return;
+  const bounds = boundsFromOrig(saveOriginalVertices(panel));
+  const outerZ = bounds.maxZ;
+  const span = 0.28 + severity * 0.42;
+  const grid = 5 + Math.floor(severity * 4);
+  const baseColor = new THREE.Color(vehicle.spec?.color ?? 0xb8bdc4);
+  const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.rotY);
+  const local = new THREE.Vector3();
+  const speed = Math.abs(impactSpeed);
+
+  for (let ix = 0; ix < grid; ix++) {
+    for (let iy = 0; iy < grid; iy++) {
+      const u = (ix / (grid - 1) - 0.5) * 2;
+      const v = (iy / (grid - 1) - 0.5) * 2;
+      const dist = Math.hypot(u, v);
+      if (dist > 1) continue;
+      const core = 1 - dist;
+      if (core < 0.25 && Math.random() > severity * 0.85) continue;
+
+      local.set(hitX + u * span, hitY + v * span * 0.85, outerZ);
+      panel.localToWorld(local);
+
+      const sx = 0.07 + Math.random() * 0.11;
+      const sy = 0.05 + Math.random() * 0.08;
+      const sz = 0.06 + Math.random() * 0.1;
+      const mat = new THREE.MeshStandardMaterial({
+        color: baseColor.clone().lerp(new THREE.Color(0x666666), 0.2 + Math.random() * 0.35),
+        metalness: 0.55 + Math.random() * 0.3,
+        roughness: 0.35 + Math.random() * 0.25,
+      });
+      const voxel = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
+      voxel.position.copy(local);
+      voxel.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      scene.add(voxel);
+
+      const vel = forward
+        .clone()
+        .multiplyScalar(2 + speed * 0.05 * core)
+        .add(new THREE.Vector3((Math.random() - 0.5) * 3, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 2));
+      debris.push({
+        mesh: voxel,
+        vel,
+        life: 5 + Math.random() * 2,
+        bounce: 0.28,
+        spin: new THREE.Vector3((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10),
+      });
+    }
+  }
+}
+
+function carvePanelHole(panel, hitX, hitY, severity) {
+  const orig = saveOriginalVertices(panel);
+  const pos = panel.geometry?.attributes?.position;
+  if (!orig || !pos) return;
+  const span = 0.25 + severity * 0.4;
+  const innerZ = boundsFromOrig(orig).minZ;
+  for (let i = 0; i < pos.count; i++) {
+    const ox = orig[i * 3];
+    const oy = orig[i * 3 + 1];
+    const oz = orig[i * 3 + 2];
+    const dist = Math.hypot(ox - hitX, oy - hitY);
+    if (dist > span) continue;
+    const t = 1 - dist / span;
+    if (t > 0.55 + severity * 0.25) {
+      pos.setXYZ(i, hitX + (ox - hitX) * 0.15, hitY + (oy - hitY) * 0.15, innerZ - 0.02);
+    }
+  }
+  pos.needsUpdate = true;
+  panel.geometry.computeVertexNormals();
+}
+
 function detachFrontImpactParts(vehicle, scene, impactSpeed, debris) {
   const speed = Math.abs(impactSpeed);
   if (speed < HEADLIGHT_BREAK_SPEED) return;
 
   const root = vehicle.mesh;
-  root.updateWorldMatrix(true, true);
-  const parts = collectDetachableParts(root)
-    .filter((p) => isFrontPart(p, root))
-    .sort((a, b) => partPriority(b) - partPriority(a) || b.position.z - a.position.z);
+  const severity = dentSeverity(impactSpeed);
+  const tryDetach = (partId, minSpeed, dmg = 18) => {
+    if (speed < minSpeed) return false;
+    const part = findPartById(root, partId);
+    if (!part) return false;
+    detachPart(vehicle, scene, part, impactSpeed, debris);
+    damagePartHealth(vehicle, partId, dmg + severity * 22);
+    return true;
+  };
 
-  const headlights = parts.filter((p) => p.userData.carPart === 'headlight');
+  const headlights = collectDetachableParts(root).filter((p) => p.userData.carPart === 'headlight');
   for (const lamp of headlights) {
     detachPart(vehicle, scene, lamp, impactSpeed, debris);
+    damagePartHealth(vehicle, 'headlight', 10);
   }
 
-  let budget = speed >= SCOOP_SPEED ? 4 : speed >= PART_FLY_SPEED ? 3 : speed >= DENT_SPEED ? 2 : 1;
-  for (const part of parts) {
+  if (speed >= DENT_SPEED - 4) {
+    tryDetach('bumper_front', DENT_SPEED - 4, 15);
+    tryDetach('grille', DENT_SPEED - 2, 12);
+  }
+
+  const windshield = findPartById(root, 'windshield');
+  if (windshield && speed >= DENT_SPEED - 6) {
+    shatterGlass(windshield, severity);
+    damagePartHealth(vehicle, 'windshield', 20 + severity * 30);
+  }
+  if (windshield && speed >= PART_FLY_SPEED) {
+    tryDetach('windshield', PART_FLY_SPEED, 35);
+  }
+
+  if (speed >= DENT_SPEED) {
+    tryDetach('hood', DENT_SPEED, 25);
+  }
+
+  if (speed >= PART_FLY_SPEED + 4) {
+    const doorL = findPartById(root, 'door_l');
+    const doorR = findPartById(root, 'door_r');
+    if (doorL && !doorL.userData.detached && Math.random() < 0.7) {
+      if (speed >= SCOOP_SPEED) tryDetach('door_l', SCOOP_SPEED, 20);
+      else hangDoorOpen(doorL, -1);
+    }
+    if (doorR && !doorR.userData.detached && Math.random() < 0.7) {
+      if (speed >= SCOOP_SPEED) tryDetach('door_r', SCOOP_SPEED, 20);
+      else hangDoorOpen(doorR, 1);
+    }
+  }
+
+  if (speed >= SCOOP_SPEED) {
+    for (const id of ['wheel_fl', 'wheel_fr']) {
+      if (Math.random() < 0.35 + severity * 0.25) tryDetach(id, SCOOP_SPEED, 30);
+    }
+  }
+
+  let budget = speed >= SCOOP_SPEED ? 3 : speed >= PART_FLY_SPEED ? 2 : 0;
+  const extras = collectDetachableParts(root)
+    .filter((p) => isFrontPart(p, root))
+    .sort((a, b) => partPriority(b) - partPriority(a));
+  for (const part of extras) {
     if (budget <= 0) break;
     if (part.userData.detached) continue;
-    const id = part.userData.carPart ?? '';
-    if (id === 'headlight') continue;
-    const need = id === 'grille' || id === 'bumper_front' ? DENT_SPEED
-      : id === 'hood' ? DENT_SPEED + 2
-      : PART_FLY_SPEED;
-    if (speed < need) continue;
     detachPart(vehicle, scene, part, impactSpeed, debris);
+    damagePartHealth(vehicle, part.userData.carPart ?? 'body', 15);
     budget--;
   }
 }
@@ -406,6 +600,7 @@ function detachPart(vehicle, scene, part, impactSpeed, debris) {
 
   const speed = Math.abs(impactSpeed);
   const id = part.userData.carPart ?? '';
+  damagePartHealth(vehicle, id, 12 + speed * 0.35);
   const forward = new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), vehicle.rotY);
   const vel = forward
     .clone()
@@ -445,8 +640,12 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
       if (!vehicle.dents) vehicle.dents = [];
       vehicle.dents.push(record);
       rebuildPanel(panel, vehicle.dents);
+      carvePanelHole(panel, hitX, hitY, severity);
+      spawnVoxelScoop(scene, vehicle, panel, hitX, hitY, severity, impactSpeed, debris);
       vehicle.damage = (vehicle.damage ?? 0) + 35 + severity * 40;
-      if (severity > 0.35) spawnScoopDebris(scene, vehicle, origin, severity, debris);
+      if (!vehicle.partHealth) vehicle.partHealth = createDefaultPartHealth();
+      vehicle.partHealth.body = Math.max(0, vehicle.partHealth.body - 15 - severity * 35);
+      vehicle.partHealth.engine = Math.max(0, vehicle.partHealth.engine - severity * 20);
     }
     if (speed >= SCOOP_SPEED) spawnSparks(scene, origin, 8 + Math.floor(severity * 8), debris);
   }
@@ -499,4 +698,5 @@ export function clearDents(vehicle) {
   for (const panel of panels) restorePanel(panel);
   vehicle.dents = [];
   vehicle.damage = 0;
+  vehicle.partHealth = createDefaultPartHealth();
 }

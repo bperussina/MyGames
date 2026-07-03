@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { getCarProfile } from './carProfiles.js';
-import { buildCockpit, prepareWheels, applyEnvironmentToCar } from './carRealism.js';
+import { buildCockpit, buildEngineBay, prepareWheels, applyEnvironmentToCar } from './carRealism.js';
 
 function paint(color, metal = 0.78, rough = 0.16) {
   return new THREE.MeshPhysicalMaterial({
@@ -112,6 +112,7 @@ function finalizeCar(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
     group.userData.wheels = found;
   }
   buildCockpit(group, seat);
+  buildEngineBay(group, seat);
   prepareWheels(group);
   return group;
 }
