@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-const WORLD_HALF = 80;
+export const WORLD_HALF = 108;
 
 function buildingMat(hue) {
   return new THREE.MeshStandardMaterial({
@@ -20,6 +20,52 @@ function windowMat() {
   });
 }
 
+function buildGateway(group, axisZ, zPos, xPos = 0) {
+  const gate = new THREE.Group();
+  gate.name = 'city-gateway';
+  const stone = new THREE.MeshStandardMaterial({ color: 0x8b9298, roughness: 0.82, metalness: 0.12 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0xc5cdd4, roughness: 0.55, metalness: 0.25 });
+  const pillarH = 32;
+  const pillarW = 7;
+  const span = 42;
+  const depth = 8;
+
+  for (const x of [-span / 2 + pillarW / 2, span / 2 - pillarW / 2]) {
+    const pillar = new THREE.Mesh(new THREE.BoxGeometry(pillarW, pillarH, depth), stone);
+    pillar.position.set(x, pillarH / 2, 0);
+    pillar.castShadow = true;
+    gate.add(pillar);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(pillarW + 1.2, 2.5, depth + 1), trim);
+    cap.position.set(x, pillarH + 1.2, 0);
+    gate.add(cap);
+  }
+
+  const lintel = new THREE.Mesh(new THREE.BoxGeometry(span, 5, depth + 1.5), stone);
+  lintel.position.set(0, pillarH - 1.5, 0);
+  lintel.castShadow = true;
+  gate.add(lintel);
+
+  const top = new THREE.Mesh(new THREE.BoxGeometry(span + 6, 4, depth + 2), trim);
+  top.position.set(0, pillarH + 3, 0);
+  gate.add(top);
+
+  const sign = new THREE.Mesh(
+    new THREE.BoxGeometry(span * 0.55, 3.5, 0.4),
+    new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x14532d, emissiveIntensity: 0.35 }),
+  );
+  sign.position.set(0, pillarH + 3, depth / 2 + 0.3);
+  gate.add(sign);
+
+  if (axisZ) {
+    gate.position.set(xPos, 0, zPos);
+  } else {
+    gate.rotation.y = Math.PI / 2;
+    gate.position.set(xPos, 0, zPos);
+  }
+
+  group.add(gate);
+}
+
 export function buildCity(scene) {
   const group = new THREE.Group();
   group.name = 'city';
@@ -33,8 +79,15 @@ export function buildCity(scene) {
   asphalt.receiveShadow = true;
   group.add(asphalt);
 
-  // Road markings
-  for (let i = -3; i <= 3; i++) {
+  const curbRing = new THREE.Mesh(
+    new THREE.RingGeometry(WORLD_HALF - 4, WORLD_HALF, 64),
+    new THREE.MeshStandardMaterial({ color: '#6b7280', roughness: 0.85 }),
+  );
+  curbRing.rotation.x = -Math.PI / 2;
+  curbRing.position.y = 0.03;
+  group.add(curbRing);
+
+  for (let i = -5; i <= 5; i++) {
     const stripeH = new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD_HALF * 2, 0.35),
       new THREE.MeshStandardMaterial({ color: '#d4d4d8' }),
@@ -57,16 +110,17 @@ export function buildCity(scene) {
   };
   const rand = rng(42);
 
-  for (let gx = -3; gx <= 3; gx++) {
-    for (let gz = -3; gz <= 3; gz++) {
-      if (gx === 0 && gz === 0) continue; // spawn plaza at center
-      const cx = gx * 22 + (rand() - 0.5) * 4;
-      const cz = gz * 22 + (rand() - 0.5) * 4;
-      if (Math.abs(cx) < 8 && Math.abs(cz) < 8) continue;
+  for (let gx = -5; gx <= 5; gx++) {
+    for (let gz = -5; gz <= 5; gz++) {
+      if (gx === 0 && gz === 0) continue;
+      const cx = gx * 20 + (rand() - 0.5) * 5;
+      const cz = gz * 20 + (rand() - 0.5) * 5;
+      if (Math.abs(cx) < 10 && Math.abs(cz) < 10) continue;
+      if (Math.abs(cx) > WORLD_HALF - 18 || Math.abs(cz) > WORLD_HALF - 18) continue;
 
-      const w = 8 + rand() * 6;
-      const d = 8 + rand() * 6;
-      const h = 6 + rand() * 22;
+      const w = 8 + rand() * 8;
+      const d = 8 + rand() * 8;
+      const h = 8 + rand() * 28;
       const hue = 0.55 + rand() * 0.12;
 
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), buildingMat(hue));
@@ -83,19 +137,13 @@ export function buildCity(scene) {
       curb.receiveShadow = true;
       group.add(curb);
 
-      // Windows
       const rows = Math.floor(h / 2.5);
       const cols = Math.floor(w / 2.2);
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           if (rand() > 0.72) continue;
           const win = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.4), windowMat());
-          win.position.set(
-            cx - w / 2 + 1.2 + c * 2.2,
-            1.5 + r * 2.5,
-            cz + d / 2 + 0.06,
-          );
-          win.rotation.y = 0;
+          win.position.set(cx - w / 2 + 1.2 + c * 2.2, 1.5 + r * 2.5, cz + d / 2 + 0.06);
           group.add(win);
         }
       }
@@ -110,9 +158,17 @@ export function buildCity(scene) {
     }
   }
 
+  const gateZ = WORLD_HALF - 22;
+  const gateX = WORLD_HALF - 22;
+  buildGateway(group, true, gateZ, 0);
+  buildGateway(group, true, -gateZ, 0);
+  buildGateway(group, false, 0, gateX);
+  buildGateway(group, false, 0, -gateX);
+
   scene.add(group);
 
   function checkCarCollision(x, z) {
+    if (Math.abs(x) > WORLD_HALF || Math.abs(z) > WORLD_HALF) return null;
     const hw = 1.15;
     const hd = 2.25;
     for (const b of colliders) {
@@ -123,5 +179,9 @@ export function buildCity(scene) {
     return null;
   }
 
-  return { group, colliders, checkCarCollision, worldHalf: WORLD_HALF };
+  function isInCity(x, z) {
+    return Math.abs(x) <= WORLD_HALF && Math.abs(z) <= WORLD_HALF;
+  }
+
+  return { group, colliders, checkCarCollision, isInCity, worldHalf: WORLD_HALF };
 }

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { getMouseLookOffset } from './mouseLook.js';
 import { buildCity } from './city.js';
+import { buildCountryside } from './countryside.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 export function createScene3d(parent = document.body) {
@@ -19,15 +20,15 @@ export function createScene3d(parent = document.body) {
   parent.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#87a8c4');
-  scene.fog = new THREE.Fog('#9eb4c8', 65, 145);
+  scene.background = new THREE.Color('#87c4a8');
+  scene.fog = new THREE.Fog('#9ec8a8', 80, 320);
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = envTex;
   pmrem.dispose();
 
-  const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 220);
+  const camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 800);
 
   const hemi = new THREE.HemisphereLight('#dce8ff', '#3d4a5c', 0.55);
   scene.add(hemi);
@@ -36,10 +37,10 @@ export function createScene3d(parent = document.body) {
   sun.position.set(30, 48, 18);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -60;
-  sun.shadow.camera.right = 60;
-  sun.shadow.camera.top = 60;
-  sun.shadow.camera.bottom = -60;
+  sun.shadow.camera.left = -120;
+  sun.shadow.camera.right = 120;
+  sun.shadow.camera.top = 120;
+  sun.shadow.camera.bottom = -120;
   sun.shadow.bias = -0.00015;
   sun.shadow.normalBias = 0.02;
   scene.add(sun);
@@ -53,6 +54,8 @@ export function createScene3d(parent = document.body) {
   scene.add(rim);
 
   const city = buildCity(scene);
+  const countryside = buildCountryside(scene);
+  countryside.update(0, 0);
 
   const camSmooth = { x: 0, z: 0, lookY: 1.05 };
   let cameraYaw = 0;
@@ -114,11 +117,22 @@ export function createScene3d(parent = document.body) {
   }
 
   function clampPosition(x, z) {
-    const h = city.worldHalf - 2;
+    const limit = 500000;
     return {
-      x: Math.max(-h, Math.min(h, x)),
-      z: Math.max(-h, Math.min(h, z)),
+      x: Math.max(-limit, Math.min(limit, x)),
+      z: Math.max(-limit, Math.min(limit, z)),
     };
+  }
+
+  function updateWorld(x, z) {
+    countryside.update(x, z);
+    const inCity = city.isInCity(x, z);
+    scene.background.set(inCity ? '#87a8c4' : '#8fd498');
+    if (scene.fog) {
+      scene.fog.color.set(inCity ? '#9eb4c8' : '#a8dcb0');
+      scene.fog.near = inCity ? 80 : 100;
+      scene.fog.far = inCity ? 280 : 420;
+    }
   }
 
   return {
@@ -126,6 +140,7 @@ export function createScene3d(parent = document.body) {
     camera,
     renderer,
     city,
+    countryside,
     envTex,
     show,
     hide,
@@ -133,6 +148,7 @@ export function createScene3d(parent = document.body) {
     render,
     updateCamera,
     updateDrivingCamera,
+    updateWorld,
     clampPosition,
     worldHalf: city.worldHalf,
   };

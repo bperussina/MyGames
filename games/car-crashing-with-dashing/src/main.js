@@ -511,6 +511,7 @@ function updateWorldMovement(delta) {
 
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
+    world.updateWorld(activeVehicle.x, activeVehicle.z);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY, cameraShake);
     handlePadActions(pad);
 
@@ -531,6 +532,7 @@ function updateWorldMovement(delta) {
   player.z = clamped.z;
 
   syncPlayerMesh(player);
+  world.updateWorld(player.x, player.z);
   world.updateCamera(player.x, player.z, player.facing);
   remotePlayers.lerpAll(delta);
 
