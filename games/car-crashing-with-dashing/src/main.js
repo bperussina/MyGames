@@ -52,6 +52,37 @@ import {
 } from './drawPaper.js';
 import { initMouseLook } from './mouseLook.js';
 
+const BUILD_KEY = 'ccwd-build';
+
+function watchForGameUpdates() {
+  if (!import.meta.env.PROD) return;
+  const host = location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return;
+
+  const check = async () => {
+    try {
+      const res = await fetch(`./version.json?_=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const { v } = await res.json();
+      if (!v) return;
+      const prev = localStorage.getItem(BUILD_KEY);
+      if (prev && prev !== v) {
+        localStorage.setItem(BUILD_KEY, v);
+        location.reload();
+        return;
+      }
+      if (!prev) localStorage.setItem(BUILD_KEY, v);
+    } catch {
+      /* offline or version.json missing */
+    }
+  };
+
+  check();
+  setInterval(check, 3 * 60 * 1000);
+}
+
+watchForGameUpdates();
+
 const GAME_TITLE = 'car crashing with dashing';
 const COMING_SOON_TIME = 5;
 const MOVE_SPEED = 7;

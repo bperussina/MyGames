@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>car crashing with dashing</title>
     <meta name="description" content="car crashing with dashing — play in your browser." />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
@@ -44,11 +47,12 @@
       const params = new URLSearchParams(location.search);
 
       function buildTarget() {
+        const qs = new URLSearchParams(params);
+        qs.set('__v', Date.now());
         if (params.has('teleport') && !params.has('room')) {
-          return 'index.html?teleport=1';
+          qs.set('teleport', '1');
         }
-        const qs = params.toString();
-        return qs ? `index.html?${qs}` : 'index.html';
+        return `index.html?${qs.toString()}`;
       }
 
       const target = buildTarget();
