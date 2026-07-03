@@ -23,7 +23,7 @@ import { refreshControlsHud, setControlsHudVisible } from './controlsHud.js';
 import { createTouchControls } from './touchControls.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
-import { createGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
+import { createGarage, showGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
 import {
   addVehicleToScene,
   removeVehicleFromScene,
@@ -431,6 +431,7 @@ function enterGameplay() {
     mouseLookReady = true;
   }
   setGarageBoxVisible(true);
+  showGarage();
   touch.setVisible(true);
   touch.setDriving(driving);
   setControlsHudVisible(controlsHudEl, true, { driving });
@@ -629,8 +630,8 @@ function render(delta) {
       comingSoonTimer -= delta;
       if (comingSoonTimer <= 0) mode = 'world';
       setControlsHudVisible(controlsHudEl, true, { driving });
-      setGarageBoxVisible(false);
-    touch.setVisible(false);
+      setGarageBoxVisible(true);
+      touch.setVisible(false);
     } else {
       setGarageBoxVisible(true);
       setControlsHudVisible(controlsHudEl, true, { driving });
