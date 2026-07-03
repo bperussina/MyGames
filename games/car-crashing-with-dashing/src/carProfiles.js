@@ -41,6 +41,7 @@ const ID_OVERRIDES = {
   'ford-mustang': { bodyShape: 'fastback', length: 4.55, width: 1.92, hoodLen: 1.75, fastback: true, scoop: true },
   'dodge-charger': { bodyShape: 'fastback', length: 4.85, width: 1.98, hoodLen: 1.7, fastback: true, muscle: true },
   'chevy-camaro': { bodyShape: 'fastback', length: 4.45, width: 1.9, hoodLen: 1.65, fastback: true },
+  camaro: { bodyShape: 'fastback', length: 4.45, width: 1.9, hoodLen: 1.65, fastback: true },
   delorean: { bodyShape: 'wedge', stainless: true, length: 4.2, width: 1.85, ride: 0.42, gullwing: true },
   'lamborghini-aventador': { bodyShape: 'supercar', length: 4.55, width: 2.05, ride: 0.32, scissor: true, wide: true },
   'lamborghini-miura': { bodyShape: 'supercar', length: 4.35, width: 1.92, ride: 0.34 },
