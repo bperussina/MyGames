@@ -62,18 +62,20 @@ export function createScene3d(parent = document.body) {
     camera.lookAt(targetX, 1.2 + pitch * 1.5, targetZ);
   }
 
-  function updateDrivingCamera(targetX, targetZ, rotY) {
+  function updateDrivingCamera(targetX, targetZ, rotY, shake = 0) {
     const look = getMouseLookOffset();
     const dist = 10;
     const height = 5;
     const yaw = rotY + look.yaw;
     const pitch = look.pitch;
     const horiz = Math.cos(pitch) * dist;
-    const camX = targetX - Math.sin(yaw) * horiz;
-    const camZ = targetZ - Math.cos(yaw) * horiz;
-    const camY = height + Math.sin(pitch) * dist * 0.35;
+    const shakeX = shake > 0 ? (Math.random() - 0.5) * shake * 0.35 : 0;
+    const shakeY = shake > 0 ? (Math.random() - 0.5) * shake * 0.25 : 0;
+    const camX = targetX - Math.sin(yaw) * horiz + shakeX;
+    const camZ = targetZ - Math.cos(yaw) * horiz + shakeX * 0.5;
+    const camY = height + Math.sin(pitch) * dist * 0.35 + shakeY;
     camera.position.set(camX, camY, camZ);
-    camera.lookAt(targetX, 1.0, targetZ);
+    camera.lookAt(targetX, 1.0 + shakeY * 0.3, targetZ);
   }
 
   let cameraYaw = 0;

@@ -32,7 +32,8 @@ import {
   updateVehicle,
   spawnInFrontOfPlayer,
   syncVehicleMesh,
-  applyVehicleDance,
+  applyVehicleEffects,
+  applyCrashBounce,
 } from './vehicle.js';
 import { shouldDent, addDentToVehicle } from './crashFX.js';
 import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
@@ -92,6 +93,7 @@ let hurtFlash = 0;
 let lastCarSpec = null;
 let collisionCooldown = 0;
 let danceTime = 0;
+let cameraShake = 0;
 
 let mouseLookReady = false;
 
@@ -201,13 +203,14 @@ function handleCarCollision(impactSpeed) {
   if (!activeVehicle || collisionCooldown > 0) return;
 
   if (shouldDent(impactSpeed)) {
-    addDentToVehicle(activeVehicle);
-    activeVehicle.speed *= 0.2;
-    hurtFlash = 0.25;
-    showToast('Hard hit — dented!');
-    collisionCooldown = 0.45;
+    addDentToVehicle(activeVehicle, impactSpeed);
+    const { huge } = applyCrashBounce(activeVehicle, impactSpeed);
+    hurtFlash = huge ? 0.45 : 0.22;
+    cameraShake = huge ? 0.85 : 0.35;
+    showToast(huge ? 'Huge dent — bounced back!' : 'Hard hit — dented!');
+    collisionCooldown = huge ? 0.55 : 0.4;
   } else {
-    activeVehicle.speed *= 0.5;
+    activeVehicle.speed *= 0.55;
     collisionCooldown = 0.12;
   }
 }
@@ -442,6 +445,7 @@ function updateWorldMovement(delta) {
   }
 
   if (collisionCooldown > 0) collisionCooldown = Math.max(0, collisionCooldown - delta);
+  if (cameraShake > 0) cameraShake = Math.max(0, cameraShake - delta * 2.8);
   danceTime += delta;
 
   if (driving && activeVehicle) {
@@ -453,14 +457,17 @@ function updateWorldMovement(delta) {
 
     const hit = world.city.checkCarCollision(activeVehicle.x, activeVehicle.z);
     if (hit || wallHit) {
-      handleCarCollision(impactSpeed);
-      activeVehicle.x = activeVehicle.prevX;
-      activeVehicle.z = activeVehicle.prevZ;
+      const preSpeed = impactSpeed;
+      handleCarCollision(preSpeed);
+      if (!shouldDent(preSpeed)) {
+        activeVehicle.x = activeVehicle.prevX;
+        activeVehicle.z = activeVehicle.prevZ;
+      }
       syncVehicleMesh(activeVehicle);
     }
 
-    applyVehicleDance(activeVehicle, danceTime);
-    world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
+    applyVehicleEffects(activeVehicle, danceTime, delta);
+    world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY, cameraShake);
     handlePadActions(pad);
 
     if (input.isPressed('e') && !exitLatch) {

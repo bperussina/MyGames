@@ -1,5 +1,5 @@
 import { buildCarMesh } from './carMesh.js';
-import { clearDents } from './crashFX.js';
+import { clearDents, DENT_SPEED, HUGE_DENT_SPEED } from './crashFX.js';
 
 const MAX_SPEED = 52;
 const CRUISE_MAX = 22;
@@ -33,6 +33,7 @@ export function createVehicleState(spec, x, z, rotY = 0) {
     prevX: x,
     prevZ: z,
     reverseCharge: 0,
+    knockTilt: 0,
   };
 }
 
@@ -69,21 +70,53 @@ export function syncVehicleMesh(vehicle) {
   vehicle.mesh.rotation.y = vehicle.rotY;
 }
 
-/** Wobble the car when you charge past the safe speed — no explosions, just dancing. */
-export function applyVehicleDance(vehicle, time) {
+/** Wobble at extreme speed, or brief pitch from a hard bounce. */
+export function applyVehicleEffects(vehicle, time, delta) {
   if (!vehicle?.mesh) return;
-  const speed = Math.abs(vehicle.speed);
-  if (speed < DANCE_SPEED) {
-    vehicle.mesh.position.y = 0;
-    vehicle.mesh.rotation.x = 0;
-    vehicle.mesh.rotation.z = 0;
-    return;
+
+  let rx = 0;
+  let rz = 0;
+  let y = 0;
+
+  if ((vehicle.knockTilt ?? 0) > 0.01) {
+    rx = -vehicle.knockTilt;
+    vehicle.knockTilt *= Math.exp(-7 * delta);
+  } else {
+    vehicle.knockTilt = 0;
+    const speed = Math.abs(vehicle.speed);
+    if (speed >= DANCE_SPEED) {
+      const t = time * 0.012;
+      const intensity = Math.min(1, (speed - DANCE_SPEED) / 12);
+      y = Math.abs(Math.sin(t * 5)) * 0.12 * intensity;
+      rx = Math.sin(t * 4) * 0.07 * intensity;
+      rz = Math.cos(t * 3.2) * 0.09 * intensity;
+    }
   }
-  const t = time * 0.012;
-  const intensity = Math.min(1, (speed - DANCE_SPEED) / 12);
-  vehicle.mesh.position.y = Math.abs(Math.sin(t * 5)) * 0.12 * intensity;
-  vehicle.mesh.rotation.x = Math.sin(t * 4) * 0.07 * intensity;
-  vehicle.mesh.rotation.z = Math.cos(t * 3.2) * 0.09 * intensity;
+
+  vehicle.mesh.position.y = y;
+  vehicle.mesh.rotation.x = rx;
+  vehicle.mesh.rotation.z = rz;
+}
+
+/** Hard wall hit — bounce backward and rock the car. */
+export function applyCrashBounce(vehicle, impactSpeed) {
+  const speed = Math.abs(impactSpeed);
+  const severity = Math.min(1, Math.max(0, (speed - DENT_SPEED) / (52 - DENT_SPEED)));
+  const huge = speed >= HUGE_DENT_SPEED;
+
+  const bounceCoeff = huge ? 0.52 : 0.26 + severity * 0.18;
+  const bounceSpeed = speed * bounceCoeff;
+  vehicle.speed = -Math.sign(vehicle.speed || 1) * bounceSpeed;
+
+  const pushBack = huge ? 1.25 : 0.45 + severity * 0.4;
+  vehicle.x -= Math.sin(vehicle.rotY) * pushBack;
+  vehicle.z -= Math.cos(vehicle.rotY) * pushBack;
+
+  vehicle.knockTilt = huge ? 0.48 : 0.18 + severity * 0.26;
+  vehicle.prevX = vehicle.x;
+  vehicle.prevZ = vehicle.z;
+
+  return { huge, severity };
 }
 
 export function resetVehicleAt(vehicle, x, z, rotY = 0) {
@@ -96,6 +129,7 @@ export function resetVehicleAt(vehicle, x, z, rotY = 0) {
   vehicle.prevX = x;
   vehicle.prevZ = z;
   vehicle.reverseCharge = 0;
+  vehicle.knockTilt = 0;
   vehicle.mesh.visible = true;
   syncVehicleMesh(vehicle);
 }
