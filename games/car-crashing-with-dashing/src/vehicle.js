@@ -13,6 +13,7 @@ const REVERSE_ACCEL = 28;
 const REVERSE_MAX = 14;
 const REVERSE_CHARGE_RATE = 0.9;
 const REVERSE_LAUNCH = 26;
+const DANCE_SPEED = 38;
 
 export function createVehicleState(spec, x, z, rotY = 0) {
   const mesh = buildCarMesh(spec);
@@ -63,8 +64,26 @@ export function syncPlayerPosition(player) {
 }
 
 export function syncVehicleMesh(vehicle) {
-  vehicle.mesh.position.set(vehicle.x, 0, vehicle.z);
+  vehicle.mesh.position.x = vehicle.x;
+  vehicle.mesh.position.z = vehicle.z;
   vehicle.mesh.rotation.y = vehicle.rotY;
+}
+
+/** Wobble the car when you charge past the safe speed — no explosions, just dancing. */
+export function applyVehicleDance(vehicle, time) {
+  if (!vehicle?.mesh) return;
+  const speed = Math.abs(vehicle.speed);
+  if (speed < DANCE_SPEED) {
+    vehicle.mesh.position.y = 0;
+    vehicle.mesh.rotation.x = 0;
+    vehicle.mesh.rotation.z = 0;
+    return;
+  }
+  const t = time * 0.012;
+  const intensity = Math.min(1, (speed - DANCE_SPEED) / 12);
+  vehicle.mesh.position.y = Math.abs(Math.sin(t * 5)) * 0.12 * intensity;
+  vehicle.mesh.rotation.x = Math.sin(t * 4) * 0.07 * intensity;
+  vehicle.mesh.rotation.z = Math.cos(t * 3.2) * 0.09 * intensity;
 }
 
 export function resetVehicleAt(vehicle, x, z, rotY = 0) {

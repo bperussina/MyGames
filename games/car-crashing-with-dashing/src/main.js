@@ -31,16 +31,10 @@ import {
   exitDriverSeat,
   updateVehicle,
   spawnInFrontOfPlayer,
-  resetVehicleAt,
   syncVehicleMesh,
+  applyVehicleDance,
 } from './vehicle.js';
-import {
-  shouldExplode,
-  shouldDent,
-  addDentToVehicle,
-  spawnExplosion,
-  updateExplosion,
-} from './crashFX.js';
+import { shouldDent, addDentToVehicle } from './crashFX.js';
 import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
 import { createRemotePlayers } from './remotePlayers.js';
 import { buildShareLink } from './multiplayer.js';
@@ -94,18 +88,10 @@ let exitLatch = false;
 
 let activeVehicle = null;
 let driving = false;
-let dead = false;
-let respawnTimer = 0;
 let hurtFlash = 0;
-let explosionFx = null;
 let lastCarSpec = null;
-
-const deathOverlay = document.createElement('div');
-deathOverlay.id = 'death-overlay';
-deathOverlay.hidden = true;
-deathOverlay.innerHTML =
-  '<p class="death-text">Dead, respawning</p><p class="death-count" aria-live="polite">5</p>';
-document.body.appendChild(deathOverlay);
+let collisionCooldown = 0;
+let danceTime = 0;
 
 let mouseLookReady = false;
 
@@ -205,8 +191,6 @@ function spawnCarFromGarage(spec) {
   activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition);
   addVehicleToScene(world.scene, activeVehicle);
   driving = true;
-  dead = false;
-  deathOverlay.hidden = true;
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   refreshControlsHud(controlsHudEl, { driving: true });
@@ -214,63 +198,18 @@ function spawnCarFromGarage(spec) {
 }
 
 function handleCarCollision(impactSpeed) {
-  if (!activeVehicle || dead) return;
-
-  if (shouldExplode(impactSpeed)) {
-    killPlayer();
-    return;
-  }
+  if (!activeVehicle || collisionCooldown > 0) return;
 
   if (shouldDent(impactSpeed)) {
     addDentToVehicle(activeVehicle);
-    activeVehicle.speed *= 0.25;
-    hurtFlash = 0.35;
-    showToast('Ouch! That hurt!');
-  }
-}
-
-function updateDeathOverlay() {
-  const countEl = deathOverlay.querySelector('.death-count');
-  if (!countEl) return;
-  const n = Math.ceil(respawnTimer);
-  countEl.textContent = n > 0 ? String(n) : '';
-}
-
-function killPlayer() {
-  if (!activeVehicle || dead) return;
-  dead = true;
-  respawnTimer = 5;
-  const { x, z } = activeVehicle;
-  activeVehicle.mesh.visible = false;
-  activeVehicle.speed = 0;
-  explosionFx = spawnExplosion(world.scene, x, z);
-  deathOverlay.hidden = false;
-  updateDeathOverlay();
-  showToast('Dead, respawning');
-}
-
-function respawnPlayer() {
-  dead = false;
-  deathOverlay.hidden = true;
-  hurtFlash = 0;
-
-  const spec = lastCarSpec ?? { id: 'cybertruck', style: 'cybertruck', color: 0xb8bdc4, name: 'Cybertruck' };
-
-  if (!activeVehicle) {
-    activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition);
-    addVehicleToScene(world.scene, activeVehicle);
-    enterDriverSeat(player, activeVehicle);
+    activeVehicle.speed *= 0.2;
+    hurtFlash = 0.25;
+    showToast('Hard hit — dented!');
+    collisionCooldown = 0.45;
   } else {
-    resetVehicleAt(activeVehicle, 0, 0, 0);
-    enterDriverSeat(player, activeVehicle);
+    activeVehicle.speed *= 0.5;
+    collisionCooldown = 0.12;
   }
-
-  player.x = 0;
-  player.z = 0;
-  driving = true;
-  touch.setDriving(true);
-  refreshControlsHud(controlsHudEl, { driving: true });
-  showToast('Back in the city — go easy!');
 }
 
 function exitCar() {
@@ -502,7 +441,10 @@ function updateWorldMovement(delta) {
     mz /= len;
   }
 
-  if (driving && activeVehicle && !dead) {
+  if (collisionCooldown > 0) collisionCooldown = Math.max(0, collisionCooldown - delta);
+  danceTime += delta;
+
+  if (driving && activeVehicle) {
     const padDrive = readDriving(pad);
     const keyDrive = readKeyboardDrive();
     const touchDrive = touch.readDrive();
@@ -517,6 +459,7 @@ function updateWorldMovement(delta) {
       syncVehicleMesh(activeVehicle);
     }
 
+    applyVehicleDance(activeVehicle, danceTime);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
     handlePadActions(pad);
 
@@ -525,17 +468,6 @@ function updateWorldMovement(delta) {
       exitCar();
     }
     if (!input.isPressed('e')) exitLatch = false;
-    return;
-  }
-
-  if (dead) {
-    respawnTimer -= delta;
-    updateDeathOverlay();
-    if (respawnTimer <= 0) respawnPlayer();
-    if (explosionFx) {
-      if (!updateExplosion(explosionFx, delta)) explosionFx = null;
-    }
-    world.render();
     return;
   }
 
@@ -678,7 +610,7 @@ function render(delta) {
       world.renderer.domElement.style.boxShadow = '';
     }
 
-    if (!isGarageVisible() && !dead) {
+    if (!isGarageVisible()) {
       updateWorldMovement(delta);
     }
 
