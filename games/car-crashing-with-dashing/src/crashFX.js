@@ -41,6 +41,14 @@ function damagePartHealth(vehicle, partId, amount) {
     windshield: 'windshield',
     door_l: 'body',
     door_r: 'body',
+    trunk: 'body',
+    rear_glass: 'windshield',
+    taillight: 'body',
+    bumper_rear: 'body',
+    mirror_l: 'body',
+    mirror_r: 'body',
+    engine: 'engine',
+    cockpit: 'body',
     wheel_fl: 'wheel_fl',
     wheel_fr: 'wheel_fr',
     wheel_rl: 'wheel_rl',
@@ -143,6 +151,40 @@ function collectDetachableParts(root) {
   return parts;
 }
 
+const REAR_PART_IDS = new Set([
+  'taillight', 'bumper_rear', 'trunk', 'spoiler', 'rear_glass',
+]);
+
+const FRONT_PART_IDS = new Set([
+  'headlight', 'grille', 'front_panel', 'bumper_front', 'hood', 'windshield',
+]);
+
+function impactFace(vehicle) {
+  return (vehicle.speed ?? 0) >= 0 ? 'front' : 'rear';
+}
+
+function isPartOnFace(part, root, face) {
+  const id = part.userData.carPart ?? '';
+  if (face === 'front' && FRONT_PART_IDS.has(id)) return true;
+  if (face === 'rear' && REAR_PART_IDS.has(id)) return true;
+  if (id.startsWith('wheel_')) {
+    const rearWheel = id.includes('_r');
+    return face === 'rear' ? rearWheel : !rearWheel;
+  }
+
+  const local = new THREE.Vector3();
+  part.getWorldPosition(local);
+  root.worldToLocal(local);
+  if (face === 'front') return local.z > 0.05;
+  if (face === 'rear') return local.z < -0.05;
+  return Math.abs(local.x) > Math.abs(local.z) * 0.35;
+}
+
+function isGlassPart(part) {
+  const id = part.userData.carPart ?? '';
+  return id === 'windshield' || id === 'rear_glass' || id.includes('window');
+}
+
 const FRONT_PART_PRIORITY = {
   headlight: 100,
   grille: 85,
@@ -159,24 +201,28 @@ const FRONT_PART_PRIORITY = {
   bumper_rear: 20,
   taillight: 18,
   spoiler: 15,
+  trunk: 22,
+  rear_glass: 24,
+  engine: 28,
+  cockpit: 10,
 };
 
 function partPriority(part) {
   const id = part.userData.carPart ?? '';
   if (FRONT_PART_PRIORITY[id] != null) return FRONT_PART_PRIORITY[id];
   if (id.startsWith('wheel_')) return 35;
+  if (id.startsWith('panel_')) return 14;
   return 12;
 }
 
-function isFrontPart(part, root) {
-  const local = new THREE.Vector3();
-  part.getWorldPosition(local);
-  root.worldToLocal(local);
+function minSpeedToBreak(part, severity) {
   const id = part.userData.carPart ?? '';
-  if (id === 'headlight' || id === 'grille' || id === 'bumper_front' || id === 'hood' || id === 'front_panel') {
-    return true;
-  }
-  return local.z > 0.15;
+  if (id.startsWith('wheel_')) return SCOOP_SPEED - 4;
+  if (isGlassPart(part)) return DENT_SPEED - 10;
+  if (id === 'engine') return SCOOP_SPEED + 6;
+  if (FRONT_PART_PRIORITY[id] != null && FRONT_PART_PRIORITY[id] >= 70) return HEADLIGHT_BREAK_SPEED;
+  if (FRONT_PART_PRIORITY[id] != null && FRONT_PART_PRIORITY[id] >= 35) return DENT_SPEED - 6;
+  return DENT_SPEED + 2 - severity * 8;
 }
 
 function shatterGlass(part, severity = 0.5) {
@@ -286,74 +332,66 @@ function carvePanelHole(panel, hitX, hitY, severity) {
   panel.geometry.computeVertexNormals();
 }
 
-function detachFrontImpactParts(vehicle, scene, impactSpeed, debris) {
+function detachImpactParts(vehicle, scene, impactSpeed, debris) {
   const speed = Math.abs(impactSpeed);
   if (speed < HEADLIGHT_BREAK_SPEED) return;
 
   const root = vehicle.mesh;
   const severity = dentSeverity(impactSpeed);
-  const tryDetach = (partId, minSpeed, dmg = 18) => {
-    if (speed < minSpeed) return false;
-    const part = findPartById(root, partId);
-    if (!part) return false;
-    detachPart(vehicle, scene, part, impactSpeed, debris);
-    damagePartHealth(vehicle, partId, dmg + severity * 22);
-    return true;
-  };
+  const face = impactFace(vehicle);
+  const pool = collectDetachableParts(root);
 
-  const headlights = collectDetachableParts(root).filter((p) => p.userData.carPart === 'headlight');
-  for (const lamp of headlights) {
-    detachPart(vehicle, scene, lamp, impactSpeed, debris);
-    damagePartHealth(vehicle, 'headlight', 10);
+  for (const part of pool) {
+    if (!isGlassPart(part) || !isPartOnFace(part, root, face)) continue;
+    if (speed >= DENT_SPEED - 10) shatterGlass(part, severity);
   }
 
-  if (speed >= DENT_SPEED - 4) {
-    tryDetach('bumper_front', DENT_SPEED - 4, 15);
-    tryDetach('grille', DENT_SPEED - 2, 12);
-  }
+  let budget = speed >= SCOOP_SPEED + 8 ? 8
+    : speed >= SCOOP_SPEED ? 6
+      : speed >= PART_FLY_SPEED ? 4
+        : speed >= DENT_SPEED ? 2 : 1;
 
-  const windshield = findPartById(root, 'windshield');
-  if (windshield && speed >= DENT_SPEED - 6) {
-    shatterGlass(windshield, severity);
-    damagePartHealth(vehicle, 'windshield', 20 + severity * 30);
-  }
-  if (windshield && speed >= PART_FLY_SPEED) {
-    tryDetach('windshield', PART_FLY_SPEED, 35);
-  }
+  const sorted = pool
+    .filter((p) => isPartOnFace(p, root, face))
+    .sort((a, b) => partPriority(b) - partPriority(a));
 
-  if (speed >= DENT_SPEED) {
-    tryDetach('hood', DENT_SPEED, 25);
-  }
+  for (const part of sorted) {
+    if (budget <= 0) break;
+    if (part.userData.detached || part.userData.hung) continue;
+    if (speed < minSpeedToBreak(part, severity)) continue;
 
-  if (speed >= PART_FLY_SPEED + 4) {
-    const doorL = findPartById(root, 'door_l');
-    const doorR = findPartById(root, 'door_r');
-    if (doorL && !doorL.userData.detached && Math.random() < 0.7) {
-      if (speed >= SCOOP_SPEED) tryDetach('door_l', SCOOP_SPEED, 20);
-      else hangDoorOpen(doorL, -1);
+    const id = part.userData.carPart ?? '';
+    if ((id === 'door_l' || id === 'door_r') && speed < SCOOP_SPEED && Math.random() < 0.55) {
+      hangDoorOpen(part, id === 'door_l' ? -1 : 1);
+      budget--;
+      continue;
     }
-    if (doorR && !doorR.userData.detached && Math.random() < 0.7) {
-      if (speed >= SCOOP_SPEED) tryDetach('door_r', SCOOP_SPEED, 20);
-      else hangDoorOpen(doorR, 1);
+
+    detachPart(vehicle, scene, part, impactSpeed, debris);
+    budget--;
+  }
+
+  if (speed >= PART_FLY_SPEED) {
+    const rest = pool.filter((p) => !p.userData.detached && !isPartOnFace(p, root, face));
+    for (const part of rest) {
+      if (budget <= 0) break;
+      if (speed < minSpeedToBreak(part, severity) + 4) continue;
+      if (Math.random() > 0.35 + severity * 0.25) continue;
+      detachPart(vehicle, scene, part, impactSpeed, debris);
+      budget--;
     }
   }
 
   if (speed >= SCOOP_SPEED) {
-    for (const id of ['wheel_fl', 'wheel_fr']) {
-      if (Math.random() < 0.35 + severity * 0.25) tryDetach(id, SCOOP_SPEED, 30);
-    }
+    detachRandomParts(vehicle, scene, impactSpeed, debris, 1 + Math.floor(severity * 3));
   }
 
-  let budget = speed >= SCOOP_SPEED ? 3 : speed >= PART_FLY_SPEED ? 2 : 0;
-  const extras = collectDetachableParts(root)
-    .filter((p) => isFrontPart(p, root))
-    .sort((a, b) => partPriority(b) - partPriority(a));
-  for (const part of extras) {
-    if (budget <= 0) break;
-    if (part.userData.detached) continue;
-    detachPart(vehicle, scene, part, impactSpeed, debris);
-    damagePartHealth(vehicle, part.userData.carPart ?? 'body', 15);
-    budget--;
+  if (speed >= SCOOP_SPEED + 12) {
+    for (const part of collectDetachableParts(root)) {
+      if (Math.random() < 0.12 + severity * 0.18) {
+        detachPart(vehicle, scene, part, impactSpeed, debris);
+      }
+    }
   }
 }
 
@@ -643,11 +681,7 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
     if (speed >= SCOOP_SPEED) spawnSparks(scene, origin, 8 + Math.floor(severity * 8), debris);
   }
 
-  detachFrontImpactParts(vehicle, scene, impactSpeed, debris);
-
-  if (speed >= SCOOP_SPEED) {
-    detachRandomParts(vehicle, scene, impactSpeed, debris, 1 + Math.floor(dentSeverity(impactSpeed) * 2));
-  }
+  detachImpactParts(vehicle, scene, impactSpeed, debris);
 }
 
 export function updateCrashDebris(debris, delta) {

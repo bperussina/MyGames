@@ -21,8 +21,27 @@ import {
 function tagPart(node, partId, opts = {}) {
   node.userData.carPart = partId;
   if (opts.detachable !== false) node.userData.detachable = true;
-  if (opts.dentPanel) node.userData.dentPanel = 'front';
+  if (opts.dentPanel) node.userData.dentPanel = opts.dentPanel === true ? 'front' : opts.dentPanel;
   return node;
+}
+
+/** Tag every mesh/group that is not already a car part so crashes can break anything. */
+function autoTagBreakableParts(root) {
+  let n = 0;
+  root.traverse((child) => {
+    if (child === root) return;
+    if (child.userData?.carPart != null) return;
+    if (child.isLineSegments || child.type === 'LineSegments') return;
+    if (!child.isMesh && !child.isGroup) return;
+    if (child.isGroup && child.children.length === 0) return;
+
+    let id = `panel_${n++}`;
+    if (child.name === 'engine') id = 'engine';
+    else if (child.name === 'cockpit') id = 'cockpit';
+    else if (child.name === 'cracks') return;
+
+    tagPart(child, id);
+  });
 }
 
 function finalizeCar(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
@@ -35,6 +54,7 @@ function finalizeCar(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
   buildCockpit(group, seat);
   buildEngineBay(group, seat);
   prepareWheels(group);
+  autoTagBreakableParts(group);
   applyBlockOutlines(group);
   return group;
 }

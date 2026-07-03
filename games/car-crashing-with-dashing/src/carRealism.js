@@ -51,7 +51,7 @@ export function buildEngineBay(group, seat = { x: 0.32, y: 0.78, z: 0.05 }) {
   const engine = new THREE.Group();
   engine.name = 'engine';
   engine.userData.carPart = 'engine';
-  engine.userData.detachable = false;
+  engine.userData.detachable = true;
 
   const metal = rbxPlastic(0x3a3a42);
   const block = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.42, 0.85), metal);
