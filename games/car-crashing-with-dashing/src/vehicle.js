@@ -1,5 +1,5 @@
 import { buildCarMesh } from './carMesh.js';
-import { clearDents, DENT_SPEED, HUGE_DENT_SPEED } from './crashFX.js';
+import { clearDents, DENT_SPEED, SCOOP_SPEED } from './crashFX.js';
 
 const MAX_SPEED = 52;
 const CRUISE_MAX = 22;
@@ -34,6 +34,8 @@ export function createVehicleState(spec, x, z, rotY = 0) {
     prevZ: z,
     reverseCharge: 0,
     knockTilt: 0,
+    wheelSpin: 0,
+    debris: [],
   };
 }
 
@@ -46,13 +48,21 @@ export function removeVehicleFromScene(scene, vehicle) {
 }
 
 export function enterDriverSeat(player, vehicle) {
-  player.mesh.visible = false;
+  const seat = vehicle.mesh.userData.driverSeat ?? { x: 0.35, y: 0.78, z: 0.05 };
+  vehicle.mesh.attach(player.mesh);
+  player.mesh.position.set(seat.x, seat.y, seat.z);
+  player.mesh.rotation.set(0, 0, 0);
+  player.mesh.scale.setScalar(0.42);
+  player.mesh.visible = true;
   player.inVehicle = vehicle;
 }
 
 export function exitDriverSeat(player, vehicle) {
+  const scene = vehicle.mesh.parent;
   const exitX = vehicle.x - Math.sin(vehicle.rotY) * 2.5;
   const exitZ = vehicle.z - Math.cos(vehicle.rotY) * 2.5;
+  if (scene) scene.attach(player.mesh);
+  player.mesh.scale.setScalar(1);
   player.x = exitX;
   player.z = exitZ;
   player.mesh.visible = true;
@@ -62,6 +72,15 @@ export function exitDriverSeat(player, vehicle) {
 
 export function syncPlayerPosition(player) {
   player.mesh.position.set(player.x, player.mesh.position.y, player.z);
+}
+
+export function spinWheels(vehicle, delta) {
+  const wheels = vehicle.mesh.userData.wheels ?? [];
+  const spin = vehicle.speed * delta * 2.4;
+  vehicle.wheelSpin = (vehicle.wheelSpin ?? 0) + spin;
+  for (const w of wheels) {
+    w.rotation.x = vehicle.wheelSpin;
+  }
 }
 
 export function syncVehicleMesh(vehicle) {
@@ -102,7 +121,7 @@ export function applyVehicleEffects(vehicle, time, delta) {
 export function applyCrashBounce(vehicle, impactSpeed) {
   const speed = Math.abs(impactSpeed);
   const severity = Math.min(1, Math.max(0, (speed - DENT_SPEED) / (52 - DENT_SPEED)));
-  const huge = speed >= HUGE_DENT_SPEED;
+  const huge = speed >= SCOOP_SPEED;
 
   const bounceCoeff = huge ? 0.52 : 0.26 + severity * 0.18;
   const bounceSpeed = speed * bounceCoeff;
@@ -185,6 +204,7 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   vehicle.z = next.z;
 
   syncVehicleMesh(vehicle);
+  spinWheels(vehicle, delta);
 
   const wallHit =
     Math.abs(next.x - (vehicle.prevX + dx)) > 0.05 || Math.abs(next.z - (vehicle.prevZ + dz)) > 0.05;

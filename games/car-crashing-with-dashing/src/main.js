@@ -35,7 +35,11 @@ import {
   applyVehicleEffects,
   applyCrashBounce,
 } from './vehicle.js';
-import { shouldDent, addDentToVehicle } from './crashFX.js';
+import {
+  shouldDent,
+  handleCrash,
+  updateCrashDebris,
+} from './crashFX.js';
 import { createLobby, showLobby, hideLobby, isLobbyVisible } from './lobby.js';
 import { createRemotePlayers } from './remotePlayers.js';
 import { buildShareLink } from './multiplayer.js';
@@ -94,6 +98,7 @@ let lastCarSpec = null;
 let collisionCooldown = 0;
 let danceTime = 0;
 let cameraShake = 0;
+let crashDebris = [];
 
 let mouseLookReady = false;
 
@@ -209,13 +214,14 @@ function spawnCarFromGarage(spec) {
 function handleCarCollision(impactSpeed) {
   if (!activeVehicle || collisionCooldown > 0) return;
 
+  handleCrash(activeVehicle, world.scene, impactSpeed, crashDebris);
+
   if (shouldDent(impactSpeed)) {
-    addDentToVehicle(activeVehicle, impactSpeed);
-    const { huge } = applyCrashBounce(activeVehicle, impactSpeed);
+    applyCrashBounce(activeVehicle, impactSpeed);
+    const huge = Math.abs(impactSpeed) >= 38;
     cameraShake = huge ? 0.5 : 0.22;
-    showToast(huge ? 'Big dent on the hood!' : 'Dent on the car!');
     collisionCooldown = huge ? 0.55 : 0.4;
-  } else {
+  } else if (Math.abs(impactSpeed) > 5) {
     activeVehicle.speed *= 0.55;
     collisionCooldown = 0.12;
   }
@@ -474,6 +480,7 @@ function updateWorldMovement(delta) {
     }
 
     applyVehicleEffects(activeVehicle, danceTime, delta);
+    updateCrashDebris(crashDebris, delta);
     world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY, cameraShake);
     handlePadActions(pad);
 
@@ -621,6 +628,7 @@ function render(delta) {
 
   if (mode === 'comingSoon' || mode === 'world') {
     world.renderer.domElement.style.boxShadow = '';
+    updateCrashDebris(crashDebris, delta);
 
     if (!isGarageVisible()) {
       updateWorldMovement(delta);
