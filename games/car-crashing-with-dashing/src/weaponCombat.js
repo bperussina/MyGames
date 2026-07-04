@@ -75,34 +75,37 @@ export function updateWeaponCombat(delta, ctx) {
   fireCooldown = Math.max(0, fireCooldown - delta);
   updateTracers(scene, delta);
 
-  if (!vehicle?.equippedWeapon) return { firing: false };
+  const weapons = vehicle?.equippedWeapons ?? [];
+  if (!weapons.length) return { firing: false };
 
-  const weapon = vehicle.equippedWeapon;
-
-  if (weapon.type === 'mini_gun' && wantsMinigunFire() && fireCooldown <= 0) {
+  const miniGun = weapons.find((w) => w.type === 'mini_gun');
+  if (miniGun && wantsMinigunFire() && fireCooldown <= 0) {
     if (typeof ctx.canFireMinigun === 'function' && !ctx.canFireMinigun()) {
-      return { firing: false };
+      isFiring = false;
+    } else {
+      fireCooldown = MINIGUN_COOLDOWN;
+      isFiring = true;
+      const hit = fireMinigunRay({
+        vehicle,
+        camera,
+        renderer,
+        shredTargets,
+        remotePlayers,
+        scene,
+        weapon: miniGun,
+        onPlayerShred,
+      });
+      if (hit?.coins) onTargetHit?.(hit.coins, hit.kind);
+      return { firing: true };
     }
-    fireCooldown = MINIGUN_COOLDOWN;
-    isFiring = true;
-    const hit = fireMinigunRay({
-      vehicle,
-      camera,
-      renderer,
-      shredTargets,
-      remotePlayers,
-      scene,
-      weapon,
-      onPlayerShred,
-    });
-    if (hit?.coins) onTargetHit?.(hit.coins, hit.kind);
-    return { firing: true };
+  } else {
+    isFiring = false;
   }
 
-  isFiring = false;
-
-  if (weapon.type === 'saw_blade' || weapon.type === 'chainsaw') {
-    applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTargetHit, onPlayerShred);
+  for (const weapon of weapons) {
+    if (weapon.type === 'saw_blade' || weapon.type === 'chainsaw') {
+      applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTargetHit, onPlayerShred);
+    }
   }
 
   return { firing: isFiring };
@@ -121,11 +124,10 @@ function fireMinigunRay({
 
   if (targetHit) {
     const dmg = 14 * bonus;
-    const coinValue = targetHit.coinValue;
     const destroyed = shredTargets.damageTarget(targetHit, dmg);
     spawnTracer(scene, vehicle, targetHit.mesh.position);
-    if (destroyed) return { coins: Math.round(coinValue * bonus), kind: 'target' };
-    return { coins: Math.round(4 * bonus), kind: 'chip' };
+    if (!destroyed) return { coins: Math.round(4 * bonus), kind: 'chip' };
+    return null;
   }
 
   const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -164,9 +166,7 @@ function applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTarg
 
     const dmg = speed * 0.85 * bonus;
     t.hitCooldown = RAM_COOLDOWN;
-    const coinValue = t.coinValue;
-    const destroyed = shredTargets.damageTarget(t, dmg);
-    if (destroyed) onTargetHit?.(Math.round(coinValue * bonus), 'shred');
+    shredTargets.damageTarget(t, dmg);
   });
 
   if (weapon.type === 'saw_blade' && speed >= SAW_MIN_SPEED) {

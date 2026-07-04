@@ -223,6 +223,7 @@ export function regenerateVehicle(vehicle, scene, spec, envMap = null) {
   vehicle.steer = 0;
   vehicle.knockTilt = 0;
   vehicle.bodyRoll = 0;
+  vehicle.equippedWeapons = [];
   vehicle.equippedWeapon = null;
   vehicle.initialPartCount = countAttachedParts(mesh);
   vehicle.collisionHw = bounds.hw;

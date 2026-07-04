@@ -1146,6 +1146,81 @@
         cursor: pointer;
       }
 
+      .admin-testing-panel {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        border: 2px dashed rgba(250, 204, 21, 0.45);
+        border-radius: 14px;
+        background: rgba(30, 41, 59, 0.65);
+      }
+
+      .admin-testing-lead {
+        margin: 0;
+        color: #cbd5e1;
+        font-size: 0.88rem;
+        line-height: 1.45;
+      }
+
+      .admin-testing-label {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fde047;
+      }
+
+      .admin-testing-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .admin-coin-input {
+        flex: 1 1 140px;
+        padding: 12px 14px;
+        border: 2px solid #854d0e;
+        border-radius: 10px;
+        background: #0f172a;
+        color: #fde047;
+        font-size: 1.1rem;
+        font-weight: 800;
+      }
+
+      .admin-grant-btn {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #fde047 0%, #eab308 100%);
+        color: #422006;
+        font-weight: 900;
+        cursor: pointer;
+      }
+
+      .admin-testing-presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .admin-preset-btn {
+        padding: 8px 14px;
+        border: 2px solid #475569;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .admin-preset-btn:hover,
+      .admin-grant-btn:hover {
+        filter: brightness(1.06);
+      }
+
       #draw-paper {
         position: fixed;
         inset: 0;

@@ -52,7 +52,7 @@ export function createKillShop(loadout, { onEquip, onClose, getCoinsText, onPurc
 
     for (const weapon of list) {
       const owned = loadout.ownsWeapon(weapon.id);
-      const equipped = loadout.getEquippedWeapon()?.id === weapon.id;
+      const equipped = loadout.isWeaponEquipped(weapon.id);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'shop-item';

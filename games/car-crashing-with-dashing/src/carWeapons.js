@@ -96,24 +96,7 @@ function buildChainsawMounts(color) {
   return root;
 }
 
-export function removeWeaponFromVehicle(vehicle) {
-  if (!vehicle?.mesh) return;
-  const root = vehicle.mesh.getObjectByName('car-weapons');
-  if (root) vehicle.mesh.remove(root);
-  vehicle.equippedWeapon = null;
-}
-
-export function attachWeaponToVehicle(vehicle, weaponId) {
-  removeWeaponFromVehicle(vehicle);
-  if (!weaponId || !vehicle?.mesh) return null;
-  const weapon = getWeapon(weaponId);
-  if (!weapon) return null;
-
-  const hw = vehicle.collisionHw ?? 0.94;
-  const hd = vehicle.collisionHd ?? 2.25;
-  const root = new THREE.Group();
-  root.name = 'car-weapons';
-
+function addWeaponMount(root, weapon, hw, hd) {
   if (weapon.type === 'mini_gun') {
     const mount = buildMiniGunMount(weapon.color);
     mount.position.set(0, 0.62, hd * 0.72);
@@ -129,14 +112,50 @@ export function attachWeaponToVehicle(vehicle, weaponId) {
     mount.children.find((c) => c.name === 'chainsaw-rear')?.position.set(0, 0.35, -hd * 0.82);
     root.add(mount);
   }
+}
+
+export function removeWeaponFromVehicle(vehicle) {
+  if (!vehicle?.mesh) return;
+  const root = vehicle.mesh.getObjectByName('car-weapons');
+  if (root) vehicle.mesh.remove(root);
+  vehicle.equippedWeapons = [];
+  vehicle.equippedWeapon = null;
+}
+
+export function attachWeaponsToVehicle(vehicle, weaponIds = []) {
+  removeWeaponFromVehicle(vehicle);
+  if (!vehicle?.mesh) return [];
+
+  const weapons = (Array.isArray(weaponIds) ? weaponIds : [weaponIds])
+    .map((id) => getWeapon(id))
+    .filter(Boolean);
+
+  if (!weapons.length) return [];
+
+  const hw = vehicle.collisionHw ?? 0.94;
+  const hd = vehicle.collisionHd ?? 2.25;
+  const root = new THREE.Group();
+  root.name = 'car-weapons';
+
+  for (const weapon of weapons) {
+    addWeaponMount(root, weapon, hw, hd);
+  }
 
   vehicle.mesh.add(root);
-  vehicle.equippedWeapon = weapon;
-  return weapon;
+  vehicle.equippedWeapons = weapons;
+  vehicle.equippedWeapon = weapons[0] ?? null;
+  return weapons;
+}
+
+/** @deprecated use attachWeaponsToVehicle */
+export function attachWeaponToVehicle(vehicle, weaponId) {
+  return attachWeaponsToVehicle(vehicle, weaponId ? [weaponId] : []);
 }
 
 export function getWeaponShredBonus(vehicle) {
-  return vehicle?.equippedWeapon?.shredBonus ?? 1;
+  const weapons = vehicle?.equippedWeapons ?? [];
+  if (!weapons.length) return 1;
+  return Math.max(...weapons.map((w) => w.shredBonus ?? 1));
 }
 
 export function getMuzzleWorldPosition(vehicle) {
@@ -154,25 +173,28 @@ export function getMuzzleWorldPosition(vehicle) {
 
 export function spinCarWeapon(vehicle, delta, firing = false) {
   const root = vehicle?.mesh?.getObjectByName('car-weapons');
-  if (!root || !vehicle.equippedWeapon) return;
-  const speed = Math.abs(vehicle.speed);
-  const w = vehicle.equippedWeapon;
+  const weapons = vehicle?.equippedWeapons ?? [];
+  if (!root || !weapons.length) return;
 
-  if (w.type === 'mini_gun') {
-    const barrels = root.getObjectByName('weapon-mini_gun')?.getObjectByName('barrels');
-    if (barrels) barrels.rotation.z += delta * (firing ? 28 : 4 + speed * 0.08);
-  } else if (w.type === 'saw_blade') {
-    const blade = root.getObjectByName('weapon-saw_blade');
-    const spin = delta * (6 + speed * 0.35);
-    blade?.getObjectByName('blade')?.rotateZ(spin);
-    blade?.getObjectByName('teeth')?.rotateZ(spin * 1.1);
-  } else if (w.type === 'chainsaw') {
-    const mount = root.getObjectByName('weapon-chainsaw');
-    const spin = delta * (8 + speed * 0.25);
-    for (const side of ['chainsaw-left', 'chainsaw-right', 'chainsaw-rear']) {
-      mount?.getObjectByName(side)?.traverse((c) => {
-        if (c.name === 'chain') c.rotation.y += spin;
-      });
+  const speed = Math.abs(vehicle.speed);
+
+  for (const w of weapons) {
+    if (w.type === 'mini_gun') {
+      const barrels = root.getObjectByName('weapon-mini_gun')?.getObjectByName('barrels');
+      if (barrels) barrels.rotation.z += delta * (firing ? 28 : 4 + speed * 0.08);
+    } else if (w.type === 'saw_blade') {
+      const blade = root.getObjectByName('weapon-saw_blade');
+      const spin = delta * (6 + speed * 0.35);
+      blade?.getObjectByName('blade')?.rotateZ(spin);
+      blade?.getObjectByName('teeth')?.rotateZ(spin * 1.1);
+    } else if (w.type === 'chainsaw') {
+      const mount = root.getObjectByName('weapon-chainsaw');
+      const spin = delta * (8 + speed * 0.25);
+      for (const side of ['chainsaw-left', 'chainsaw-right', 'chainsaw-rear']) {
+        mount?.getObjectByName(side)?.traverse((c) => {
+          if (c.name === 'chain') c.rotation.y += spin;
+        });
+      }
     }
   }
 }
