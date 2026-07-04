@@ -35,6 +35,7 @@ import {
   syncVehicleMesh,
   applyVehicleEffects,
   applyCrashBounce,
+  regenerateVehicle,
 } from './vehicle.js';
 import {
   shouldDent,
@@ -163,6 +164,7 @@ const dashScoreHudEl = document.getElementById('dash-score-hud');
 const deathOverlayEl = document.getElementById('death-overlay');
 const deathTimerEl = document.getElementById('death-timer');
 const nonDyingBtnEl = document.getElementById('non-dying-btn');
+const regenerateBtnEl = document.getElementById('regenerate-btn');
 const coinHudEl = document.getElementById('coin-hud');
 const killShopBtnEl = document.getElementById('kill-shop-btn');
 const adminShopBtnEl = document.getElementById('admin-shop-btn');
@@ -744,6 +746,40 @@ function startDashSession(seed) {
   }
 }
 
+function regenerateCar() {
+  if (!isGameOwner() || !activeVehicle || !lastCarSpec || player.dead) return;
+
+  for (let i = crashDebris.length - 1; i >= 0; i--) {
+    if (crashDebris[i].isPart) {
+      crashDebris[i].mesh.parent?.remove(crashDebris[i].mesh);
+      crashDebris.splice(i, 1);
+    }
+  }
+
+  const weaponId = loadout.getEquippedWeapon()?.id;
+  if (player.inVehicle === activeVehicle) {
+    world.scene.attach(player.mesh);
+    player.inVehicle = null;
+  }
+
+  regenerateVehicle(activeVehicle, world.scene, buildSpawnSpec(lastCarSpec), world.envTex);
+  attachWeaponToVehicle(activeVehicle, weaponId ?? null);
+  enterDriverSeat(player, activeVehicle);
+  refreshDamageHud(damageHudEl, activeVehicle);
+  showToast('Car regenerated — good as new!');
+}
+
+function refreshRegenerateUi() {
+  if (!regenerateBtnEl) return;
+  const show = isGameOwner() && driving && activeVehicle && !player.dead
+    && (mode === 'world' || mode === 'comingSoon');
+  regenerateBtnEl.hidden = !show;
+}
+
+if (regenerateBtnEl) {
+  regenerateBtnEl.addEventListener('click', () => regenerateCar());
+}
+
 function refreshNonDyingUi() {
   if (!nonDyingBtnEl) return;
   if (!isGameOwner()) nonDyingMode = false;
@@ -853,6 +889,7 @@ function enterGameplay() {
   touch.setDriving(driving);
   setControlsHudVisible(controlsHudEl, true, { driving });
   refreshNonDyingUi();
+  refreshRegenerateUi();
   refreshCoinHud();
   refreshShopButtons();
 }
@@ -1075,6 +1112,7 @@ function render(delta) {
     updateCrashDebris(crashDebris, delta);
     refreshSuperDashUi();
     refreshNonDyingUi();
+    refreshRegenerateUi();
     refreshCoinHud();
     refreshShopButtons();
 

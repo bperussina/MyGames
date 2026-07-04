@@ -172,10 +172,6 @@ export function buildCity(scene) {
   function checkCarCollision(x, z, rotY = 0, hw = 1.15, hd = 2.25) {
     const { halfX, halfZ } = worldSpaceHalfExtents(rotY, hw, hd);
 
-    if (Math.abs(x) + halfX > WORLD_HALF || Math.abs(z) + halfZ > WORLD_HALF) {
-      return { kind: 'wall' };
-    }
-
     for (const b of colliders) {
       if (aabbOverlaps(x, z, halfX, halfZ, b)) {
         return { kind: 'building', collider: b };

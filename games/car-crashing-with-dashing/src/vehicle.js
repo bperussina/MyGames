@@ -185,6 +185,48 @@ export function resetVehicleAt(vehicle, x, z, rotY = 0) {
   syncVehicleMesh(vehicle);
 }
 
+/** Rebuild the car mesh in place — fresh body, all parts restored. */
+export function regenerateVehicle(vehicle, scene, spec, envMap = null) {
+  if (!vehicle || !spec || !scene) return vehicle;
+
+  const { x, z, rotY } = vehicle;
+  scene.remove(vehicle.mesh);
+
+  const profile = getCarProfile(spec);
+  const bounds = getCarCollisionBounds(profile);
+  const mesh = buildCarMesh(spec);
+  finishCarMesh(mesh, envMap);
+  mesh.position.set(x, 0, z);
+  mesh.rotation.y = rotY;
+
+  vehicle.mesh = mesh;
+  vehicle.spec = spec;
+  vehicle.profile = profile;
+  vehicle.partHealth = createDefaultPartHealth();
+  vehicle.dents = [];
+  vehicle.damage = 0;
+  vehicle.speed = 0;
+  vehicle.steer = 0;
+  vehicle.knockTilt = 0;
+  vehicle.bodyRoll = 0;
+  vehicle.equippedWeapon = null;
+  vehicle.initialPartCount = countAttachedParts(mesh);
+  vehicle.collisionHw = bounds.hw;
+  vehicle.collisionHd = bounds.hd;
+  vehicle.collisionWidth = bounds.width;
+  vehicle.collisionLength = bounds.length;
+  vehicle.baseCollisionHw = bounds.hw;
+  vehicle.baseCollisionHd = bounds.hd;
+  vehicle.baseCollisionWidth = bounds.width;
+  vehicle.baseCollisionLength = bounds.length;
+  vehicle.collisionDamaged = false;
+
+  scene.add(mesh);
+  updateVehicleCollisionBounds(vehicle);
+  syncVehicleMesh(vehicle);
+  return vehicle;
+}
+
 /**
  * Straight or slight turns charge up speed; sharp turns slow the boost.
  */
