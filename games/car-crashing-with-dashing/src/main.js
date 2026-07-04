@@ -61,6 +61,7 @@ import { createLoadout } from './loadout.js';
 import { applySkinToSpec } from './skins.js';
 import { createShredTargets, PLAYER_SHRED_COINS } from './shredTargets.js';
 import { attachWeaponToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { updateVehicleCollisionBounds } from './carCollision.js';
 import { initWeaponInput, updateWeaponCombat } from './weaponCombat.js';
 import { createKillShop } from './killShop.js';
 import { createAdminShop } from './adminShop.js';
