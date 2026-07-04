@@ -81,11 +81,21 @@ export function createRemotePlayers(scene) {
     return true;
   }
 
+  function tryGunHit(id, cooldownSec, onHit) {
+    const entry = peers.get(id);
+    if (!entry) return false;
+    entry.shredCooldown = entry.shredCooldown ?? 0;
+    if (entry.shredCooldown > 0) return false;
+    entry.shredCooldown = cooldownSec;
+    onHit?.(id, entry.player);
+    return true;
+  }
+
   function tickCooldowns(delta) {
     for (const [, entry] of peers) {
       if (entry.shredCooldown > 0) entry.shredCooldown = Math.max(0, entry.shredCooldown - delta);
     }
   }
 
-  return { applyPose, remove, lerpAll, clear, count: () => peers.size, forEach, tryShred, tickCooldowns };
+  return { applyPose, remove, lerpAll, clear, count: () => peers.size, forEach, tryShred, tryGunHit, tickCooldowns };
 }

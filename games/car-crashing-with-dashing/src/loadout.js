@@ -71,9 +71,25 @@ export function createLoadout(getPlayerId) {
 
   function buyWeapon(id) {
     const weapon = getWeapon(id);
-    if (!weapon || ownsWeapon(id)) return { ok: false, reason: 'already_owned' };
+    if (!weapon) return { ok: false, reason: 'invalid' };
+    if (ownsWeapon(id)) {
+      equipWeapon(id);
+      return { ok: true, weapon, alreadyOwned: true };
+    }
+
+    state.ownedWeapons = state.ownedWeapons.filter((wid) => {
+      const w = getWeapon(wid);
+      return w?.type !== weapon.type;
+    });
+
+    if (state.equippedWeapon) {
+      const equipped = getWeapon(state.equippedWeapon);
+      if (equipped?.type === weapon.type) state.equippedWeapon = null;
+    }
+
     if (!spendCoins(weapon.cost)) return { ok: false, reason: 'insufficient' };
     state.ownedWeapons.push(id);
+    state.equippedWeapon = id;
     save();
     return { ok: true, weapon };
   }
@@ -117,6 +133,15 @@ export function createLoadout(getPlayerId) {
     return [...state.ownedSkins];
   }
 
+  function ownsWeaponType(type) {
+    return state.ownedWeapons.some((wid) => getWeapon(wid)?.type === type);
+  }
+
+  function getOwnedWeaponOfType(type) {
+    const wid = state.ownedWeapons.find((id) => getWeapon(id)?.type === type);
+    return wid ? getWeapon(wid) : null;
+  }
+
   load();
 
   return {
@@ -135,5 +160,7 @@ export function createLoadout(getPlayerId) {
     getEquippedSkinId,
     getOwnedWeapons,
     getOwnedSkins,
+    ownsWeaponType,
+    getOwnedWeaponOfType,
   };
 }

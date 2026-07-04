@@ -10,8 +10,6 @@ const RINGS = [
 ];
 
 const TARGET_COUNT = 28;
-const HIT_RADIUS = 2.2;
-const MIN_HIT_SPEED = 10;
 const HIT_COOLDOWN = 1.4;
 
 function generateSpots() {
@@ -80,6 +78,20 @@ export function createShredTargets(scene) {
 
   let targets = [];
   let onDestroyed = null;
+  const rayMeshes = [];
+
+  function rebuildRayMeshes() {
+    rayMeshes.length = 0;
+    for (const t of targets) {
+      if (!t.alive) continue;
+      t.mesh.traverse((c) => {
+        if (c.isMesh) {
+          c.userData.shredTarget = t;
+          rayMeshes.push(c);
+        }
+      });
+    }
+  }
 
   function spawnAll() {
     clearAll();
@@ -100,6 +112,7 @@ export function createShredTargets(scene) {
         wobble: 0,
       });
     }
+    rebuildRayMeshes();
   }
 
   function clearAll() {
@@ -107,6 +120,7 @@ export function createShredTargets(scene) {
       if (t.mesh.parent) group.remove(t.mesh);
     }
     targets = [];
+    rayMeshes.length = 0;
   }
 
   function reset() {
@@ -118,17 +132,33 @@ export function createShredTargets(scene) {
   }
 
   function destroyTarget(t) {
-    if (!t.alive) return;
+    if (!t.alive) return false;
     t.alive = false;
     group.remove(t.mesh);
+    rebuildRayMeshes();
     onDestroyed?.(t);
+    return true;
   }
 
-  function update(delta, vehicle, weaponBonus = 1) {
-    if (!vehicle) return [];
-    const destroyed = [];
-    const speed = Math.abs(vehicle.speed);
+  function damageTarget(t, dmg) {
+    if (!t?.alive) return false;
+    t.health -= dmg;
+    t.wobble = 1;
+    if (t.health <= 0) return destroyTarget(t);
+    return false;
+  }
 
+  function raycast(raycaster) {
+    const hits = raycaster.intersectObjects(rayMeshes, false);
+    if (!hits.length) return null;
+    return hits[0].object.userData.shredTarget ?? null;
+  }
+
+  function forEachTarget(fn) {
+    for (const t of targets) fn(t);
+  }
+
+  function update(delta) {
     for (const t of targets) {
       if (!t.alive) continue;
       t.hitCooldown = Math.max(0, t.hitCooldown - delta);
@@ -137,29 +167,20 @@ export function createShredTargets(scene) {
         const board = t.mesh.userData.board;
         if (board) board.rotation.z = Math.sin(t.wobble * 18) * t.wobble * 0.35;
       }
-
-      const dx = vehicle.x - t.x;
-      const dz = vehicle.z - t.z;
-      const dist = Math.hypot(dx, dz);
-      if (dist > HIT_RADIUS + 2) continue;
-      if (dist > HIT_RADIUS || speed < MIN_HIT_SPEED || t.hitCooldown > 0) continue;
-
-      const dmg = speed * 0.75 * weaponBonus;
-      t.health -= dmg;
-      t.hitCooldown = HIT_COOLDOWN;
-      t.wobble = 1;
-
-      if (t.health <= 0) {
-        destroyTarget(t);
-        destroyed.push(t);
-      }
     }
-    return destroyed;
   }
 
   spawnAll();
 
-  return { reset, update, setOnDestroyed, count: () => targets.filter((t) => t.alive).length };
+  return {
+    reset,
+    update,
+    setOnDestroyed,
+    damageTarget,
+    raycast,
+    forEachTarget,
+    count: () => targets.filter((t) => t.alive).length,
+  };
 }
 
 export const PLAYER_SHRED_COINS = 150;

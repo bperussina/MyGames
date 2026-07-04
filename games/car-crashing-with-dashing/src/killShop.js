@@ -18,7 +18,7 @@ export function createKillShop(loadout, { onEquip, onClose, getCoinsText, onPurc
     <div class="shop-panel">
       <header class="shop-header">
         <h1>Kill Shop</h1>
-        <p>Buy weapons for your car. Shred targets and other players to earn coins!</p>
+        <p>One weapon per type (mini gun, saw, or chainsaw). Hold click to shoot targets with a mini gun.</p>
         <p class="shop-coins" id="kill-shop-coins">Coins: 0</p>
       </header>
       <div class="shop-tabs">
@@ -57,10 +57,13 @@ export function createKillShop(loadout, { onEquip, onClose, getCoinsText, onPurc
       btn.type = 'button';
       btn.className = 'shop-item';
       if (equipped) btn.classList.add('equipped');
+      const ownedType = loadout.getOwnedWeaponOfType?.(weapon.type);
       btn.innerHTML = `
         <span class="shop-item-swatch" style="background:#${weapon.color.toString(16).padStart(6, '0')}"></span>
         <span class="shop-item-name">${escapeHtml(weapon.name)}</span>
-        <span class="shop-item-meta">${activeTab === 'buy' ? `${weapon.cost} coins` : equipped ? 'Equipped' : 'Owned'}</span>
+        <span class="shop-item-meta">${activeTab === 'buy'
+    ? `${weapon.cost} coins${ownedType && ownedType.id !== weapon.id ? ' · replaces' : ''}`
+    : equipped ? 'Equipped' : 'Owned'}</span>
       `;
       btn.addEventListener('click', () => {
         if (activeTab === 'buy') {
@@ -72,8 +75,7 @@ export function createKillShop(loadout, { onEquip, onClose, getCoinsText, onPurc
           }
           const result = loadout.buyWeapon(weapon.id);
           if (result.ok) {
-            loadout.equipWeapon(weapon.id);
-            onEquip?.(weapon.id);
+            onEquip?.(result.weapon?.id ?? weapon.id);
           } else if (result.reason === 'insufficient') {
             onPurchaseFail?.('insufficient');
           }

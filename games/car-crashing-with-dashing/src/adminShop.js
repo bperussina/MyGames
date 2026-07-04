@@ -115,8 +115,7 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
           } else {
             const result = loadout.buyWeapon(weapon.id);
             if (result.ok) {
-              loadout.equipWeapon(weapon.id);
-              onEquipWeapon?.(weapon.id);
+              onEquipWeapon?.(result.weapon?.id ?? weapon.id);
             } else if (result.reason === 'insufficient') {
               onPurchaseFail?.('insufficient');
             }

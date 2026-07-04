@@ -57,8 +57,9 @@ import { maybeShowUpdateSplash, markPendingUpdateReload } from './updateSplash.j
 import { createDashSystem } from './dashPickups.js';
 import { createLoadout } from './loadout.js';
 import { applySkinToSpec } from './skins.js';
-import { createShredTargets, PLAYER_SHRED_COINS, PLAYER_SHRED_SPEED, PLAYER_SHRED_COOLDOWN } from './shredTargets.js';
+import { createShredTargets, PLAYER_SHRED_COINS } from './shredTargets.js';
 import { attachWeaponToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { initWeaponInput, updateWeaponCombat } from './weaponCombat.js';
 import { createKillShop } from './killShop.js';
 import { createAdminShop } from './adminShop.js';
 
@@ -188,17 +189,34 @@ function awardCoins(amount, message) {
   if (message) showToast(message);
 }
 
-shredTargets.setOnDestroyed((target) => {
-  const bonus = activeVehicle ? getWeaponShredBonus(activeVehicle) : 1;
-  const coins = Math.round(target.coinValue * bonus);
-  awardCoins(coins, `+${coins} coins — target shredded!`);
-});
+shredTargets.setOnDestroyed(() => {});
+
+let weaponFireState = { firing: false };
+
+function handleWeaponHitCoins(coins, kind) {
+  if (!coins || coins <= 0) return;
+  const msg = kind === 'shred'
+    ? `+${coins} coins — shredded!`
+    : kind === 'target'
+      ? `+${coins} coins — target destroyed!`
+      : `+${coins} coins — hit!`;
+  awardCoins(coins, msg);
+}
+
+function handlePlayerShredCoins() {
+  const coins = Math.round(PLAYER_SHRED_COINS * getWeaponShredBonus(activeVehicle));
+  awardCoins(coins, `+${coins} coins — player shredded!`);
+}
 
 const killShop = createKillShop(loadout, {
   getCoinsText: coinsText,
   onEquip: (weaponId) => {
     if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
-    showToast('Weapon equipped on your car!');
+    const w = loadout.getEquippedWeapon();
+    if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
+    else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
+    else if (w?.type === 'chainsaw') showToast('Chainsaws mounted on sides & back — sideswipe to shred!');
+    else showToast('Weapon equipped on your car!');
   },
   onClose: () => refreshShopButtons(),
   onPurchaseFail: () => showToast('Not enough coins!'),
@@ -208,7 +226,11 @@ const adminShop = createAdminShop(loadout, {
   getCoinsText: coinsText,
   onEquipWeapon: (weaponId) => {
     if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
-    showToast('Weapon equipped on your car!');
+    const w = loadout.getEquippedWeapon();
+    if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
+    else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
+    else if (w?.type === 'chainsaw') showToast('Chainsaws mounted on sides & back — sideswipe to shred!');
+    else showToast('Weapon equipped on your car!');
   },
   onEquipSkin: () => {
     showToast('Skin equipped — spawn a car from the garage to apply it!');
@@ -821,6 +843,7 @@ function enterGameplay() {
   world.show();
   if (!mouseLookReady) {
     initMouseLook(world.renderer.domElement);
+    initWeaponInput(world.renderer.domElement);
     mouseLookReady = true;
   }
   setGarageBoxVisible(true);
@@ -882,19 +905,19 @@ function updateWorldMovement(delta) {
 
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
-    spinCarWeapon(activeVehicle, delta);
-    shredTargets.update(delta, activeVehicle, getWeaponShredBonus(activeVehicle));
-    remotePlayers.tickCooldowns(delta);
-    remotePlayers.forEach((id) => {
-      remotePlayers.tryShred(id, activeVehicle, {
-        minSpeed: PLAYER_SHRED_SPEED,
-        cooldownSec: PLAYER_SHRED_COOLDOWN,
-        onShred: () => {
-          const coins = Math.round(PLAYER_SHRED_COINS * getWeaponShredBonus(activeVehicle));
-          awardCoins(coins, `+${coins} coins — player shredded!`);
-        },
-      });
+    shredTargets.update(delta);
+    weaponFireState = updateWeaponCombat(delta, {
+      vehicle: activeVehicle,
+      camera: world.camera,
+      renderer: world.renderer,
+      scene: world.scene,
+      shredTargets,
+      remotePlayers,
+      onTargetHit: handleWeaponHitCoins,
+      onPlayerShred: handlePlayerShredCoins,
     });
+    spinCarWeapon(activeVehicle, delta, weaponFireState.firing);
+    remotePlayers.tickCooldowns(delta);
     refreshDamageHud(damageHudEl, activeVehicle);
     if (isVehicleDestroyed(activeVehicle) && !nonDyingMode) {
       killPlayer();
