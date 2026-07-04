@@ -159,6 +159,11 @@ const nonDyingBtnEl = document.getElementById('non-dying-btn');
 
 let nonDyingMode = false;
 
+/** Room host in multiplayer, or solo play when there is no room. */
+function isGameOwner() {
+  return isHost || !mpRoom;
+}
+
 createControllerMap(() => refreshControlsHud(controlsHudEl, { driving }));
 createGarage(spawnCarFromGarage);
 
@@ -182,6 +187,7 @@ if (mode === 'drawPaper') {
 createLobby(({ room, isHost: host }) => {
   mpRoom = room;
   isHost = host;
+  if (!isGameOwner()) nonDyingMode = false;
   player.x = 0;
   player.z = 0;
   syncPlayerMesh(player);
@@ -633,7 +639,8 @@ function startDashSession(seed) {
 
 function refreshNonDyingUi() {
   if (!nonDyingBtnEl) return;
-  const show = (mode === 'world' || mode === 'comingSoon') && !player.dead;
+  if (!isGameOwner()) nonDyingMode = false;
+  const show = isGameOwner() && (mode === 'world' || mode === 'comingSoon') && !player.dead;
   nonDyingBtnEl.hidden = !show;
   nonDyingBtnEl.classList.toggle('active', nonDyingMode);
   nonDyingBtnEl.textContent = nonDyingMode ? 'NON-DYING' : 'DYING ON';
@@ -641,6 +648,7 @@ function refreshNonDyingUi() {
 
 if (nonDyingBtnEl) {
   nonDyingBtnEl.addEventListener('click', () => {
+    if (!isGameOwner()) return;
     nonDyingMode = !nonDyingMode;
     refreshNonDyingUi();
     showToast(nonDyingMode
