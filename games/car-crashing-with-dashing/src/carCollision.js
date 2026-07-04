@@ -36,9 +36,9 @@ export function clearanceWidth(hw) {
 }
 
 export function widthLabel(width) {
-  if (width <= 1.5) return 'Ultra-slim — slips through the tightest alleys';
-  if (width <= 1.65) return 'Slim — fits narrow alleys';
-  if (width <= 1.85) return 'Average — most city gaps';
-  if (width <= 2.0) return 'Wide — tight alleys are tricky';
-  return 'Extra wide — needs open roads';
+  if (width <= 1.5) return 'Ultra-slim profile';
+  if (width <= 1.65) return 'Slim profile';
+  if (width <= 1.85) return 'Average width';
+  if (width <= 2.0) return 'Wide body';
+  return 'Extra wide — trucks & SUVs';
 }
