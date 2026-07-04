@@ -121,11 +121,10 @@ function fireMinigunRay({
 
   if (targetHit) {
     const dmg = 14 * bonus;
-    const coinValue = targetHit.coinValue;
     const destroyed = shredTargets.damageTarget(targetHit, dmg);
     spawnTracer(scene, vehicle, targetHit.mesh.position);
-    if (destroyed) return { coins: Math.round(coinValue * bonus), kind: 'target' };
-    return { coins: Math.round(4 * bonus), kind: 'chip' };
+    if (!destroyed) return { coins: Math.round(4 * bonus), kind: 'chip' };
+    return null;
   }
 
   const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -164,9 +163,7 @@ function applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTarg
 
     const dmg = speed * 0.85 * bonus;
     t.hitCooldown = RAM_COOLDOWN;
-    const coinValue = t.coinValue;
-    const destroyed = shredTargets.damageTarget(t, dmg);
-    if (destroyed) onTargetHit?.(Math.round(coinValue * bonus), 'shred');
+    shredTargets.damageTarget(t, dmg);
   });
 
   if (weapon.type === 'saw_blade' && speed >= SAW_MIN_SPEED) {

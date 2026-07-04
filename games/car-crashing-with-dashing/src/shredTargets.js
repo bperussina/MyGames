@@ -2,11 +2,14 @@ import * as THREE from 'three';
 import { WORLD_HALF } from './city.js';
 import { rbxPaint, rbxPlastic } from './blockStyle.js';
 
+/** Coins awarded when a bullseye target is destroyed. */
+export const TARGET_DESTROY_COINS = 20;
+
 /** Rings just outside the city walls — countryside target range. */
 const RINGS = [
-  { radius: WORLD_HALF + 24, coins: 18 },
-  { radius: WORLD_HALF + 38, coins: 24 },
-  { radius: WORLD_HALF + 52, coins: 32 },
+  { radius: WORLD_HALF + 24 },
+  { radius: WORLD_HALF + 38 },
+  { radius: WORLD_HALF + 52 },
 ];
 
 const TARGET_COUNT = 28;
@@ -45,7 +48,7 @@ function generateSpots() {
     spots.push({
       x: Math.cos(angle) * ring.radius,
       z: Math.sin(angle) * ring.radius,
-      coins: ring.coins,
+      coins: TARGET_DESTROY_COINS,
     });
   }
   return spots;

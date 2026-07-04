@@ -59,7 +59,7 @@ import { maybeShowUpdateSplash, markPendingUpdateReload } from './updateSplash.j
 import { createDashSystem } from './dashPickups.js';
 import { createLoadout } from './loadout.js';
 import { applySkinToSpec } from './skins.js';
-import { createShredTargets, PLAYER_SHRED_COINS } from './shredTargets.js';
+import { createShredTargets, PLAYER_SHRED_COINS, TARGET_DESTROY_COINS } from './shredTargets.js';
 import { attachWeaponToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
 import { updateVehicleCollisionBounds } from './carCollision.js';
 import { initWeaponInput, updateWeaponCombat } from './weaponCombat.js';
@@ -193,7 +193,11 @@ function awardCoins(amount, message) {
   if (message) showToast(message);
 }
 
-shredTargets.setOnDestroyed(() => {});
+shredTargets.setOnDestroyed((target) => {
+  const bonus = getWeaponShredBonus(activeVehicle);
+  const coins = Math.round((target.coinValue ?? TARGET_DESTROY_COINS) * bonus);
+  handleWeaponHitCoins(coins, 'target');
+});
 
 let weaponFireState = { firing: false };
 
