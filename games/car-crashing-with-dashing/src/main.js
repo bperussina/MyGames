@@ -185,7 +185,7 @@ function coinsText() {
 }
 
 function awardCoins(amount, message) {
-  if (!amount || amount <= 0) return;
+  if (!amount || amount <= 0 || !isGameOwner()) return;
   loadout.addCoins(amount);
   refreshCoinHud();
   refreshKillShop();
@@ -242,6 +242,12 @@ const adminShop = createAdminShop(loadout, {
   },
   onEquipSkin: () => {
     showToast('Skin equipped — spawn a car from the garage to apply it!');
+  },
+  onGrantCoins: (amount) => {
+    loadout.addCoins(amount);
+    refreshCoinHud();
+    refreshAdminShop();
+    showToast(`+${amount} test coins granted`);
   },
   onClose: () => refreshShopButtons(),
   onPurchaseFail: () => showToast('Not enough coins!'),
@@ -872,16 +878,16 @@ if (nonDyingBtnEl) {
 
 function refreshCoinHud() {
   if (!coinHudEl) return;
-  const show = (mode === 'world' || mode === 'comingSoon') && !player.dead;
+  const show = isGameOwner() && (mode === 'world' || mode === 'comingSoon') && !player.dead;
   coinHudEl.hidden = !show;
-  coinHudEl.textContent = coinsText();
+  if (show) coinHudEl.textContent = coinsText();
 }
 
 function refreshShopButtons() {
   const inWorld = (mode === 'world' || mode === 'comingSoon') && !player.dead;
   const shopOpen = isKillShopVisible() || isAdminShopVisible();
   if (killShopBtnEl) {
-    killShopBtnEl.hidden = !inWorld || isGameOwner() || shopOpen;
+    killShopBtnEl.hidden = true;
   }
   if (adminShopBtnEl) {
     adminShopBtnEl.hidden = !inWorld || !isGameOwner() || shopOpen;

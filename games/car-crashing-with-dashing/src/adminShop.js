@@ -8,7 +8,7 @@ function escapeHtml(s) {
     .replace(/"/g, '&quot;');
 }
 
-export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, getCoinsText, onPurchaseFail }) {
+export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, getCoinsText, onPurchaseFail, onGrantCoins }) {
   let overlay = null;
   let visible = false;
 
@@ -26,6 +26,7 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
         <button type="button" class="shop-tab active" data-tab="skins">Skins</button>
         <button type="button" class="shop-tab" data-tab="weapons">Weapons</button>
         <button type="button" class="shop-tab" data-tab="equip">Equip</button>
+        <button type="button" class="shop-tab admin-only-tab" data-tab="testing">Testing</button>
       </div>
       <div class="shop-grid" id="admin-shop-grid"></div>
       <button type="button" class="shop-close" id="admin-shop-close">Close</button>
@@ -130,6 +131,49 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
     }
   }
 
+  function renderTesting() {
+    const panel = document.createElement('div');
+    panel.className = 'admin-testing-panel';
+    panel.innerHTML = `
+      <p class="admin-testing-lead">Owner testing only — grant yourself coins to try skins and weapons. Joined players never see this shop.</p>
+      <label class="admin-testing-label" for="admin-coin-amount">Coins to add</label>
+      <div class="admin-testing-row">
+        <input type="number" id="admin-coin-amount" class="admin-coin-input" min="1" max="999999" step="1" value="100" />
+        <button type="button" class="admin-grant-btn" id="admin-grant-coins">Grant coins</button>
+      </div>
+      <div class="admin-testing-presets">
+        <button type="button" class="admin-preset-btn" data-amount="50">+50</button>
+        <button type="button" class="admin-preset-btn" data-amount="100">+100</button>
+        <button type="button" class="admin-preset-btn" data-amount="500">+500</button>
+        <button type="button" class="admin-preset-btn" data-amount="1000">+1000</button>
+      </div>
+    `;
+
+    const input = panel.querySelector('#admin-coin-amount');
+    const grant = () => {
+      const amount = Math.floor(Number(input.value));
+      if (!Number.isFinite(amount) || amount < 1) return;
+      onGrantCoins?.(amount);
+      renderGrid();
+    };
+
+    panel.querySelector('#admin-grant-coins').addEventListener('click', grant);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') grant();
+    });
+    panel.querySelectorAll('.admin-preset-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const amount = Number(btn.dataset.amount);
+        if (!Number.isFinite(amount) || amount < 1) return;
+        input.value = String(amount);
+        onGrantCoins?.(amount);
+        renderGrid();
+      });
+    });
+
+    grid.appendChild(panel);
+  }
+
   function renderGrid() {
     if (!grid) return;
     grid.innerHTML = '';
@@ -137,6 +181,7 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
 
     if (activeTab === 'skins') renderSkins(true);
     else if (activeTab === 'weapons') renderWeapons(true);
+    else if (activeTab === 'testing') renderTesting();
     else if (activeTab === 'equip') {
       const ownedSkins = SKIN_CATALOG.filter((s) => loadout.ownsSkin(s.id));
       const ownedWeapons = getAdminWeapons().filter((w) => loadout.ownsWeapon(w.id));
