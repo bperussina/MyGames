@@ -31,7 +31,7 @@ import {
   enterDriverSeat,
   exitDriverSeat,
   updateVehicle,
-  spawnInFrontOfPlayer,
+  spawnAtPlayer,
   syncVehicleMesh,
   applyVehicleEffects,
   applyCrashBounce,
@@ -371,13 +371,14 @@ function spawnCarFromGarage(spec) {
     player.mesh.visible = true;
   }
 
-  activeVehicle = spawnInFrontOfPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
+  activeVehicle = spawnAtPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
   attachWeaponToVehicle(activeVehicle, loadout.getEquippedWeapon()?.id ?? null);
   updateVehicleCollisionBounds(activeVehicle);
   driving = true;
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
+  syncVehicleMesh(activeVehicle);
   refreshControlsHud(controlsHudEl, { driving: true });
   setDamageHudVisible(damageHudEl, true);
   refreshDamageHud(damageHudEl, activeVehicle);

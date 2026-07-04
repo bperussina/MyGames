@@ -74,6 +74,9 @@ export function enterDriverSeat(player, vehicle) {
   player.mesh.scale.setScalar(0.42);
   player.mesh.visible = true;
   player.inVehicle = vehicle;
+  player.x = vehicle.x;
+  player.z = vehicle.z;
+  player.facing = vehicle.rotY;
 }
 
 export function exitDriverSeat(player, vehicle) {
@@ -289,10 +292,12 @@ export function updateVehicle(vehicle, drive, delta, clampPosition) {
   return { impactSpeed: Math.abs(vehicle.speed), charging, wallHit };
 }
 
-export function spawnInFrontOfPlayer(player, spec, clampPosition, envMap = null) {
-  const dist = 4;
-  const sx = player.x + Math.sin(player.facing) * dist;
-  const sz = player.z + Math.cos(player.facing) * dist;
-  const clamped = clampPosition(sx, sz);
+export function spawnAtPlayer(player, spec, clampPosition, envMap = null) {
+  const clamped = clampPosition(player.x, player.z);
   return createVehicleState(spec, clamped.x, clamped.z, player.facing, envMap);
+}
+
+/** @deprecated use spawnAtPlayer */
+export function spawnInFrontOfPlayer(player, spec, clampPosition, envMap = null) {
+  return spawnAtPlayer(player, spec, clampPosition, envMap);
 }
