@@ -24,12 +24,13 @@ import { refreshDamageHud, setDamageHudVisible } from './damageHud.js';
 import { createTouchControls } from './touchControls.js';
 import { createScene3d } from './scene3d.js';
 import { createPlayer, updatePlayer, syncPlayerMesh, addPlayerToScene } from './player.js';
-import { createGarage, showGarage, isGarageVisible, setGarageBoxVisible } from './garage.js';
+import { createGarage, showGarage, hideGarage, isGarageVisible, setGarageBoxVisible, getCarSpec } from './garage.js';
 import {
   addVehicleToScene,
   removeVehicleFromScene,
   enterDriverSeat,
   exitDriverSeat,
+  detachPlayerToScene,
   updateVehicle,
   spawnAtPlayer,
   syncVehicleMesh,
@@ -356,19 +357,31 @@ function sendPose() {
   });
 }
 
+const DEFAULT_CAR_ID = 'cybertruck';
+
+function getDefaultCarSpec() {
+  if (lastCarSpec?.id) {
+    const spec = getCarSpec(lastCarSpec.id);
+    if (spec) return spec;
+  }
+  return getCarSpec(DEFAULT_CAR_ID);
+}
+
 function buildSpawnSpec(spec) {
   const skinId = isGameOwner() ? loadout.getEquippedSkinId() : null;
   return skinId ? applySkinToSpec(spec, skinId) : spec;
 }
 
 function spawnCarFromGarage(spec) {
+  if (!spec) return;
   lastCarSpec = spec;
+  hideGarage();
+
   if (activeVehicle) {
+    detachPlayerToScene(player, world.scene);
     removeVehicleFromScene(world.scene, activeVehicle);
     activeVehicle = null;
     driving = false;
-    player.inVehicle = null;
-    player.mesh.visible = true;
   }
 
   activeVehicle = spawnAtPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
@@ -379,9 +392,14 @@ function spawnCarFromGarage(spec) {
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   syncVehicleMesh(activeVehicle);
+  syncPlayerMesh(player);
+  world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
   refreshControlsHud(controlsHudEl, { driving: true });
   setDamageHudVisible(damageHudEl, true);
   refreshDamageHud(damageHudEl, activeVehicle);
+  refreshRegenerateUi();
+  refreshShopButtons();
+  setControlsHudVisible(controlsHudEl, true, { driving: true });
 }
 
 function handleCarCollision(impactSpeed) {
@@ -467,10 +485,16 @@ function respawnPlayer() {
   touch.setDriving(false);
   if (deathOverlayEl) deathOverlayEl.hidden = true;
   setGarageBoxVisible(true);
-  showGarage();
+  hideGarage();
   setControlsHudVisible(controlsHudEl, true, { driving: false });
-  world.updateCamera(player.x, player.z, player.facing);
-  showToast('Respawned at spawn!');
+  const spec = getDefaultCarSpec();
+  if (spec) {
+    spawnCarFromGarage(spec);
+    showToast('Respawned — back in your car!');
+  } else {
+    showGarage();
+    showToast('Respawned at spawn!');
+  }
 }
 
 function updateDeathState(delta) {
@@ -758,10 +782,7 @@ function regenerateCar() {
   }
 
   const weaponId = loadout.getEquippedWeapon()?.id;
-  if (player.inVehicle === activeVehicle) {
-    world.scene.attach(player.mesh);
-    player.inVehicle = null;
-  }
+  detachPlayerToScene(player, world.scene);
 
   regenerateVehicle(activeVehicle, world.scene, buildSpawnSpec(lastCarSpec), world.envTex);
   attachWeaponToVehicle(activeVehicle, weaponId ?? null);
@@ -885,10 +906,15 @@ function enterGameplay() {
     mouseLookReady = true;
   }
   setGarageBoxVisible(true);
-  showGarage();
+  hideGarage();
   touch.setVisible(true);
-  touch.setDriving(driving);
-  setControlsHudVisible(controlsHudEl, true, { driving });
+  if (!driving && !player.dead) {
+    const spec = getDefaultCarSpec();
+    if (spec) spawnCarFromGarage(spec);
+  } else {
+    touch.setDriving(driving);
+    setControlsHudVisible(controlsHudEl, true, { driving });
+  }
   refreshNonDyingUi();
   refreshRegenerateUi();
   refreshCoinHud();

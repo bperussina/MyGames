@@ -66,6 +66,17 @@ export function removeVehicleFromScene(scene, vehicle) {
   if (vehicle?.mesh) scene.remove(vehicle.mesh);
 }
 
+export function detachPlayerToScene(player, scene) {
+  if (!player?.mesh || !scene) return;
+  if (player.inVehicle) {
+    scene.attach(player.mesh);
+    player.mesh.scale.setScalar(1);
+    player.inVehicle = null;
+  } else if (player.mesh.parent !== scene) {
+    scene.attach(player.mesh);
+  }
+}
+
 export function enterDriverSeat(player, vehicle) {
   const seat = vehicle.mesh.userData.driverSeat ?? { x: 0.35, y: 0.78, z: 0.05 };
   vehicle.mesh.attach(player.mesh);
