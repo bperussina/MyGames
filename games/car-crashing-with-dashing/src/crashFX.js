@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { rbxPlastic, rbxDebrisMaterial } from './blockStyle.js';
+import { updateVehicleCollisionBounds } from './carCollision.js';
 
 const CHIP_SPEED = 5;
 const DENT_SPEED = 28;
@@ -704,6 +705,7 @@ export function handleCrash(vehicle, scene, impactSpeed, debris) {
   }
 
   detachImpactParts(vehicle, scene, impactSpeed, debris);
+  updateVehicleCollisionBounds(vehicle);
 }
 
 export function updateCrashDebris(debris, delta) {

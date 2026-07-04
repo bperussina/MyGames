@@ -372,6 +372,7 @@ function spawnCarFromGarage(spec) {
   activeVehicle = spawnInFrontOfPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
   attachWeaponToVehicle(activeVehicle, loadout.getEquippedWeapon()?.id ?? null);
+  updateVehicleCollisionBounds(activeVehicle);
   driving = true;
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);

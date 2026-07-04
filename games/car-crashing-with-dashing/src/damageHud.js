@@ -20,7 +20,7 @@ export function refreshDamageHud(el, vehicle) {
   const width = vehicle.collisionWidth ?? 1.88;
   el.innerHTML = `
     <p class="dmg-title">Vehicle damage</p>
-    <p class="dmg-width">${width.toFixed(2)}m wide · ${widthLabel(width)}</p>
+    <p class="dmg-width">${width.toFixed(2)}m wide · ${widthLabel(width, vehicle)}</p>
     ${row('Engine', h.engine)}
     ${row('Body', h.body)}
     ${row('Hood', h.hood)}
