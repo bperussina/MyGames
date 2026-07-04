@@ -80,6 +80,9 @@ export function updateWeaponCombat(delta, ctx) {
   const weapon = vehicle.equippedWeapon;
 
   if (weapon.type === 'mini_gun' && wantsMinigunFire() && fireCooldown <= 0) {
+    if (typeof ctx.canFireMinigun === 'function' && !ctx.canFireMinigun()) {
+      return { firing: false };
+    }
     fireCooldown = MINIGUN_COOLDOWN;
     isFiring = true;
     const hit = fireMinigunRay({

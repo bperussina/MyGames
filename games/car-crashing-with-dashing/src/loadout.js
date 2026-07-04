@@ -33,6 +33,14 @@ export function createLoadout(getPlayerId) {
     } catch {
       state = defaultState();
     }
+    state.ownedWeapons = state.ownedWeapons.filter((id) => getWeapon(id));
+    state.ownedSkins = state.ownedSkins.filter((id) => getSkin(id));
+    if (state.equippedWeapon && !ownsWeapon(state.equippedWeapon)) {
+      state.equippedWeapon = null;
+    }
+    if (state.equippedSkin && !ownsSkin(state.equippedSkin)) {
+      state.equippedSkin = null;
+    }
   }
 
   function reloadForPlayer() {
@@ -118,7 +126,8 @@ export function createLoadout(getPlayerId) {
   }
 
   function getEquippedWeapon() {
-    return state.equippedWeapon ? getWeapon(state.equippedWeapon) : null;
+    if (!state.equippedWeapon || !ownsWeapon(state.equippedWeapon)) return null;
+    return getWeapon(state.equippedWeapon);
   }
 
   function getEquippedSkinId() {

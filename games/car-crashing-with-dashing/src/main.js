@@ -215,7 +215,7 @@ function handlePlayerShredCoins() {
 const killShop = createKillShop(loadout, {
   getCoinsText: coinsText,
   onEquip: (weaponId) => {
-    if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
+    if (activeVehicle) attachWeaponToVehicle(activeVehicle, loadout.ownsWeapon(weaponId) ? weaponId : null);
     const w = loadout.getEquippedWeapon();
     if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
     else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
@@ -229,7 +229,7 @@ const killShop = createKillShop(loadout, {
 const adminShop = createAdminShop(loadout, {
   getCoinsText: coinsText,
   onEquipWeapon: (weaponId) => {
-    if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
+    if (activeVehicle) attachWeaponToVehicle(activeVehicle, loadout.ownsWeapon(weaponId) ? weaponId : null);
     const w = loadout.getEquippedWeapon();
     if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
     else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
@@ -368,9 +368,13 @@ function getDefaultCarSpec() {
   return getCarSpec(DEFAULT_CAR_ID);
 }
 
-function buildSpawnSpec(spec) {
-  const skinId = isGameOwner() ? loadout.getEquippedSkinId() : null;
-  return skinId ? applySkinToSpec(spec, skinId) : spec;
+function getVehicleWeaponId() {
+  return loadout.getEquippedWeapon()?.id ?? null;
+}
+
+function canFireMinigun() {
+  const weapon = loadout.getEquippedWeapon();
+  return weapon?.type === 'mini_gun' && loadout.ownsWeapon(weapon.id);
 }
 
 function spawnCarFromGarage(spec) {
@@ -387,7 +391,7 @@ function spawnCarFromGarage(spec) {
 
   activeVehicle = spawnAtPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
-  attachWeaponToVehicle(activeVehicle, loadout.getEquippedWeapon()?.id ?? null);
+  attachWeaponToVehicle(activeVehicle, getVehicleWeaponId());
   updateVehicleCollisionBounds(activeVehicle);
   driving = true;
   touch.setDriving(true);
@@ -785,7 +789,7 @@ function regenerateCar() {
   detachPlayerToScene(player, world.scene);
 
   regenerateVehicle(activeVehicle, world.scene, buildSpawnSpec(lastCarSpec), world.envTex);
-  attachWeaponToVehicle(activeVehicle, weaponId ?? null);
+  attachWeaponToVehicle(activeVehicle, getVehicleWeaponId());
   enterDriverSeat(player, activeVehicle);
   refreshDamageHud(damageHudEl, activeVehicle);
   showToast('Car regenerated — good as new!');
@@ -999,6 +1003,7 @@ function updateWorldMovement(delta) {
       remotePlayers,
       onTargetHit: handleWeaponHitCoins,
       onPlayerShred: handlePlayerShredCoins,
+      canFireMinigun,
     });
     spinCarWeapon(activeVehicle, delta, weaponFireState.firing);
     remotePlayers.tickCooldowns(delta);
