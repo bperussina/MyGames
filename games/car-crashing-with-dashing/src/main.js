@@ -285,11 +285,8 @@ if (mode === 'drawPaper') {
 createLobby(({ room, isHost: host }) => {
   mpRoom = room;
   isHost = host;
-  if (!isGameOwner()) nonDyingMode = false;
-  loadout.reloadForPlayer();
-  player.x = 0;
-  player.z = 0;
-  syncPlayerMesh(player);
+  loadout.resetForPlayer();
+  resetRoundState();
   setupMultiplayer(room);
   mode = 'world';
   enterGameplay();
@@ -663,15 +660,53 @@ function drawTitleButton(btn, label, colors, pulse, hover, pressed) {
   ctx.restore();
 }
 
+function resetRoundState() {
+  nonDyingMode = false;
+
+  if (activeVehicle) {
+    detachPlayerToScene(player, world.scene);
+    removeVehicleFromScene(world.scene, activeVehicle);
+    activeVehicle = null;
+  }
+
+  driving = false;
+  lastCarSpec = null;
+  touch.setDriving(false);
+
+  player.dead = false;
+  respawnTimer = 0;
+  player.x = SPAWN_X;
+  player.z = SPAWN_Z;
+  player.facing = 0;
+  player.mesh.rotation.set(0, 0, 0);
+  player.mesh.visible = true;
+  player.inVehicle = null;
+  syncPlayerMesh(player);
+
+  for (const d of crashDebris) {
+    d.mesh.parent?.remove(d.mesh);
+  }
+  crashDebris.length = 0;
+
+  collisionCooldown = 0;
+  cameraShake = 0;
+  dashSystem.setSuperDash(false);
+  dashSystem.resetPlayerScore();
+
+  if (deathOverlayEl) deathOverlayEl.hidden = true;
+  setDamageHudVisible(damageHudEl, false);
+  hideGarage();
+  hideKillShop();
+  hideAdminShop();
+}
+
 function startSoloPlay() {
   mode = 'comingSoon';
   comingSoonTimer = COMING_SOON_TIME;
   mpRoom = null;
   isHost = false;
-  loadout.reloadForPlayer();
-  player.x = 0;
-  player.z = 0;
-  syncPlayerMesh(player);
+  loadout.resetForPlayer();
+  resetRoundState();
   enterGameplay();
   startDashSession(hashSeed(String(Date.now())));
   shredTargets.reset();

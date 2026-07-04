@@ -47,6 +47,17 @@ export function createLoadout(getPlayerId) {
     load();
   }
 
+  function resetSession() {
+    state = defaultState();
+    save();
+  }
+
+  /** Clear saved progress for the current player id (solo = local, mp = peer id). */
+  function resetForPlayer() {
+    load();
+    resetSession();
+  }
+
   function getCoins() {
     return state.coins;
   }
@@ -155,6 +166,8 @@ export function createLoadout(getPlayerId) {
 
   return {
     reloadForPlayer,
+    resetSession,
+    resetForPlayer,
     getCoins,
     addCoins,
     canAfford,
