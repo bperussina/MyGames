@@ -1,10 +1,39 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>car crashing with dashing</title>
+    <script>
+      (function () {
+        var KEY = 'ccwd-build';
+        var host = location.hostname;
+        if (host === 'localhost' || host === '127.0.0.1') return;
+        try {
+          var xhr = new XMLHttpRequest();
+          xhr.open('GET', './version.json?_=' + Date.now(), false);
+          xhr.send(null);
+          if (xhr.status !== 200) return;
+          var data = JSON.parse(xhr.responseText);
+          var v = data && data.v;
+          if (!v) return;
+          var prev = localStorage.getItem(KEY);
+          if (prev && prev !== v) {
+            localStorage.setItem('ccwd-show-update', '1');
+            localStorage.setItem(KEY, v);
+            var url = new URL(location.href);
+            url.searchParams.set('__v', v);
+            location.replace(url.toString());
+          } else if (!prev) {
+            localStorage.setItem(KEY, v);
+          }
+        } catch (e) {}
+      })();
+    </script>
     <style>
       * {
         box-sizing: border-box;
@@ -186,6 +215,38 @@
         opacity: 1;
       }
 
+      #death-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.72);
+        color: #fecaca;
+        text-align: center;
+        pointer-events: none;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+      }
+
+      #death-overlay[hidden] {
+        display: none !important;
+      }
+
+      #death-overlay .death-title {
+        font-size: clamp(2rem, 8vw, 3.5rem);
+        color: #ef4444;
+        text-shadow: 0 0 24px rgba(239, 68, 68, 0.5);
+        margin-bottom: 12px;
+      }
+
+      #death-overlay .death-timer {
+        font-size: 1.25rem;
+        color: #fca5a5;
+      }
+
       #map-hint {
         display: none !important;
       }
@@ -209,6 +270,76 @@
 
       #controls-hud[hidden] {
         display: none !important;
+      }
+
+      #damage-hud {
+        position: fixed;
+        left: 10px;
+        bottom: 10px;
+        z-index: 42;
+        width: min(42vw, 168px);
+        padding: 8px 10px;
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        border-radius: 8px;
+        font-size: 8px;
+        color: #e2e8f0;
+        pointer-events: none;
+      }
+
+      #damage-hud[hidden] {
+        display: none !important;
+      }
+
+      .dmg-title {
+        margin: 0 0 6px;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #f87171;
+      }
+
+      .dmg-width {
+        margin: 0 0 8px;
+        font-size: 7px;
+        line-height: 1.35;
+        color: #93c5fd;
+        font-weight: 700;
+      }
+
+      .dmg-row {
+        display: grid;
+        grid-template-columns: 38px 1fr 26px;
+        align-items: center;
+        gap: 4px;
+        margin-bottom: 3px;
+      }
+
+      .dmg-label {
+        font-size: 7px;
+        font-weight: 700;
+        color: #94a3b8;
+      }
+
+      .dmg-track {
+        height: 5px;
+        background: #1e293b;
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .dmg-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.2s;
+      }
+
+      .dmg-pct {
+        font-size: 7px;
+        font-weight: 800;
+        text-align: right;
+        color: #cbd5e1;
       }
 
       .controls-title {
@@ -725,15 +856,680 @@
         color: #fde047;
         font-weight: 700;
       }
+
+      #super-dash-btn {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 50;
+        padding: 14px 18px;
+        border: 3px solid #1e40af;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #3b82f6 0%, #2563eb 55%, #1d4ed8 100%);
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        box-shadow: 0 6px 0 #1e3a8a, 0 10px 28px rgba(37, 99, 235, 0.45);
+        pointer-events: auto;
+      }
+
+      #super-dash-btn[hidden] {
+        display: none !important;
+      }
+
+      #super-dash-btn.active {
+        background: linear-gradient(180deg, #fde047 0%, #facc15 55%, #eab308 100%);
+        color: #422006;
+        border-color: #854d0e;
+        box-shadow: 0 6px 0 #854d0e, 0 10px 28px rgba(250, 204, 21, 0.4);
+      }
+
+      #non-dying-btn {
+        position: fixed;
+        right: 16px;
+        bottom: 76px;
+        z-index: 50;
+        padding: 12px 16px;
+        border: 3px solid #475569;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #64748b 0%, #475569 55%, #334155 100%);
+        color: #e2e8f0;
+        font-size: 0.85rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #1e293b, 0 8px 20px rgba(0, 0, 0, 0.35);
+        pointer-events: auto;
+      }
+
+      #non-dying-btn[hidden] {
+        display: none !important;
+      }
+
+      #non-dying-btn.active {
+        background: linear-gradient(180deg, #4ade80 0%, #22c55e 55%, #16a34a 100%);
+        color: #14532d;
+        border-color: #14532d;
+        box-shadow: 0 5px 0 #14532d, 0 8px 24px rgba(34, 197, 94, 0.4);
+      }
+
+      #regenerate-btn {
+        position: fixed;
+        right: 16px;
+        bottom: 136px;
+        z-index: 50;
+        padding: 12px 16px;
+        border: 3px solid #0369a1;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 55%, #0284c7 100%);
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #075985, 0 8px 20px rgba(14, 165, 233, 0.4);
+        pointer-events: auto;
+      }
+
+      #regenerate-btn[hidden] {
+        display: none !important;
+      }
+
+      #dash-score-hud {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        z-index: 46;
+        padding: 8px 12px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #93c5fd;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        pointer-events: none;
+      }
+
+      #dash-score-hud[hidden] {
+        display: none !important;
+      }
+
+      #coin-hud {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 46;
+        padding: 8px 12px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #fde047;
+        border: 2px solid #854d0e;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        pointer-events: none;
+      }
+
+      #coin-hud[hidden] {
+        display: none !important;
+      }
+
+      #kill-shop-btn,
+      #admin-shop-btn {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 50;
+        padding: 12px 16px;
+        border: 3px solid #7f1d1d;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #7f1d1d, 0 8px 20px rgba(220, 38, 38, 0.4);
+        pointer-events: auto;
+      }
+
+      #admin-shop-btn {
+        border-color: #854d0e;
+        background: linear-gradient(180deg, #fde047 0%, #facc15 55%, #eab308 100%);
+        color: #422006;
+        box-shadow: 0 5px 0 #854d0e, 0 8px 20px rgba(250, 204, 21, 0.4);
+      }
+
+      #kill-shop-btn[hidden],
+      #admin-shop-btn[hidden] {
+        display: none !important;
+      }
+
+      .shop-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(2, 6, 23, 0.82);
+        pointer-events: auto;
+      }
+
+      .shop-panel {
+        width: min(720px, 100%);
+        max-height: min(88vh, 820px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        border: 3px solid #14532d;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.96);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+      }
+
+      .admin-shop-panel {
+        border-color: #854d0e;
+      }
+
+      .shop-header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        color: #dcfce7;
+      }
+
+      .admin-shop-panel .shop-header h1 {
+        color: #fef08a;
+      }
+
+      .shop-header p {
+        margin: 6px 0 0;
+        color: #94a3b8;
+        font-size: 0.9rem;
+      }
+
+      .shop-coins {
+        margin-top: 8px !important;
+        color: #fde047 !important;
+        font-weight: 800 !important;
+      }
+
+      .shop-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .shop-tab {
+        padding: 8px 14px;
+        border: 2px solid #334155;
+        border-radius: 10px;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .shop-tab.active {
+        border-color: #22c55e;
+        background: #14532d;
+        color: #dcfce7;
+      }
+
+      .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+        overflow-y: auto;
+        max-height: 48vh;
+        padding-right: 4px;
+      }
+
+      .shop-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 10px;
+        border: 2px solid #334155;
+        border-radius: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .shop-item:hover {
+        border-color: #22c55e;
+      }
+
+      .shop-item.equipped {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+      }
+
+      .shop-item.premium {
+        border-color: #a855f7;
+      }
+
+      .shop-item-swatch {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .shop-item-name {
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      .shop-item-meta {
+        font-size: 0.72rem;
+        color: #94a3b8;
+      }
+
+      .shop-empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: #94a3b8;
+        padding: 24px;
+      }
+
+      .shop-close {
+        align-self: center;
+        padding: 10px 24px;
+        border: 2px solid #475569;
+        border-radius: 12px;
+        background: #334155;
+        color: #f8fafc;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      #draw-paper {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: #ffffff;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #draw-paper[hidden] {
+        display: none !important;
+      }
+
+      #draw-paper-canvas {
+        flex: 1;
+        width: 100%;
+        touch-action: none;
+        cursor: crosshair;
+        background: #ffffff;
+      }
+
+      .draw-toolbar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.88);
+        border-radius: 12px;
+        pointer-events: auto;
+      }
+
+      .draw-title {
+        width: 100%;
+        margin: 0 0 2px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        color: #e2e8f0;
+      }
+
+      .draw-tools {
+        display: flex;
+        gap: 6px;
+      }
+
+      .draw-tool,
+      .draw-clear,
+      .draw-play-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .draw-tool {
+        background: #334155;
+        color: #e2e8f0;
+      }
+
+      .draw-tool.active {
+        background: #22c55e;
+        color: #14532d;
+      }
+
+      .draw-colors {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .draw-swatch {
+        width: 28px;
+        height: 28px;
+        border: 2px solid #fff;
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .draw-swatch.active {
+        outline: 3px solid #22c55e;
+        outline-offset: 2px;
+      }
+
+      .draw-clear {
+        background: #475569;
+        color: #fff;
+        margin-left: auto;
+      }
+
+      .draw-footer {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        right: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        padding: 10px 12px;
+        background: rgba(15, 23, 42, 0.9);
+        border-radius: 12px;
+        pointer-events: auto;
+      }
+
+      .draw-hint {
+        flex: 1 1 200px;
+        margin: 0;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+      }
+
+      .draw-undo-input {
+        flex: 0 1 140px;
+        padding: 10px 12px;
+        border: 2px solid #334155;
+        border-radius: 8px;
+        background: #1e293b;
+        color: #fff;
+        font-size: 1rem;
+      }
+
+      .draw-play-btn,
+      .draw-multi-btn {
+        border: none;
+        border-radius: 10px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .draw-footer-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .draw-play-btn {
+        background: #22c55e;
+        color: #14532d;
+        font-size: 1rem;
+        padding: 10px 18px;
+      }
+
+      .draw-multi-btn {
+        background: #4ade80;
+        color: #14532d;
+        font-size: 1rem;
+        padding: 10px 18px;
+      }
+
+      .draw-multi-btn:hover,
+      .draw-play-btn:hover {
+        filter: brightness(1.05);
+      }
+
+      #update-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        overflow: auto;
+        opacity: 0;
+        transition: opacity 0.35s ease;
+      }
+
+      #update-splash.update-splash-in {
+        opacity: 1;
+      }
+
+      #update-splash.update-splash-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .update-bg {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 50% 20%, rgba(250, 204, 21, 0.35), transparent 45%),
+          radial-gradient(circle at 20% 80%, rgba(34, 197, 94, 0.4), transparent 40%),
+          linear-gradient(160deg, #052e16 0%, #0f172a 45%, #14532d 100%);
+        animation: update-bg-pulse 3s ease-in-out infinite;
+      }
+
+      @keyframes update-bg-pulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.15); }
+      }
+
+      .update-rays {
+        position: absolute;
+        inset: -50%;
+        background: conic-gradient(
+          from 0deg,
+          transparent 0deg,
+          rgba(250, 204, 21, 0.08) 20deg,
+          transparent 40deg,
+          rgba(34, 197, 94, 0.1) 60deg,
+          transparent 80deg
+        );
+        animation: update-spin 18s linear infinite;
+        pointer-events: none;
+      }
+
+      @keyframes update-spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .update-panel {
+        position: relative;
+        width: min(560px, 100%);
+        padding: 28px 26px 24px;
+        border-radius: 20px;
+        border: 3px solid rgba(250, 204, 21, 0.65);
+        background: rgba(15, 23, 42, 0.94);
+        box-shadow:
+          0 0 0 1px rgba(34, 197, 94, 0.35),
+          0 24px 80px rgba(0, 0, 0, 0.55),
+          0 0 60px rgba(34, 197, 94, 0.2);
+        text-align: center;
+        color: #e2e8f0;
+        animation: update-panel-pop 0.55s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+      }
+
+      @keyframes update-panel-pop {
+        from {
+          opacity: 0;
+          transform: scale(0.82) translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+
+      .update-eyebrow {
+        margin: 0 0 8px;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.22em;
+        color: #4ade80;
+        text-transform: uppercase;
+      }
+
+      .update-headline {
+        margin: 0;
+        font-size: clamp(2.4rem, 9vw, 3.6rem);
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0.04em;
+        color: #fde047;
+        text-shadow:
+          0 0 24px rgba(250, 204, 21, 0.55),
+          0 4px 0 #854d0e;
+        animation: update-headline-pulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes update-headline-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.04); }
+      }
+
+      .update-tagline {
+        margin: 10px 0 6px;
+        font-size: 1.05rem;
+        color: #cbd5e1;
+      }
+
+      .update-version {
+        margin: 0 0 18px;
+        font-size: 0.9rem;
+        color: #94a3b8;
+      }
+
+      .update-version strong {
+        color: #4ade80;
+        font-family: ui-monospace, monospace;
+      }
+
+      .update-features {
+        list-style: none;
+        margin: 0 0 22px;
+        padding: 0;
+        display: grid;
+        gap: 10px;
+        text-align: left;
+      }
+
+      .update-features li {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .update-feature-icon {
+        font-size: 1.5rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .update-feature-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 0.88rem;
+        color: #cbd5e1;
+      }
+
+      .update-feature-text strong {
+        color: #f8fafc;
+        font-size: 0.95rem;
+      }
+
+      .update-play-btn {
+        width: 100%;
+        border: none;
+        border-radius: 14px;
+        padding: 16px 20px;
+        font-size: 1.25rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        color: #14532d;
+        background: linear-gradient(180deg, #fde047 0%, #facc15 55%, #eab308 100%);
+        box-shadow:
+          0 6px 0 #854d0e,
+          0 12px 32px rgba(250, 204, 21, 0.35);
+        animation: update-btn-pulse 1.2s ease-in-out infinite;
+      }
+
+      .update-play-btn:hover {
+        filter: brightness(1.06);
+      }
+
+      .update-play-btn:active {
+        transform: translateY(4px);
+        box-shadow:
+          0 2px 0 #854d0e,
+          0 8px 20px rgba(250, 204, 21, 0.25);
+      }
+
+      @keyframes update-btn-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+      }
+
     </style>
-    <script type="module" crossorigin src="./assets/index-BWR_Q8IY.js"></script>
+    <script type="module" crossorigin src="./assets/index-xgUlhFsn.js"></script>
   </head>
   <body>
     <div id="action-toast"></div>
+    <div id="death-overlay" hidden>
+      <p class="death-title">YOU DIED</p>
+      <p class="death-timer" id="death-timer">Respawning in 5...</p>
+    </div>
     <div id="controls-hud" hidden>
       <p class="controls-title">How to play</p>
       <div id="controls-body"></div>
     </div>
+    <div id="damage-hud" hidden></div>
+    <button type="button" id="super-dash-btn" hidden>SUPER DASH</button>
+    <button type="button" id="non-dying-btn" hidden>NON-DYING</button>
+    <button type="button" id="regenerate-btn" hidden>REGEN CAR</button>
+    <div id="dash-score-hud" hidden></div>
+    <div id="coin-hud" hidden>Coins: 0</div>
+    <button type="button" id="kill-shop-btn" hidden>KILL SHOP</button>
+    <button type="button" id="admin-shop-btn" hidden>ADMIN SHOP</button>
     <div id="hud" hidden></div>
     <div id="map-hint" hidden></div>
     <div id="room-banner" hidden></div>
