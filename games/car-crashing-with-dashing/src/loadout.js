@@ -201,6 +201,13 @@ export function createLoadout(getPlayerId) {
     return wid ? getWeapon(wid) : null;
   }
 
+  /** Death — lose every weapon you owned and had equipped. */
+  function destroyAllWeapons() {
+    state.ownedWeapons = [];
+    state.equippedWeapons = defaultEquippedWeapons();
+    save();
+  }
+
   load();
 
   return {
@@ -227,5 +234,6 @@ export function createLoadout(getPlayerId) {
     getOwnedSkins,
     ownsWeaponType,
     getOwnedWeaponOfType,
+    destroyAllWeapons,
   };
 }

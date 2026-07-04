@@ -60,7 +60,7 @@ import { createDashSystem } from './dashPickups.js';
 import { createLoadout } from './loadout.js';
 import { applySkinToSpec } from './skins.js';
 import { createShredTargets, PLAYER_SHRED_COINS, TARGET_DESTROY_COINS } from './shredTargets.js';
-import { attachWeaponsToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { attachWeaponsToVehicle, getWeaponShredBonus, removeWeaponFromVehicle, spinCarWeapon } from './carWeapons.js';
 import { getWeapon } from './weapons.js';
 import { updateVehicleCollisionBounds } from './carCollision.js';
 import { initWeaponInput, updateWeaponCombat } from './weaponCombat.js';
@@ -465,7 +465,12 @@ function killPlayer() {
     touch.setDriving(false);
     dashSystem.setSuperDash(false);
     activeVehicle.superDashOn = false;
+    removeWeaponFromVehicle(activeVehicle);
   }
+
+  loadout.destroyAllWeapons();
+  refreshKillShop();
+  refreshAdminShop();
 
   dashSystem.resetPlayerScore();
   refreshSuperDashUi();
@@ -479,7 +484,7 @@ function killPlayer() {
   refreshSuperDashUi();
   if (deathOverlayEl) deathOverlayEl.hidden = false;
   if (deathTimerEl) deathTimerEl.textContent = `Respawning in ${RESPAWN_DELAY}...`;
-  showToast('Your car was destroyed!');
+  showToast('Your car was destroyed — all weapons lost!');
 }
 
 function respawnPlayer() {
