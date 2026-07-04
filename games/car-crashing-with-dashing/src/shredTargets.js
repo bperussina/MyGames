@@ -1,69 +1,75 @@
 import * as THREE from 'three';
+import { WORLD_HALF } from './city.js';
 import { rbxPaint, rbxPlastic } from './blockStyle.js';
 
-const SHRED_SPOTS = [
-  { x: 28, z: 18, kind: 'box' },
-  { x: -32, z: 24, kind: 'box' },
-  { x: 45, z: -35, kind: 'barrel' },
-  { x: -55, z: -20, kind: 'barrel' },
-  { x: 62, z: 40, kind: 'junk' },
-  { x: -70, z: 55, kind: 'junk' },
-  { x: 18, z: -62, kind: 'box' },
-  { x: -22, z: -48, kind: 'barrel' },
-  { x: 80, z: -10, kind: 'junk' },
-  { x: -85, z: 12, kind: 'box' },
-  { x: 12, z: 75, kind: 'barrel' },
-  { x: -15, z: -78, kind: 'junk' },
-  { x: 38, z: -55, kind: 'box' },
-  { x: -48, z: 68, kind: 'barrel' },
-  { x: 72, z: 62, kind: 'junk' },
-  { x: -62, z: -65, kind: 'box' },
+/** Rings just outside the city walls — countryside target range. */
+const RINGS = [
+  { radius: WORLD_HALF + 24, coins: 18 },
+  { radius: WORLD_HALF + 38, coins: 24 },
+  { radius: WORLD_HALF + 52, coins: 32 },
 ];
 
-const KINDS = {
-  box: { hp: 40, coins: 30, color: 0xc4a574, w: 2.2, h: 2, d: 2.2 },
-  barrel: { hp: 70, coins: 55, color: 0x64748b, w: 1.6, h: 2.4, d: 1.6 },
-  junk: { hp: 100, coins: 80, color: 0x78716c, w: 3, h: 1.8, d: 2.5 },
-};
+const TARGET_COUNT = 28;
+const HIT_RADIUS = 2.2;
+const MIN_HIT_SPEED = 10;
+const HIT_COOLDOWN = 1.4;
 
-function buildTargetMesh(kind) {
-  const def = KINDS[kind];
+function generateSpots() {
+  const spots = [];
+  for (let i = 0; i < TARGET_COUNT; i++) {
+    const angle = (i / TARGET_COUNT) * Math.PI * 2 + 0.18;
+    const ring = RINGS[i % RINGS.length];
+    spots.push({
+      x: Math.cos(angle) * ring.radius,
+      z: Math.sin(angle) * ring.radius,
+      coins: ring.coins,
+    });
+  }
+  return spots;
+}
+
+const SHRED_SPOTS = generateSpots();
+
+function buildBullseyeTarget() {
   const g = new THREE.Group();
   g.name = 'shred-target';
 
-  if (kind === 'barrel') {
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(def.w * 0.5, def.w * 0.5, def.h, 10),
-      rbxPaint(def.color),
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.14, 0.18, 2.6, 8),
+    rbxPlastic(0x6b4423),
+  );
+  post.position.y = 1.3;
+  post.castShadow = true;
+  g.add(post);
+
+  const board = new THREE.Group();
+  board.position.y = 2.55;
+
+  const backing = new THREE.Mesh(
+    new THREE.BoxGeometry(2.4, 2.4, 0.12),
+    rbxPlastic(0xf8fafc),
+  );
+  board.add(backing);
+
+  const rings = [
+    { r: 1.05, color: 0xdc2626, z: 0.07 },
+    { r: 0.72, color: 0xffffff, z: 0.08 },
+    { r: 0.38, color: 0xdc2626, z: 0.09 },
+    { r: 0.14, color: 0xffffff, z: 0.1 },
+  ];
+
+  for (const ring of rings) {
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(ring.r, ring.r, 0.08, 24),
+      rbxPaint(ring.color),
     );
-    body.position.y = def.h / 2;
-    body.castShadow = true;
-    g.add(body);
-    const band = new THREE.Mesh(
-      new THREE.CylinderGeometry(def.w * 0.52, def.w * 0.52, 0.15, 10),
-      rbxPlastic(0x334155),
-    );
-    band.position.y = def.h * 0.65;
-    g.add(band);
-  } else {
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(def.w, def.h, def.d),
-      rbxPaint(def.color),
-    );
-    body.position.y = def.h / 2;
-    body.castShadow = true;
-    g.add(body);
-    if (kind === 'junk') {
-      const scrap = new THREE.Mesh(
-        new THREE.BoxGeometry(def.w * 0.6, def.h * 0.5, def.d * 0.4),
-        rbxPlastic(0x44403c),
-      );
-      scrap.position.set(0.4, def.h * 0.9, 0.2);
-      scrap.rotation.y = 0.4;
-      g.add(scrap);
-    }
+    disc.rotation.x = Math.PI / 2;
+    disc.position.z = ring.z;
+    board.add(disc);
   }
 
+  g.add(board);
+  g.userData.board = board;
   return g;
 }
 
@@ -78,20 +84,20 @@ export function createShredTargets(scene) {
   function spawnAll() {
     clearAll();
     for (const spot of SHRED_SPOTS) {
-      const def = KINDS[spot.kind];
-      const mesh = buildTargetMesh(spot.kind);
+      const mesh = buildBullseyeTarget();
       mesh.position.set(spot.x, 0, spot.z);
+      mesh.rotation.y = Math.atan2(-spot.x, -spot.z);
       group.add(mesh);
       targets.push({
         mesh,
         x: spot.x,
         z: spot.z,
-        kind: spot.kind,
-        health: def.hp,
-        maxHealth: def.hp,
-        coinValue: def.coins,
+        health: 50,
+        maxHealth: 50,
+        coinValue: spot.coins,
         alive: true,
         hitCooldown: 0,
+        wobble: 0,
       });
     }
   }
@@ -122,24 +128,26 @@ export function createShredTargets(scene) {
     if (!vehicle) return [];
     const destroyed = [];
     const speed = Math.abs(vehicle.speed);
-    const hw = 1.4;
-    const hd = 2.6;
-    const minSpeed = 12;
 
     for (const t of targets) {
       if (!t.alive) continue;
       t.hitCooldown = Math.max(0, t.hitCooldown - delta);
+      if (t.wobble > 0) {
+        t.wobble = Math.max(0, t.wobble - delta * 5);
+        const board = t.mesh.userData.board;
+        if (board) board.rotation.z = Math.sin(t.wobble * 18) * t.wobble * 0.35;
+      }
+
       const dx = vehicle.x - t.x;
       const dz = vehicle.z - t.z;
-      if (Math.abs(dx) > hw + 2 || Math.abs(dz) > hd + 2) continue;
-      if (Math.abs(dx) > hw || Math.abs(dz) > hd) continue;
-      if (speed < minSpeed || t.hitCooldown > 0) continue;
+      const dist = Math.hypot(dx, dz);
+      if (dist > HIT_RADIUS + 2) continue;
+      if (dist > HIT_RADIUS || speed < MIN_HIT_SPEED || t.hitCooldown > 0) continue;
 
-      const dmg = speed * 0.8 * weaponBonus;
+      const dmg = speed * 0.75 * weaponBonus;
       t.health -= dmg;
-      t.hitCooldown = 0.15;
-      t.mesh.rotation.y += 0.2;
-      t.mesh.position.y = Math.sin(Date.now() * 0.02) * 0.05;
+      t.hitCooldown = HIT_COOLDOWN;
+      t.wobble = 1;
 
       if (t.health <= 0) {
         destroyTarget(t);
