@@ -922,6 +922,200 @@
         display: none !important;
       }
 
+      #coin-hud {
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 46;
+        padding: 8px 12px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #fde047;
+        border: 2px solid #854d0e;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 800;
+        pointer-events: none;
+      }
+
+      #coin-hud[hidden] {
+        display: none !important;
+      }
+
+      #kill-shop-btn,
+      #admin-shop-btn {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        z-index: 50;
+        padding: 12px 16px;
+        border: 3px solid #7f1d1d;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #ef4444 0%, #dc2626 55%, #b91c1c 100%);
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 900;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        box-shadow: 0 5px 0 #7f1d1d, 0 8px 20px rgba(220, 38, 38, 0.4);
+        pointer-events: auto;
+      }
+
+      #admin-shop-btn {
+        border-color: #854d0e;
+        background: linear-gradient(180deg, #fde047 0%, #facc15 55%, #eab308 100%);
+        color: #422006;
+        box-shadow: 0 5px 0 #854d0e, 0 8px 20px rgba(250, 204, 21, 0.4);
+      }
+
+      #kill-shop-btn[hidden],
+      #admin-shop-btn[hidden] {
+        display: none !important;
+      }
+
+      .shop-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: rgba(2, 6, 23, 0.82);
+        pointer-events: auto;
+      }
+
+      .shop-panel {
+        width: min(720px, 100%);
+        max-height: min(88vh, 820px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 20px;
+        border: 3px solid #14532d;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.96);
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+      }
+
+      .admin-shop-panel {
+        border-color: #854d0e;
+      }
+
+      .shop-header h1 {
+        margin: 0;
+        font-size: 1.4rem;
+        color: #dcfce7;
+      }
+
+      .admin-shop-panel .shop-header h1 {
+        color: #fef08a;
+      }
+
+      .shop-header p {
+        margin: 6px 0 0;
+        color: #94a3b8;
+        font-size: 0.9rem;
+      }
+
+      .shop-coins {
+        margin-top: 8px !important;
+        color: #fde047 !important;
+        font-weight: 800 !important;
+      }
+
+      .shop-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .shop-tab {
+        padding: 8px 14px;
+        border: 2px solid #334155;
+        border-radius: 10px;
+        background: #1e293b;
+        color: #e2e8f0;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .shop-tab.active {
+        border-color: #22c55e;
+        background: #14532d;
+        color: #dcfce7;
+      }
+
+      .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+        overflow-y: auto;
+        max-height: 48vh;
+        padding-right: 4px;
+      }
+
+      .shop-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 10px;
+        border: 2px solid #334155;
+        border-radius: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+        cursor: pointer;
+        text-align: center;
+      }
+
+      .shop-item:hover {
+        border-color: #22c55e;
+      }
+
+      .shop-item.equipped {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+      }
+
+      .shop-item.premium {
+        border-color: #a855f7;
+      }
+
+      .shop-item-swatch {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .shop-item-name {
+        font-size: 0.82rem;
+        font-weight: 800;
+      }
+
+      .shop-item-meta {
+        font-size: 0.72rem;
+        color: #94a3b8;
+      }
+
+      .shop-empty {
+        grid-column: 1 / -1;
+        text-align: center;
+        color: #94a3b8;
+        padding: 24px;
+      }
+
+      .shop-close {
+        align-self: center;
+        padding: 10px 24px;
+        border: 2px solid #475569;
+        border-radius: 12px;
+        background: #334155;
+        color: #f8fafc;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
       #draw-paper {
         position: fixed;
         inset: 0;
@@ -1298,6 +1492,9 @@
     <button type="button" id="super-dash-btn" hidden>SUPER DASH</button>
     <button type="button" id="non-dying-btn" hidden>NON-DYING</button>
     <div id="dash-score-hud" hidden></div>
+    <div id="coin-hud" hidden>Coins: 0</div>
+    <button type="button" id="kill-shop-btn" hidden>KILL SHOP</button>
+    <button type="button" id="admin-shop-btn" hidden>ADMIN SHOP</button>
     <div id="hud" hidden></div>
     <div id="map-hint" hidden></div>
     <div id="room-banner" hidden></div>

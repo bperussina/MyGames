@@ -60,5 +60,32 @@ export function createRemotePlayers(scene) {
     for (const id of [...peers.keys()]) remove(id);
   }
 
-  return { applyPose, remove, lerpAll, clear, count: () => peers.size };
+  function forEach(callback) {
+    for (const [id, entry] of peers) {
+      callback(id, entry.player, entry.target);
+    }
+  }
+
+  function tryShred(id, vehicle, { minSpeed, cooldownSec, onShred }) {
+    const entry = peers.get(id);
+    if (!entry) return false;
+    entry.shredCooldown = entry.shredCooldown ?? 0;
+    if (entry.shredCooldown > 0) return false;
+    const speed = Math.abs(vehicle.speed);
+    if (speed < minSpeed) return false;
+    const dx = vehicle.x - entry.player.x;
+    const dz = vehicle.z - entry.player.z;
+    if (Math.hypot(dx, dz) > 3.8) return false;
+    entry.shredCooldown = cooldownSec;
+    onShred?.(id, entry.player);
+    return true;
+  }
+
+  function tickCooldowns(delta) {
+    for (const [, entry] of peers) {
+      if (entry.shredCooldown > 0) entry.shredCooldown = Math.max(0, entry.shredCooldown - delta);
+    }
+  }
+
+  return { applyPose, remove, lerpAll, clear, count: () => peers.size, forEach, tryShred, tickCooldowns };
 }

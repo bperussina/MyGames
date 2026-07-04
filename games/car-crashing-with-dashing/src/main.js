@@ -55,6 +55,12 @@ import {
 import { initMouseLook } from './mouseLook.js';
 import { maybeShowUpdateSplash, markPendingUpdateReload } from './updateSplash.js';
 import { createDashSystem } from './dashPickups.js';
+import { createLoadout } from './loadout.js';
+import { applySkinToSpec } from './skins.js';
+import { createShredTargets, PLAYER_SHRED_COINS, PLAYER_SHRED_SPEED, PLAYER_SHRED_COOLDOWN } from './shredTargets.js';
+import { attachWeaponToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { createKillShop } from './killShop.js';
+import { createAdminShop } from './adminShop.js';
 
 const BUILD_KEY = 'ccwd-build';
 
@@ -156,8 +162,74 @@ const dashScoreHudEl = document.getElementById('dash-score-hud');
 const deathOverlayEl = document.getElementById('death-overlay');
 const deathTimerEl = document.getElementById('death-timer');
 const nonDyingBtnEl = document.getElementById('non-dying-btn');
+const coinHudEl = document.getElementById('coin-hud');
+const killShopBtnEl = document.getElementById('kill-shop-btn');
+const adminShopBtnEl = document.getElementById('admin-shop-btn');
 
 let nonDyingMode = false;
+
+function getPlayerId() {
+  return mpRoom?.id ?? 'local';
+}
+
+const loadout = createLoadout(getPlayerId);
+const shredTargets = createShredTargets(world.scene);
+
+function coinsText() {
+  return `Coins: ${loadout.getCoins()}`;
+}
+
+function awardCoins(amount, message) {
+  if (!amount || amount <= 0) return;
+  loadout.addCoins(amount);
+  refreshCoinHud();
+  refreshKillShop();
+  refreshAdminShop();
+  if (message) showToast(message);
+}
+
+shredTargets.setOnDestroyed((target) => {
+  const bonus = activeVehicle ? getWeaponShredBonus(activeVehicle) : 1;
+  const coins = Math.round(target.coinValue * bonus);
+  awardCoins(coins, `+${coins} coins — target shredded!`);
+});
+
+const killShop = createKillShop(loadout, {
+  getCoinsText: coinsText,
+  onEquip: (weaponId) => {
+    if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
+    showToast('Weapon equipped on your car!');
+  },
+  onClose: () => refreshShopButtons(),
+  onPurchaseFail: () => showToast('Not enough coins!'),
+});
+
+const adminShop = createAdminShop(loadout, {
+  getCoinsText: coinsText,
+  onEquipWeapon: (weaponId) => {
+    if (activeVehicle) attachWeaponToVehicle(activeVehicle, weaponId);
+    showToast('Weapon equipped on your car!');
+  },
+  onEquipSkin: () => {
+    showToast('Skin equipped — spawn a car from the garage to apply it!');
+  },
+  onClose: () => refreshShopButtons(),
+  onPurchaseFail: () => showToast('Not enough coins!'),
+});
+
+const {
+  showKillShop,
+  hideKillShop,
+  isKillShopVisible,
+  refreshKillShop,
+} = killShop;
+
+const {
+  showAdminShop,
+  hideAdminShop,
+  isAdminShopVisible,
+  refreshAdminShop,
+} = adminShop;
 
 /** Room host in multiplayer, or solo play when there is no room. */
 function isGameOwner() {
@@ -188,6 +260,7 @@ createLobby(({ room, isHost: host }) => {
   mpRoom = room;
   isHost = host;
   if (!isGameOwner()) nonDyingMode = false;
+  loadout.reloadForPlayer();
   player.x = 0;
   player.z = 0;
   syncPlayerMesh(player);
@@ -196,6 +269,7 @@ createLobby(({ room, isHost: host }) => {
   enterGameplay();
   startDashSession(hashSeed(room.code ?? 'solo'));
   updateRoomBanner();
+  shredTargets.reset();
   showToast("You're in the game!");
 });
 
@@ -258,6 +332,11 @@ function sendPose() {
   });
 }
 
+function buildSpawnSpec(spec) {
+  const skinId = isGameOwner() ? loadout.getEquippedSkinId() : null;
+  return skinId ? applySkinToSpec(spec, skinId) : spec;
+}
+
 function spawnCarFromGarage(spec) {
   lastCarSpec = spec;
   if (activeVehicle) {
@@ -268,8 +347,9 @@ function spawnCarFromGarage(spec) {
     player.mesh.visible = true;
   }
 
-  activeVehicle = spawnInFrontOfPlayer(player, spec, world.clampPosition, world.envTex);
+  activeVehicle = spawnInFrontOfPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
+  attachWeaponToVehicle(activeVehicle, loadout.getEquippedWeapon()?.id ?? null);
   driving = true;
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
@@ -532,11 +612,15 @@ function drawTitleButton(btn, label, colors, pulse, hover, pressed) {
 function startSoloPlay() {
   mode = 'comingSoon';
   comingSoonTimer = COMING_SOON_TIME;
+  mpRoom = null;
+  isHost = false;
+  loadout.reloadForPlayer();
   player.x = 0;
   player.z = 0;
   syncPlayerMesh(player);
   enterGameplay();
   startDashSession(hashSeed(String(Date.now())));
+  shredTargets.reset();
 }
 
 function updateTitleInput(playBtn, multiBtn) {
@@ -657,6 +741,40 @@ if (nonDyingBtnEl) {
   });
 }
 
+function refreshCoinHud() {
+  if (!coinHudEl) return;
+  const show = (mode === 'world' || mode === 'comingSoon') && !player.dead;
+  coinHudEl.hidden = !show;
+  coinHudEl.textContent = coinsText();
+}
+
+function refreshShopButtons() {
+  const inWorld = (mode === 'world' || mode === 'comingSoon') && !player.dead;
+  const shopOpen = isKillShopVisible() || isAdminShopVisible();
+  if (killShopBtnEl) {
+    killShopBtnEl.hidden = !inWorld || isGameOwner() || shopOpen;
+  }
+  if (adminShopBtnEl) {
+    adminShopBtnEl.hidden = !inWorld || !isGameOwner() || shopOpen;
+  }
+}
+
+if (killShopBtnEl) {
+  killShopBtnEl.addEventListener('click', () => {
+    if (isGameOwner()) return;
+    showKillShop();
+    refreshShopButtons();
+  });
+}
+
+if (adminShopBtnEl) {
+  adminShopBtnEl.addEventListener('click', () => {
+    if (!isGameOwner()) return;
+    showAdminShop();
+    refreshShopButtons();
+  });
+}
+
 function refreshSuperDashUi() {
   const leader = dashSystem.isLocalLeader() && driving && dashSystem.isSessionActive();
   if (superDashBtnEl) {
@@ -711,6 +829,8 @@ function enterGameplay() {
   touch.setDriving(driving);
   setControlsHudVisible(controlsHudEl, true, { driving });
   refreshNonDyingUi();
+  refreshCoinHud();
+  refreshShopButtons();
 }
 
 function updateWorldMovement(delta) {
@@ -756,6 +876,19 @@ function updateWorldMovement(delta) {
 
     applyVehicleEffects(activeVehicle, danceTime, delta);
     updateCrashDebris(crashDebris, delta);
+    spinCarWeapon(activeVehicle, delta);
+    shredTargets.update(delta, activeVehicle, getWeaponShredBonus(activeVehicle));
+    remotePlayers.tickCooldowns(delta);
+    remotePlayers.forEach((id) => {
+      remotePlayers.tryShred(id, activeVehicle, {
+        minSpeed: PLAYER_SHRED_SPEED,
+        cooldownSec: PLAYER_SHRED_COOLDOWN,
+        onShred: () => {
+          const coins = Math.round(PLAYER_SHRED_COINS * getWeaponShredBonus(activeVehicle));
+          awardCoins(coins, `+${coins} coins — player shredded!`);
+        },
+      });
+    });
     refreshDamageHud(damageHudEl, activeVehicle);
     if (isVehicleDestroyed(activeVehicle) && !nonDyingMode) {
       killPlayer();
@@ -804,7 +937,8 @@ function updateWorldMovement(delta) {
 function render(delta) {
   const { width, height } = titleCanvas;
 
-  if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible() || isDrawPaperVisible()) {
+  if (isControllerMapVisible() || isGarageVisible() || isLobbyVisible() || isDrawPaperVisible()
+    || isKillShopVisible() || isAdminShopVisible()) {
     setControlsHudVisible(controlsHudEl, false);
     if (isControllerMapVisible() || isDrawPaperVisible()) return;
   }
@@ -911,8 +1045,10 @@ function render(delta) {
     updateCrashDebris(crashDebris, delta);
     refreshSuperDashUi();
     refreshNonDyingUi();
+    refreshCoinHud();
+    refreshShopButtons();
 
-    if (!isGarageVisible()) {
+    if (!isGarageVisible() && !isKillShopVisible() && !isAdminShopVisible()) {
       updateWorldMovement(delta);
     }
 
