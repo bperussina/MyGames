@@ -127,6 +127,8 @@ export function syncPlayerMesh(player) {
     mesh.rotation.y = facing;
     return;
   }
+  if (player.inVehicle) return;
+
   mesh.position.set(player.x, 0, player.z);
   mesh.rotation.y = facing;
 

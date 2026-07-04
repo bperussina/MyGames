@@ -392,7 +392,6 @@ function spawnCarFromGarage(spec) {
   touch.setDriving(true);
   enterDriverSeat(player, activeVehicle);
   syncVehicleMesh(activeVehicle);
-  syncPlayerMesh(player);
   world.updateDrivingCamera(activeVehicle.x, activeVehicle.z, activeVehicle.rotY);
   refreshControlsHud(controlsHudEl, { driving: true });
   setDamageHudVisible(damageHudEl, true);
@@ -910,7 +909,11 @@ function enterGameplay() {
   touch.setVisible(true);
   if (!driving && !player.dead) {
     const spec = getDefaultCarSpec();
-    if (spec) spawnCarFromGarage(spec);
+    if (spec) {
+      spawnCarFromGarage(spec);
+    } else {
+      showGarage();
+    }
   } else {
     touch.setDriving(driving);
     setControlsHudVisible(controlsHudEl, true, { driving });
