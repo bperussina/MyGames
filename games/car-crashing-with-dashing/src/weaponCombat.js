@@ -75,34 +75,37 @@ export function updateWeaponCombat(delta, ctx) {
   fireCooldown = Math.max(0, fireCooldown - delta);
   updateTracers(scene, delta);
 
-  if (!vehicle?.equippedWeapon) return { firing: false };
+  const weapons = vehicle?.equippedWeapons ?? [];
+  if (!weapons.length) return { firing: false };
 
-  const weapon = vehicle.equippedWeapon;
-
-  if (weapon.type === 'mini_gun' && wantsMinigunFire() && fireCooldown <= 0) {
+  const miniGun = weapons.find((w) => w.type === 'mini_gun');
+  if (miniGun && wantsMinigunFire() && fireCooldown <= 0) {
     if (typeof ctx.canFireMinigun === 'function' && !ctx.canFireMinigun()) {
-      return { firing: false };
+      isFiring = false;
+    } else {
+      fireCooldown = MINIGUN_COOLDOWN;
+      isFiring = true;
+      const hit = fireMinigunRay({
+        vehicle,
+        camera,
+        renderer,
+        shredTargets,
+        remotePlayers,
+        scene,
+        weapon: miniGun,
+        onPlayerShred,
+      });
+      if (hit?.coins) onTargetHit?.(hit.coins, hit.kind);
+      return { firing: true };
     }
-    fireCooldown = MINIGUN_COOLDOWN;
-    isFiring = true;
-    const hit = fireMinigunRay({
-      vehicle,
-      camera,
-      renderer,
-      shredTargets,
-      remotePlayers,
-      scene,
-      weapon,
-      onPlayerShred,
-    });
-    if (hit?.coins) onTargetHit?.(hit.coins, hit.kind);
-    return { firing: true };
+  } else {
+    isFiring = false;
   }
 
-  isFiring = false;
-
-  if (weapon.type === 'saw_blade' || weapon.type === 'chainsaw') {
-    applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTargetHit, onPlayerShred);
+  for (const weapon of weapons) {
+    if (weapon.type === 'saw_blade' || weapon.type === 'chainsaw') {
+      applyRamWeaponHits(vehicle, weapon, shredTargets, remotePlayers, onTargetHit, onPlayerShred);
+    }
   }
 
   return { firing: isFiring };

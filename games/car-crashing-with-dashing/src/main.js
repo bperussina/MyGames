@@ -60,7 +60,8 @@ import { createDashSystem } from './dashPickups.js';
 import { createLoadout } from './loadout.js';
 import { applySkinToSpec } from './skins.js';
 import { createShredTargets, PLAYER_SHRED_COINS, TARGET_DESTROY_COINS } from './shredTargets.js';
-import { attachWeaponToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { attachWeaponsToVehicle, getWeaponShredBonus, spinCarWeapon } from './carWeapons.js';
+import { getWeapon } from './weapons.js';
 import { updateVehicleCollisionBounds } from './carCollision.js';
 import { initWeaponInput, updateWeaponCombat } from './weaponCombat.js';
 import { createKillShop } from './killShop.js';
@@ -219,12 +220,8 @@ function handlePlayerShredCoins() {
 const killShop = createKillShop(loadout, {
   getCoinsText: coinsText,
   onEquip: (weaponId) => {
-    if (activeVehicle) attachWeaponToVehicle(activeVehicle, loadout.ownsWeapon(weaponId) ? weaponId : null);
-    const w = loadout.getEquippedWeapon();
-    if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
-    else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
-    else if (w?.type === 'chainsaw') showToast('Chainsaws mounted on sides & back — sideswipe to shred!');
-    else showToast('Weapon equipped on your car!');
+    refreshVehicleWeapons();
+    toastForWeapon(weaponId);
   },
   onClose: () => refreshShopButtons(),
   onPurchaseFail: () => showToast('Not enough coins!'),
@@ -233,12 +230,8 @@ const killShop = createKillShop(loadout, {
 const adminShop = createAdminShop(loadout, {
   getCoinsText: coinsText,
   onEquipWeapon: (weaponId) => {
-    if (activeVehicle) attachWeaponToVehicle(activeVehicle, loadout.ownsWeapon(weaponId) ? weaponId : null);
-    const w = loadout.getEquippedWeapon();
-    if (w?.type === 'mini_gun') showToast('Mini gun mounted — hold click to shoot!');
-    else if (w?.type === 'saw_blade') showToast('Saw blade mounted — ram targets head-on!');
-    else if (w?.type === 'chainsaw') showToast('Chainsaws mounted on sides & back — sideswipe to shred!');
-    else showToast('Weapon equipped on your car!');
+    refreshVehicleWeapons();
+    toastForWeapon(weaponId);
   },
   onEquipSkin: () => {
     showToast('Skin equipped — spawn a car from the garage to apply it!');
@@ -380,13 +373,27 @@ function buildSpawnSpec(spec) {
   return skinId ? applySkinToSpec(spec, skinId) : spec;
 }
 
-function getVehicleWeaponId() {
-  return loadout.getEquippedWeapon()?.id ?? null;
+function getVehicleWeaponIds() {
+  return loadout.getEquippedWeaponIds();
+}
+
+function refreshVehicleWeapons() {
+  if (!activeVehicle) return;
+  attachWeaponsToVehicle(activeVehicle, getVehicleWeaponIds());
+}
+
+function toastForWeapon(weaponId) {
+  const w = getWeapon(weaponId);
+  if (!w) return;
+  if (w.type === 'mini_gun') showToast('Mini gun equipped — all weapons stay mounted!');
+  else if (w.type === 'saw_blade') showToast('Saw blade equipped — ram targets head-on!');
+  else if (w.type === 'chainsaw') showToast('Chainsaws equipped — sideswipe to shred!');
+  else showToast('Weapon equipped on your car!');
 }
 
 function canFireMinigun() {
-  const weapon = loadout.getEquippedWeapon();
-  return weapon?.type === 'mini_gun' && loadout.ownsWeapon(weapon.id);
+  const weapon = loadout.getEquippedWeaponForType('mini_gun');
+  return Boolean(weapon && loadout.ownsWeapon(weapon.id));
 }
 
 function spawnCarFromGarage(spec) {
@@ -403,7 +410,7 @@ function spawnCarFromGarage(spec) {
 
   activeVehicle = spawnAtPlayer(player, buildSpawnSpec(spec), world.clampPosition, world.envTex);
   addVehicleToScene(world.scene, activeVehicle);
-  attachWeaponToVehicle(activeVehicle, getVehicleWeaponId());
+  attachWeaponsToVehicle(activeVehicle, getVehicleWeaponIds());
   updateVehicleCollisionBounds(activeVehicle);
   driving = true;
   touch.setDriving(true);
@@ -835,11 +842,10 @@ function regenerateCar() {
     }
   }
 
-  const weaponId = loadout.getEquippedWeapon()?.id;
   detachPlayerToScene(player, world.scene);
 
   regenerateVehicle(activeVehicle, world.scene, buildSpawnSpec(lastCarSpec), world.envTex);
-  attachWeaponToVehicle(activeVehicle, getVehicleWeaponId());
+  attachWeaponsToVehicle(activeVehicle, getVehicleWeaponIds());
   enterDriverSeat(player, activeVehicle);
   refreshDamageHud(damageHudEl, activeVehicle);
   showToast('Car regenerated — good as new!');

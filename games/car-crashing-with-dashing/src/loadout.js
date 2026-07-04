@@ -1,14 +1,19 @@
-import { getWeapon } from './weapons.js';
+import { getWeapon, WEAPON_TYPES } from './weapons.js';
 import { getSkin } from './skins.js';
 
 const STORAGE_PREFIX = 'ccwd-loadout-';
+const WEAPON_SLOTS = Object.keys(WEAPON_TYPES);
+
+function defaultEquippedWeapons() {
+  return { mini_gun: null, saw_blade: null, chainsaw: null };
+}
 
 function defaultState() {
   return {
     coins: 0,
     ownedWeapons: [],
     ownedSkins: [],
-    equippedWeapon: null,
+    equippedWeapons: defaultEquippedWeapons(),
     equippedSkin: null,
   };
 }
@@ -25,6 +30,22 @@ export function createLoadout(getPlayerId) {
     }
   }
 
+  function normalizeEquippedWeapons() {
+    const slots = defaultEquippedWeapons();
+    const raw = state.equippedWeapons;
+    if (raw && typeof raw === 'object') {
+      for (const type of WEAPON_SLOTS) {
+        const id = raw[type];
+        if (id && ownsWeapon(id) && getWeapon(id)?.type === type) slots[type] = id;
+      }
+    } else if (state.equippedWeapon && ownsWeapon(state.equippedWeapon)) {
+      const legacy = getWeapon(state.equippedWeapon);
+      if (legacy) slots[legacy.type] = state.equippedWeapon;
+    }
+    state.equippedWeapons = slots;
+    delete state.equippedWeapon;
+  }
+
   function load() {
     storageKey = `${STORAGE_PREFIX}${getPlayerId?.() ?? 'local'}`;
     try {
@@ -35,9 +56,7 @@ export function createLoadout(getPlayerId) {
     }
     state.ownedWeapons = state.ownedWeapons.filter((id) => getWeapon(id));
     state.ownedSkins = state.ownedSkins.filter((id) => getSkin(id));
-    if (state.equippedWeapon && !ownsWeapon(state.equippedWeapon)) {
-      state.equippedWeapon = null;
-    }
+    normalizeEquippedWeapons();
     if (state.equippedSkin && !ownsSkin(state.equippedSkin)) {
       state.equippedSkin = null;
     }
@@ -52,7 +71,6 @@ export function createLoadout(getPlayerId) {
     save();
   }
 
-  /** Clear saved progress for the current player id (solo = local, mp = peer id). */
   function resetForPlayer() {
     load();
     resetSession();
@@ -96,21 +114,17 @@ export function createLoadout(getPlayerId) {
       return { ok: true, weapon, alreadyOwned: true };
     }
 
+    const prevEquipped = state.equippedWeapons[weapon.type];
     state.ownedWeapons = state.ownedWeapons.filter((wid) => {
       const w = getWeapon(wid);
       return w?.type !== weapon.type;
     });
 
-    if (state.equippedWeapon) {
-      const equipped = getWeapon(state.equippedWeapon);
-      if (equipped?.type === weapon.type) state.equippedWeapon = null;
-    }
-
     if (!spendCoins(weapon.cost)) return { ok: false, reason: 'insufficient' };
     state.ownedWeapons.push(id);
-    state.equippedWeapon = id;
+    state.equippedWeapons[weapon.type] = id;
     save();
-    return { ok: true, weapon };
+    return { ok: true, weapon, replacedId: prevEquipped };
   }
 
   function buySkin(id) {
@@ -123,8 +137,10 @@ export function createLoadout(getPlayerId) {
   }
 
   function equipWeapon(id) {
-    if (id && !ownsWeapon(id)) return false;
-    state.equippedWeapon = id;
+    if (!id || !ownsWeapon(id)) return false;
+    const weapon = getWeapon(id);
+    if (!weapon) return false;
+    state.equippedWeapons[weapon.type] = id;
     save();
     return true;
   }
@@ -136,9 +152,32 @@ export function createLoadout(getPlayerId) {
     return true;
   }
 
+  function isWeaponEquipped(id) {
+    const weapon = getWeapon(id);
+    if (!weapon) return false;
+    return state.equippedWeapons[weapon.type] === id;
+  }
+
+  function getEquippedWeaponIds() {
+    return WEAPON_SLOTS
+      .map((type) => state.equippedWeapons[type])
+      .filter((id) => id && ownsWeapon(id));
+  }
+
+  function getEquippedWeapons() {
+    return getEquippedWeaponIds().map((id) => getWeapon(id)).filter(Boolean);
+  }
+
+  function getEquippedWeaponForType(type) {
+    const id = state.equippedWeapons?.[type];
+    if (!id || !ownsWeapon(id)) return null;
+    const weapon = getWeapon(id);
+    return weapon?.type === type ? weapon : null;
+  }
+
+  /** @deprecated first equipped weapon */
   function getEquippedWeapon() {
-    if (!state.equippedWeapon || !ownsWeapon(state.equippedWeapon)) return null;
-    return getWeapon(state.equippedWeapon);
+    return getEquippedWeapons()[0] ?? null;
   }
 
   function getEquippedSkinId() {
@@ -178,6 +217,10 @@ export function createLoadout(getPlayerId) {
     buySkin,
     equipWeapon,
     equipSkin,
+    isWeaponEquipped,
+    getEquippedWeaponIds,
+    getEquippedWeapons,
+    getEquippedWeaponForType,
     getEquippedWeapon,
     getEquippedSkinId,
     getOwnedWeapons,

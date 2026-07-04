@@ -19,7 +19,7 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
     <div class="shop-panel admin-shop-panel">
       <header class="shop-header">
         <h1>Admin Shop</h1>
-        <p>Owner only — car skins and expanded weapons.</p>
+        <p>Owner only — equip one skin plus one weapon per type (mini gun, saw, chainsaw) all at once.</p>
         <p class="shop-coins" id="admin-shop-coins">Coins: 0</p>
       </header>
       <div class="shop-tabs">
@@ -97,7 +97,7 @@ export function createAdminShop(loadout, { onEquipWeapon, onEquipSkin, onClose, 
 
     for (const weapon of list) {
       const owned = loadout.ownsWeapon(weapon.id);
-      const equipped = loadout.getEquippedWeapon()?.id === weapon.id;
+      const equipped = loadout.isWeaponEquipped(weapon.id);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'shop-item';
