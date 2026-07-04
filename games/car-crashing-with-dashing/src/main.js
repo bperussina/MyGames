@@ -365,6 +365,11 @@ function getDefaultCarSpec() {
   return getCarSpec(DEFAULT_CAR_ID);
 }
 
+function buildSpawnSpec(spec) {
+  const skinId = isGameOwner() ? loadout.getEquippedSkinId() : null;
+  return skinId ? applySkinToSpec(spec, skinId) : spec;
+}
+
 function getVehicleWeaponId() {
   return loadout.getEquippedWeapon()?.id ?? null;
 }
