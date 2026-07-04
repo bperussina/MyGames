@@ -1,3 +1,5 @@
+import { widthLabel } from './carCollision.js';
+
 function barColor(pct) {
   if (pct > 66) return '#22c55e';
   if (pct > 33) return '#eab308';
@@ -15,8 +17,10 @@ export function refreshDamageHud(el, vehicle) {
   if (!el || !vehicle?.partHealth) return;
   const h = vehicle.partHealth;
   const wheels = Math.round((h.wheel_fl + h.wheel_fr + h.wheel_rl + h.wheel_rr) / 4);
+  const width = vehicle.collisionWidth ?? 1.88;
   el.innerHTML = `
     <p class="dmg-title">Vehicle damage</p>
+    <p class="dmg-width">${width.toFixed(2)}m wide · ${widthLabel(width)}</p>
     ${row('Engine', h.engine)}
     ${row('Body', h.body)}
     ${row('Hood', h.hood)}

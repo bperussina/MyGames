@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { worldSpaceHalfExtents, aabbOverlaps } from './carCollision.js';
 
 export const WORLD_HALF = 108;
 
@@ -64,6 +65,66 @@ function buildGateway(group, axisZ, zPos, xPos = 0) {
   }
 
   group.add(gate);
+}
+
+/** Alley walls with fixed gap widths — slim cars squeeze through, wide cars don't. */
+function buildNarrowAlleys(group, colliders) {
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.88, metalness: 0.05 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5, emissive: 0x422006, emissiveIntensity: 0.15 });
+
+  const alleys = [
+    { cx: -52, cz: 12, gap: 1.72, len: 28, axis: 'x', label: 'Ultra-tight' },
+    { cx: 48, cz: -38, gap: 2.05, len: 24, axis: 'x', label: 'Narrow' },
+    { cx: -18, cz: -58, gap: 2.45, len: 22, axis: 'z', label: 'Tight' },
+    { cx: 62, cz: 48, gap: 2.85, len: 26, axis: 'z', label: 'Medium' },
+    { cx: -72, cz: -28, gap: 1.72, len: 20, axis: 'x', label: 'Ultra-tight' },
+    { cx: 28, cz: 68, gap: 2.05, len: 22, axis: 'z', label: 'Narrow' },
+  ];
+
+  for (const alley of alleys) {
+    const h = 5.5;
+    const thick = 1.1;
+    const halfGap = alley.gap * 0.5;
+    const halfLen = alley.len * 0.5;
+
+    if (alley.axis === 'x') {
+      for (const side of [-1, 1]) {
+        const wx = alley.cx + side * (halfGap + thick * 0.5);
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(thick, h, alley.len), wallMat);
+        wall.position.set(wx, h / 2, alley.cz);
+        wall.castShadow = true;
+        group.add(wall);
+        colliders.push({
+          minX: wx - thick / 2,
+          maxX: wx + thick / 2,
+          minZ: alley.cz - halfLen,
+          maxZ: alley.cz + halfLen,
+          alley: true,
+        });
+      }
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(alley.gap * 0.85, 0.35, 0.12), trimMat);
+      sign.position.set(alley.cx, h + 0.6, alley.cz - halfLen + 1.2);
+      group.add(sign);
+    } else {
+      for (const side of [-1, 1]) {
+        const wz = alley.cz + side * (halfGap + thick * 0.5);
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(alley.len, h, thick), wallMat);
+        wall.position.set(alley.cx, h / 2, wz);
+        wall.castShadow = true;
+        group.add(wall);
+        colliders.push({
+          minX: alley.cx - halfLen,
+          maxX: alley.cx + halfLen,
+          minZ: wz - thick / 2,
+          maxZ: wz + thick / 2,
+          alley: true,
+        });
+      }
+      const sign = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, alley.gap * 0.85), trimMat);
+      sign.position.set(alley.cx - halfLen + 1.2, h + 0.6, alley.cz);
+      group.add(sign);
+    }
+  }
 }
 
 export function buildCity(scene) {
@@ -166,15 +227,20 @@ export function buildCity(scene) {
   buildGateway(group, false, 0, gateX);
   buildGateway(group, false, 0, -gateX);
 
+  buildNarrowAlleys(group, colliders);
+
   scene.add(group);
 
-  function checkCarCollision(x, z) {
-    if (Math.abs(x) > WORLD_HALF || Math.abs(z) > WORLD_HALF) return null;
-    const hw = 1.15;
-    const hd = 2.25;
+  function checkCarCollision(x, z, rotY = 0, hw = 1.15, hd = 2.25) {
+    const { halfX, halfZ } = worldSpaceHalfExtents(rotY, hw, hd);
+
+    if (Math.abs(x) + halfX > WORLD_HALF || Math.abs(z) + halfZ > WORLD_HALF) {
+      return { kind: 'wall' };
+    }
+
     for (const b of colliders) {
-      if (x + hw > b.minX && x - hw < b.maxX && z + hd > b.minZ && z - hd < b.maxZ) {
-        return b;
+      if (aabbOverlaps(x, z, halfX, halfZ, b)) {
+        return { kind: 'building', collider: b, alley: b.alley === true };
       }
     }
     return null;

@@ -863,7 +863,13 @@ function updateWorldMovement(delta) {
     const drive = mergeDrive(mergeDrive(padDrive, keyDrive), touchDrive);
     const { impactSpeed, wallHit } = updateVehicle(activeVehicle, drive, delta, world.clampPosition);
 
-    const hit = world.city.checkCarCollision(activeVehicle.x, activeVehicle.z);
+    const hit = world.city.checkCarCollision(
+      activeVehicle.x,
+      activeVehicle.z,
+      activeVehicle.rotY,
+      activeVehicle.collisionHw ?? 1.15,
+      activeVehicle.collisionHd ?? 2.25,
+    );
     if (hit || wallHit) {
       const preSpeed = impactSpeed;
       handleCarCollision(preSpeed);

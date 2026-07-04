@@ -1,5 +1,7 @@
 import { buildCarMesh, finishCarMesh } from './carMesh.js';
 import { clearDents, createDefaultPartHealth, countAttachedParts, DENT_SPEED, SCOOP_SPEED } from './crashFX.js';
+import { getCarProfile } from './carProfiles.js';
+import { getCarCollisionBounds } from './carCollision.js';
 
 const MAX_SPEED = 52;
 const CRUISE_MAX = 22;
@@ -16,6 +18,8 @@ const REVERSE_LAUNCH = 26;
 const DANCE_SPEED = 38;
 
 export function createVehicleState(spec, x, z, rotY = 0, envMap = null) {
+  const profile = getCarProfile(spec);
+  const bounds = getCarCollisionBounds(profile);
   const mesh = buildCarMesh(spec);
   finishCarMesh(mesh, envMap);
   mesh.position.set(x, 0, z);
@@ -23,6 +27,11 @@ export function createVehicleState(spec, x, z, rotY = 0, envMap = null) {
 
   return {
     spec,
+    profile,
+    collisionHw: bounds.hw,
+    collisionHd: bounds.hd,
+    collisionWidth: bounds.width,
+    collisionLength: bounds.length,
     mesh,
     x,
     z,
