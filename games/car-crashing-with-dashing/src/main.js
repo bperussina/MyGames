@@ -962,10 +962,25 @@ function updateWorldMovement(delta) {
       activeVehicle.collisionHw ?? 1.15,
       activeVehicle.collisionHd ?? 2.25,
     );
-    if (hit || wallHit) {
+    const targetHit = shredTargets.checkCarCollision(
+      activeVehicle.x,
+      activeVehicle.z,
+      activeVehicle.rotY,
+      activeVehicle.collisionHw ?? 1.15,
+      activeVehicle.collisionHd ?? 2.25,
+    );
+    if (hit || wallHit || targetHit) {
       const preSpeed = impactSpeed;
+      if (targetHit) {
+        shredTargets.applyCarImpact(targetHit, preSpeed);
+      }
       handleCarCollision(preSpeed);
-      if (!shouldDent(preSpeed)) {
+      if (targetHit) {
+        activeVehicle.x = activeVehicle.prevX;
+        activeVehicle.z = activeVehicle.prevZ;
+        if (Math.abs(preSpeed) > 5) applyCrashBounce(activeVehicle, preSpeed);
+        else activeVehicle.speed *= 0.45;
+      } else if (!shouldDent(preSpeed)) {
         activeVehicle.x = activeVehicle.prevX;
         activeVehicle.z = activeVehicle.prevZ;
       }

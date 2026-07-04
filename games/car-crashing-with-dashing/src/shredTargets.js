@@ -12,6 +12,31 @@ const RINGS = [
 const TARGET_COUNT = 28;
 const HIT_COOLDOWN = 1.4;
 
+/** Ground-plane hitbox in target-local space (post + bullseye board). */
+const TARGET_HALF_X = 1.28;
+const TARGET_HALF_Z = 0.42;
+
+function carOverlapsTarget(vehicleX, vehicleZ, vehicleRotY, hw, hd, target) {
+  const rotY = target.mesh.rotation.y;
+  const dx = vehicleX - target.x;
+  const dz = vehicleZ - target.z;
+  const cos = Math.cos(-rotY);
+  const sin = Math.sin(-rotY);
+  const lx = dx * cos - dz * sin;
+  const lz = dx * sin + dz * cos;
+
+  const relRot = vehicleRotY - rotY;
+  const c = Math.abs(Math.cos(relRot));
+  const s = Math.abs(Math.sin(relRot));
+  const carHalfX = hw * c + hd * s;
+  const carHalfZ = hw * s + hd * c;
+
+  return (
+    Math.abs(lx) < carHalfX + TARGET_HALF_X
+    && Math.abs(lz) < carHalfZ + TARGET_HALF_Z
+  );
+}
+
 function generateSpots() {
   const spots = [];
   for (let i = 0; i < TARGET_COUNT; i++) {
@@ -158,14 +183,48 @@ export function createShredTargets(scene) {
     for (const t of targets) fn(t);
   }
 
+  function checkCarCollision(x, z, rotY = 0, hw = 1.15, hd = 2.25) {
+    for (const t of targets) {
+      if (!t.alive) continue;
+      if (carOverlapsTarget(x, z, rotY, hw, hd, t)) return t;
+    }
+    return null;
+  }
+
+  /** Physical ram — shake target, chip health at speed, no phasing. */
+  function applyCarImpact(target, impactSpeed) {
+    if (!target?.alive) return;
+    const speed = Math.abs(impactSpeed);
+    const shake = Math.min(1.6, 0.55 + speed * 0.028);
+    target.wobble = Math.max(target.wobble, shake);
+    if (speed >= 6 && target.hitCooldown <= 0) {
+      target.hitCooldown = 0.35;
+      damageTarget(target, speed * 0.45);
+      target.wobble = Math.max(target.wobble, shake);
+    }
+  }
+
   function update(delta) {
     for (const t of targets) {
       if (!t.alive) continue;
       t.hitCooldown = Math.max(0, t.hitCooldown - delta);
+      const board = t.mesh.userData.board;
       if (t.wobble > 0) {
-        t.wobble = Math.max(0, t.wobble - delta * 5);
-        const board = t.mesh.userData.board;
-        if (board) board.rotation.z = Math.sin(t.wobble * 18) * t.wobble * 0.35;
+        t.wobble = Math.max(0, t.wobble - delta * 4.2);
+        const w = t.wobble;
+        t.mesh.rotation.z = Math.sin(w * 24) * w * 0.1;
+        t.mesh.position.y = Math.abs(Math.sin(w * 30)) * w * 0.08;
+        if (board) {
+          board.rotation.z = Math.sin(w * 20) * w * 0.55;
+          board.position.x = Math.sin(w * 27) * w * 0.07;
+        }
+      } else {
+        t.mesh.rotation.z = 0;
+        t.mesh.position.y = 0;
+        if (board) {
+          board.rotation.z = 0;
+          board.position.x = 0;
+        }
       }
     }
   }
@@ -179,6 +238,8 @@ export function createShredTargets(scene) {
     damageTarget,
     raycast,
     forEachTarget,
+    checkCarCollision,
+    applyCarImpact,
     count: () => targets.filter((t) => t.alive).length,
   };
 }
